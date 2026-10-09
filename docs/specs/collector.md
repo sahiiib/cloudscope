@@ -23,6 +23,25 @@ A failure in one scan (throttling, access denied, region disabled) is caught,
 logged and recorded; it never aborts the run. Retries use the SDKs' built-in
 retry with adaptive mode for AWS.
 
+`SyncRunner(session_factory, providers, concurrency=8)` accepts injected provider
+instances and a SQLAlchemy session factory. `run(accounts, trigger="manual")`
+accepts the complete validated account configuration; `run_file(path, ...)` loads
+it from YAML. Each worker owns its database session. Inventory changes and its
+successful result commit together; failed writes roll back the entire region.
+Existing row IDs and `first_seen` are preserved, and reappearing instances become
+present again. Missing rows retain their last actual observation timestamp.
+
+Removed accounts are disabled and skipped; restoring them to configuration
+re-enables them. An account's `last_success_at` advances only when all its regions
+succeed. Region discovery errors (including an empty region list) produce an
+error result with region `*`. An empty account configuration is a successful
+no-op scan that disables previously configured accounts. Error records and logs
+include only the SDK error code (AWS/Alibaba) or exception class name, never
+exception messages, arguments or tracebacks. Stored errors include the phase
+prefix and are capped at 200 characters. Logs identify the run, phase, provider,
+account and region; account/region values are quoted to prevent log injection.
+Callers must serialize runs; overlapping collection runs are not supported.
+
 ## Provider interface
 
 ```python
@@ -72,8 +91,7 @@ errors. Enrichment uses batched ID filters (100 IDs) and per-scan maps; images
 are described for their names. Missing lookup results are null, while API errors
 propagate so a failed scan cannot be mistaken for an empty inventory.
 Normalized records preserve the original instance payload in `raw`, with SDK
-datetimes represented as UTC ISO strings for JSONB. Collection does not write to
-the database until the runner is added in T-012.
+datetimes represented as UTC ISO strings for JSONB. Database writes are handled by `SyncRunner`, independently of the SDK adapters.
 
 Required permissions: see [cloud-access.md](cloud-access.md).
 
