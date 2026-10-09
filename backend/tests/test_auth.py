@@ -407,3 +407,36 @@ def test_database_errors_are_sanitized(client: TestClient, monkeypatch: pytest.M
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
     assert "private-error" not in response.text
+
+
+def test_successful_login_cleans_only_own_expired_sessions(
+    client: TestClient, db_session: Session, user: User
+) -> None:
+    other = User(username="other-tester", password_hash=hash_password(PASSWORD))
+    db_session.add(other)
+    db_session.flush()
+    for token, owner, expires in [
+        ("expired", user.id, NOW - timedelta(seconds=1)),
+        ("boundary", user.id, NOW),
+        ("active", user.id, NOW + timedelta(hours=1)),
+        ("other-expired", other.id, NOW - timedelta(seconds=1)),
+    ]:
+        db_session.add(
+            UserSession(
+                id_hash=token_hash(token),
+                user_id=owner,
+                expires_at=expires,
+                ip="10.0.0.1",
+                user_agent="test",
+            )
+        )
+    db_session.commit()
+    assert login(client, password="wrong").status_code == 401
+    assert len(list(db_session.scalars(select(UserSession.id_hash)))) == 4
+    assert login(client).status_code == 200
+    remaining = set(db_session.scalars(select(UserSession.id_hash)))
+    assert remaining == {
+        token_hash("active"),
+        token_hash("other-expired"),
+        token_hash(client.cookies[COOKIE_NAME]),
+    }

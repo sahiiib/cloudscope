@@ -40,6 +40,26 @@ def test_migration_schema_and_round_trip(migrated_engine: Engine, alembic_config
         connection.rollback()
         alembic_config.attributes["connection"] = connection
         try:
+            session_indexes = inspect(connection).get_indexes("sessions")
+            assert any(
+                index["name"] == "ix_sessions_user_id" and index["column_names"] == ["user_id"]
+                for index in session_indexes
+            )
+            assert (
+                inspect(connection).get_foreign_keys("sessions")[0]["options"]["ondelete"]
+                == "CASCADE"
+            )
+            connection.commit()
+            command.downgrade(alembic_config, "0001")
+            assert not any(
+                index["name"] == "ix_sessions_user_id"
+                for index in inspect(connection).get_indexes("sessions")
+            )
+            assert "ondelete" not in inspect(connection).get_foreign_keys("sessions")[0]["options"]
+            connection.commit()
+            command.upgrade(alembic_config, "head")
+            assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+            connection.commit()
             command.downgrade(alembic_config, "base")
             assert inspect(connection).get_table_names() == ["alembic_version"]
             assert (

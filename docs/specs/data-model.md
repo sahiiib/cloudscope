@@ -169,3 +169,7 @@ active but not admins, have MFA disabled, and start with zero failed logins.
 | `mfa_passed` | bool | `false` between password step and TOTP step |
 | `created_at`, `expires_at`, `last_seen_at` | timestamptz | |
 | `ip`, `user_agent` | text | |
+
+Migration `0002` adds the `ix_sessions_user_id` btree index and
+`ON DELETE CASCADE` on the session user foreign key. Deleting a user deletes
+their sessions; login cleanup and password-change revocation use this index.

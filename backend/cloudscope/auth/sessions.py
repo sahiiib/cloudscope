@@ -114,6 +114,11 @@ class AuthService:
                     user.locked_until = None
                     if not user.mfa_enabled:
                         user.last_login_at = now
+                    session.execute(
+                        delete(UserSession).where(
+                            UserSession.user_id == user.id, UserSession.expires_at <= now
+                        )
+                    )
                     if old_token:
                         session.execute(
                             delete(UserSession).where(UserSession.id_hash == token_hash(old_token))

@@ -92,7 +92,9 @@ CSRF header. Logout also accepts a still-valid half-authenticated session.
 Password changes require the current password and a new password of at least
 12 characters, revoke **all** sessions, and clear the cookie; the user logs in
 again. Validation errors omit submitted input values. The session table already
-exists from T-005; no migration is needed. TOTP verification remains T-022.
+exists from T-005; migration `0002` indexes `sessions.user_id` and adds cascading
+deletion when its user is deleted. Successful login also removes that user’s
+expired sessions in the same transaction. TOTP verification remains T-022.
 
 `/api/docs` and `/api/openapi.json` require an authenticated admin, including in
 local development. A secure cookie requires HTTPS; use the documented

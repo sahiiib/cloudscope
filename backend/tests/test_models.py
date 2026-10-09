@@ -200,3 +200,24 @@ def test_state_is_normalized(db_session: Session, state: str) -> None:
     with pytest.raises(IntegrityError), db_session.begin_nested():
         db_session.add(instance(state=state))
         db_session.flush()
+
+
+def test_deleting_user_cascades_to_sessions(db_session: Session) -> None:
+    user = User(username="cascade-test", password_hash="placeholder-hash")
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(
+        UserSession(
+            id_hash="2" * 64,
+            user_id=user.id,
+            expires_at=datetime(2026, 1, 2, tzinfo=UTC),
+            ip="10.0.0.1",
+            user_agent="test",
+        )
+    )
+    db_session.flush()
+    db_session.delete(user)
+    db_session.flush()
+    assert (
+        db_session.scalar(select(UserSession.id_hash).where(UserSession.user_id == user.id)) is None
+    )
