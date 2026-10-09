@@ -78,7 +78,8 @@ Two sources:
 | `CLOUDSCOPE_API_PORT` | API listen port, default `8000` |
 | `CLOUDSCOPE_SECRET_KEY` | Required valid Fernet key for encrypting TOTP secrets |
 | `CLOUDSCOPE_ACCOUNTS_FILE` | Path to accounts YAML (default `config/accounts.yaml`) |
-| `CLOUDSCOPE_SESSION_TTL_HOURS` | Session lifetime, default 12 |
+| `CLOUDSCOPE_SESSION_TTL_HOURS` | Session idle timeout in hours, default 12 |
+| `CLOUDSCOPE_SESSION_MAX_AGE_DAYS` | Absolute session lifetime in days, default 7; must be positive |
 | `CLOUDSCOPE_COOKIE_SECURE` | Default `true`; set `false` for local http |
 | `CLOUDSCOPE_COLLECT_CONCURRENCY` | Parallel (account, region) scans, default 8 |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_PROFILE` | Base AWS credentials (local only; standard boto3 chain) |

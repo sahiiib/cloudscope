@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8000, ge=1, le=65535)
     accounts_file: Path = Path("config/accounts.yaml")
     session_ttl_hours: int = Field(default=12, gt=0)
+    session_max_age_days: int = Field(default=7, gt=0)
     cookie_secure: bool = True
     collect_concurrency: int = Field(default=8, gt=0)
 

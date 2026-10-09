@@ -165,7 +165,9 @@ class UserSession(Base):
     __tablename__ = "sessions"
 
     id_hash: Mapped[str] = mapped_column(Text, primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
     mfa_passed: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")

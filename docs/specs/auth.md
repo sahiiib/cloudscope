@@ -43,8 +43,14 @@ and expires after 5 minutes.
   (`HttpOnly`, `SameSite=Lax`, `Secure` when `CLOUDSCOPE_COOKIE_SECURE=true`,
   `Path=/`).
 - Only the SHA-256 of the token is stored (`sessions.id_hash`).
-- Lifetime `CLOUDSCOPE_SESSION_TTL_HOURS` (default 12), sliding on activity up
-  to that max.
+- Idle timeout: `CLOUDSCOPE_SESSION_TTL_HOURS` (default 12 hours), with an
+  absolute cap of `CLOUDSCOPE_SESSION_MAX_AGE_DAYS` (default 7 days, positive)
+  from login, whichever comes first. On activity, expiration is
+  `min(now + ttl, created_at + max_age)`; the cookie uses the same remaining
+  time. Requests at or after the absolute cap return 401 even if active.
+- Half-authenticated sessions expire after five minutes and never slide. After
+  successful MFA verification in T-022, the rotated session's `created_at` is
+  the rotation time, starting its absolute lifetime.
 - CSRF: state-changing requests must send header `X-Requested-With: cloudscope`
   (the UI always does); combined with `SameSite=Lax` this blocks cross-site
   form posts.
@@ -65,3 +71,37 @@ and expires after 5 minutes.
 - Per IP: in-memory limit of 20 login attempts per minute per API pod.
 - Failed and successful logins are logged (username, IP, result), never passwords
   or codes.
+
+## API implementation
+
+T-021 provides login, logout, current-user and password endpoints. API startup
+loads `Settings` (including database URL and Fernet key); missing/invalid settings
+leave authentication unavailable (503) while health probes remain usable. The
+Fernet key is validated now and used by MFA in T-022. `create_app` also accepts an
+injected engine/settings/clock for tests. `current_user` checks expiration, active
+user status and completed MFA. Full sessions use a 12-hour idle timeout and
+a 7-day absolute cap from login (both configurable), whichever comes first.
+`require_admin` additionally checks admin status.
+
+Login rotates an existing cookie, stores only the new token hash, persists any
+Argon2 rehash, and resets failure counters on success. Five wrong passwords lock
+the user for 15 minutes; after that window a fresh set of attempts is allowed.
+Unknown, inactive and locked users receive the same 401 as a wrong password.
+Per-IP limiting counts known and unknown usernames, returns 429 after 20 attempts
+in a sliding minute, and is independent per API process. The client address is
+`request.client.host`; forwarded headers must only be trusted from configured
+proxies at the server layer. Audit log values are quoted to prevent newlines
+from forging log entries. Exception payloads and passwords are not logged.
+
+All implemented mutation endpoints, including login and logout, require the
+CSRF header. Logout also accepts a still-valid half-authenticated session.
+Password changes require the current password and a new password of at least
+12 characters, revoke **all** sessions, and clear the cookie; the user logs in
+again. Validation errors omit submitted input values. The session table already
+exists from T-005; migration `0002` indexes `sessions.user_id` and adds cascading
+deletion when its user is deleted. Successful login also removes that user’s
+expired sessions in the same transaction. TOTP verification remains T-022.
+
+`/api/docs` and `/api/openapi.json` require an authenticated admin, including in
+local development. A secure cookie requires HTTPS; use the documented
+`CLOUDSCOPE_COOKIE_SECURE=false` only for local HTTP development.
