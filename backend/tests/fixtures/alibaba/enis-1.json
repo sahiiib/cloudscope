@@ -1,0 +1,32 @@
+{
+  "NetworkInterfaceSets": {
+    "NetworkInterfaceSet": [
+      {
+        "NetworkInterfaceId": "eni-test",
+        "PrivateIpAddress": "10.0.0.1",
+        "MacAddress": "02:00:00:00:00:01",
+        "SecurityGroupIds": {
+          "SecurityGroupId": [
+            "sg-test"
+          ]
+        },
+        "PrivateIpSets": {
+          "PrivateIpSet": [
+            {
+              "PrivateIpAddress": "10.0.0.1",
+              "Primary": true
+            },
+            {
+              "PrivateIpAddress": "10.0.0.2",
+              "Primary": false,
+              "AssociatedPublicIp": {
+                "PublicIpAddress": "192.0.2.3"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "NextToken": "eni-two"
+}

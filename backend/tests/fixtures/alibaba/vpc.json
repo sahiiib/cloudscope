@@ -1,0 +1,11 @@
+{
+  "Vpcs": {
+    "Vpc": [
+      {
+        "VpcId": "vpc-test",
+        "VpcName": "test-vpc",
+        "CidrBlock": "10.0.0.0/16"
+      }
+    ]
+  }
+}

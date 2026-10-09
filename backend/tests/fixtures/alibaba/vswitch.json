@@ -1,0 +1,11 @@
+{
+  "VSwitches": {
+    "VSwitch": [
+      {
+        "VSwitchId": "vsw-test",
+        "VSwitchName": "test-subnet",
+        "CidrBlock": "10.0.0.0/24"
+      }
+    ]
+  }
+}

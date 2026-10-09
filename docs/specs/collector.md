@@ -102,6 +102,20 @@ Per region:
 - `cpu` = `Cpu`, `memory_mib` = `Memory`.
 - `launch_time` = `CreationTime` (note: Alibaba has no separate launch time).
 
+`AlibabaProvider` accepts an injected `(account, region) -> AlibabaReader`
+factory. The default adapter uses the official ECS, VPC and STS request models,
+SDK retries, regional ECS/VPC endpoints and the global STS endpoint. Base keys
+come from the documented environment variables; assumed credentials are cached
+per account/role/external ID and refreshed five minutes before expiration.
+
+Instance, ENI and security-rule reads exhaust NextToken pagination (100 results
+per request). Missing secondary-IP lists trigger ENI enrichment; embedded payloads
+are preserved in `raw`. Security groups and VPC/vSwitch rows are cached only
+within a scan. An empty network lookup yields null, but API errors propagate.
+Alibaba rules additionally retain `policy`, `priority` and `source_port_range`
+so allow/deny semantics are not lost. Image name, monitoring and IAM role are
+null when absent from the instance payload; CPU and memory come from Cpu/Memory.
+
 ## Testing
 
 - AWS: `moto` (`mock_aws`) with instances, SGs, VPCs in two regions and an

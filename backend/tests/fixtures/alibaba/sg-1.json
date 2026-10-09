@@ -1,0 +1,19 @@
+{
+  "SecurityGroupId": "sg-test",
+  "SecurityGroupName": "test-web",
+  "Description": "test group",
+  "Permissions": {
+    "Permission": [
+      {
+        "Direction": "ingress",
+        "IpProtocol": "tcp",
+        "PortRange": "443/443",
+        "SourceCidrIp": "10.0.0.0/16",
+        "Description": "internal",
+        "Policy": "Accept",
+        "Priority": "1"
+      }
+    ]
+  },
+  "NextToken": "sg-two"
+}

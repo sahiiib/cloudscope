@@ -1,0 +1,23 @@
+{
+  "NetworkInterfaceSets": {
+    "NetworkInterfaceSet": [
+      {
+        "NetworkInterfaceId": "eni-second",
+        "PrivateIpAddress": "10.0.0.4",
+        "SecurityGroupIds": {
+          "SecurityGroupId": [
+            "sg-test"
+          ]
+        },
+        "PrivateIpSets": {
+          "PrivateIpSet": [
+            {
+              "PrivateIpAddress": "10.0.0.4",
+              "Primary": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

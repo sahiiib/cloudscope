@@ -1,0 +1,14 @@
+{
+  "Permissions": {
+    "Permission": [
+      {
+        "Direction": "egress",
+        "IpProtocol": "all",
+        "PortRange": "-1/-1",
+        "DestCidrIp": "0.0.0.0/0",
+        "Policy": "Drop",
+        "Priority": "2"
+      }
+    ]
+  }
+}
