@@ -48,10 +48,12 @@ class AWSClientFactory:
         base_session: Any = None,
         session_factory: Callable[..., Any] = boto3.Session,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        discovery_region: str = "us-east-1",
     ) -> None:
         self._base = base_session
         self._session_factory = session_factory
         self._clock = clock
+        self._sts_region = discovery_region
         self._cache: dict[tuple[str, str, str | None], tuple[Any, datetime]] = {}
         self._lock = Lock()
         self._config = Config(retries={"mode": "adaptive", "max_attempts": 5})
@@ -72,7 +74,7 @@ class AWSClientFactory:
                     if account.external_id:
                         request["ExternalId"] = account.external_id
                     credentials = self._base.client(
-                        "sts", region_name=region, config=self._config
+                        "sts", region_name=self._sts_region, config=self._config
                     ).assume_role(**request)["Credentials"]
                     session = self._session_factory(
                         aws_access_key_id=credentials["AccessKeyId"],
@@ -147,7 +149,7 @@ class AWSProvider:
     ) -> None:
         if not 5 <= page_size <= 1000:
             raise ValueError("EC2 page_size must be between 5 and 1000")
-        self.client_factory = client_factory or AWSClientFactory()
+        self.client_factory = client_factory or AWSClientFactory(discovery_region=discovery_region)
         self.page_size = page_size
         self.discovery_region = discovery_region
 

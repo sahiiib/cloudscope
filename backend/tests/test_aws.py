@@ -257,3 +257,33 @@ def test_repeated_token_fails_instead_of_silently_truncating() -> None:
     client.call.return_value = {"NextToken": "repeated"}
     with pytest.raises(RuntimeError, match="repeated"):
         list(pages(client, "describe_instances"))
+
+
+@pytest.mark.parametrize("discovery_region", ["us-east-1", "eu-west-1"])
+def test_assume_role_uses_fixed_region_when_opt_in_region_is_scanned_first(
+    aws: Any, account: AccountConfig, discovery_region: str
+) -> None:
+    factory = (
+        AWSClientFactory(base_session=aws)
+        if discovery_region == "us-east-1"
+        else AWSClientFactory(base_session=aws, discovery_region=discovery_region)
+    )
+    role = account.model_copy(
+        update={"role_arn": "arn:aws:iam::111111111111:role/cloudscope-readonly"}
+    )
+    with patch.object(aws, "client", wraps=aws.client) as client:
+        first = factory(role, "me-central-1")
+        second = factory(role, "eu-central-1")
+    sts_calls = [call for call in client.call_args_list if call.args[0] == "sts"]
+    assert len(sts_calls) == 1
+    assert sts_calls[0].kwargs["region_name"] == discovery_region
+    assert isinstance(first, BotoReader) and first.client.meta.region_name == "me-central-1"
+    assert isinstance(second, BotoReader) and second.client.meta.region_name == "eu-central-1"
+
+
+@pytest.mark.parametrize("discovery_region", ["us-east-1", "eu-west-1"])
+def test_provider_passes_discovery_region_to_default_factory(discovery_region: str) -> None:
+    with patch("cloudscope.collector.aws.AWSClientFactory") as factory:
+        provider = AWSProvider(discovery_region=discovery_region)
+    factory.assert_called_once_with(discovery_region=discovery_region)
+    assert provider.client_factory is factory.return_value
