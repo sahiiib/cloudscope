@@ -73,7 +73,22 @@ Kubernetes, Docker, Codex and Claude Code.
 
 ## Quick start (local development)
 
-> Not runnable yet. These commands become valid as tasks in
+The backend scaffold runs with Python 3.12 and uv:
+
+```bash
+make setup
+make lint
+make test
+cd backend && uv run cloudscope api
+```
+
+The API listens on `http://localhost:8000`. `/healthz` and `/readyz` return
+`{"status":"ok"}`; readiness does not check a database until T-005.
+Use `uv run cloudscope api --host 0.0.0.0 --port 9000` to change the bind address,
+or export `CLOUDSCOPE_API_HOST` and `CLOUDSCOPE_API_PORT`. CLI options take
+precedence over environment variables; defaults remain `127.0.0.1:8000`.
+
+> The full application setup below is not runnable yet. These commands become valid as tasks in
 > [docs/TASKS.md](docs/TASKS.md) land.
 
 ```bash

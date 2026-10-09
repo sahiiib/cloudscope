@@ -74,6 +74,8 @@ Two sources:
 | Variable | Purpose |
 | --- | --- |
 | `CLOUDSCOPE_DATABASE_URL` | `postgresql+psycopg://...` |
+| `CLOUDSCOPE_API_HOST` | API bind address, default `127.0.0.1`; use `0.0.0.0` in containers |
+| `CLOUDSCOPE_API_PORT` | API listen port, default `8000` |
 | `CLOUDSCOPE_SECRET_KEY` | Fernet key for encrypting TOTP secrets |
 | `CLOUDSCOPE_ACCOUNTS_FILE` | Path to accounts YAML (default `config/accounts.yaml`) |
 | `CLOUDSCOPE_SESSION_TTL_HOURS` | Session lifetime, default 12 |
@@ -81,6 +83,10 @@ Two sources:
 | `CLOUDSCOPE_COLLECT_CONCURRENCY` | Parallel (account, region) scans, default 8 |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_PROFILE` | Base AWS credentials (local only; standard boto3 chain) |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | Base Alibaba credentials |
+
+The API host and port are read directly from the process environment by Typer;
+`cloudscope api --host ... --port ...` overrides them. Export these variables
+or inject them through the container environment; the CLI does not load `.env`.
 
 2. **Accounts file** (`config/accounts.yaml`, mounted from a ConfigMap; contains
    no secrets):
