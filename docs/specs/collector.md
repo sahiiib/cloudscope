@@ -36,7 +36,10 @@ re-enables them. An account's `last_success_at` advances only when all its regio
 succeed. Region discovery errors (including an empty region list) produce an
 error result with region `*`. An empty account configuration is a successful
 no-op scan that disables previously configured accounts. Error records and logs
-use fixed messages so SDK exceptions cannot leak credentials or payloads.
+include only the SDK error code (AWS/Alibaba) or exception class name, never
+exception messages, arguments or tracebacks. Stored errors include the phase
+prefix and are capped at 200 characters. Logs identify the run, phase, provider,
+account and region; account/region values are quoted to prevent log injection.
 Callers must serialize runs; overlapping collection runs are not supported.
 
 ## Provider interface

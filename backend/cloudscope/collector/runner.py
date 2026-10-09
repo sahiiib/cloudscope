@@ -1,5 +1,6 @@
 """Provider-independent collection with one atomic transaction per region."""
 
+import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +15,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from cloudscope.collector.base import Provider
+from cloudscope.collector.errors import describe_error
 from cloudscope.config import AccountConfig, AccountsConfig, load_accounts
 from cloudscope.db.models import Account, Instance, SyncResult, SyncRun
 
@@ -89,8 +91,8 @@ class SyncRunner:
                 if not regions or any(not region.strip() or region == "*" for region in regions):
                     raise ValueError("no valid regions")
                 jobs.extend((account, region) for region in regions)
-            except Exception:
-                self._error(run_id, account, "*", "Region discovery failed", started)
+            except Exception as exc:
+                self._error(run_id, account, "*", "Region discovery failed", started, exc)
 
         with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
             futures = [pool.submit(self._scan, run_id, account, region) for account, region in jobs]
@@ -176,6 +178,7 @@ class SyncRunner:
                         Instance.provider == account.provider,
                         Instance.account_id == account.account_id,
                         Instance.region == region,
+                        Instance.present.is_(True),
                         Instance.instance_id
                         != all_(bindparam("seen", list(seen), type_=ARRAY(Text))),
                     )
@@ -192,18 +195,30 @@ class SyncRunner:
                         duration_ms=int((monotonic() - started) * 1000),
                     )
                 )
-        except Exception:
-            self._error(run_id, account, region, "Region scan failed", started)
+        except Exception as exc:
+            self._error(run_id, account, region, "Region scan failed", started, exc)
 
     def _error(
-        self, run_id: int, account: AccountConfig, region: str, error: str, started: float
+        self,
+        run_id: int,
+        account: AccountConfig,
+        region: str,
+        error: str,
+        started: float,
+        exc: Exception,
     ) -> None:
         # SDK/DB exception text can contain credentials or raw payloads. Persist and
-        # log only our fixed messages, without exception tracebacks.
+        # log only a diagnostic code/class, without exception tracebacks.
+        code = describe_error(exc)
         logger.warning(
-            "event=collection_error run_id=%s phase=%s",
+            "event=collection_error run_id=%s phase=%s provider=%s "
+            "account_id=%s region=%s error=%s",
             run_id,
             "discovery" if region == "*" else "scan",
+            account.provider,
+            json.dumps(account.account_id),
+            json.dumps(region),
+            code,
         )
         with self.sessions.begin() as session:
             session.add(
@@ -214,7 +229,7 @@ class SyncRunner:
                     region=region,
                     status="error",
                     instances_seen=0,
-                    error=error,
+                    error=f"{error}: {code}"[:200],
                     duration_ms=int((monotonic() - started) * 1000),
                 )
             )

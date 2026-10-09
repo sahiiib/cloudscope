@@ -192,3 +192,50 @@ def test_wrong_identity_cannot_modify_another_region(factory: sessionmaker[Sessi
     assert SyncRunner(factory, {"aws": provider}).run([ACCOUNT]).status == "partial"
     with factory() as session:
         assert len(list(session.scalars(select(Instance)))) == 1
+
+
+@pytest.mark.parametrize("discovery", [False, True])
+@pytest.mark.parametrize("sdk_error", [False, True])
+def test_error_diagnostics_exclude_messages(
+    factory: sessionmaker[Session],
+    caplog: pytest.LogCaptureFixture,
+    discovery: bool,
+    sdk_error: bool,
+) -> None:
+    from botocore.exceptions import ClientError
+
+    class FailingProvider(FakeProvider):
+        def list_regions(self, account: AccountConfig) -> list[str]:
+            if discovery:
+                raise failure
+            return ["us-east-1"]
+
+    failure = (
+        ClientError(
+            {"Error": {"Code": "UnauthorizedOperation", "Message": "fake-secret-message"}},
+            "DescribeInstances",
+        )
+        if sdk_error
+        else RuntimeError("fake-secret-message")
+    )
+    provider = FailingProvider()
+    provider.results["us-east-1"] = failure
+    run = SyncRunner(factory, {"aws": provider}).run([ACCOUNT])
+    code = "UnauthorizedOperation" if sdk_error else "RuntimeError"
+    phase = "discovery" if discovery else "scan"
+    region = "*" if discovery else "us-east-1"
+    with factory() as session:
+        result = session.scalar(select(SyncResult).where(SyncResult.run_id == run.id))
+        assert result is not None
+        assert result.error == f"Region {phase} failed: {code}"
+        assert "fake-secret-message" not in result.error
+    for field in (
+        f"run_id={run.id}",
+        f"phase={phase}",
+        "provider=aws",
+        f'account_id="{ACCOUNT.account_id}"',
+        f'region="{region}"',
+        f"error={code}",
+    ):
+        assert field in caplog.text
+    assert "fake-secret-message" not in caplog.text
