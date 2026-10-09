@@ -1,0 +1,67 @@
+{
+  "Instances": {
+    "Instance": [
+      {
+        "InstanceId": "i-test-2",
+        "InstanceName": "",
+        "InstanceType": "ecs.t6-c1m1.large",
+        "Status": "Stopped",
+        "RegionId": "cn-hangzhou",
+        "ZoneId": "cn-hangzhou-a",
+        "CreationTime": "2026-01-02T03:04:05Z",
+        "Cpu": 2,
+        "Memory": 2048,
+        "OSType": "linux",
+        "ImageId": "m-test",
+        "KeyPairName": "test-key",
+        "SecurityGroupIds": {
+          "SecurityGroupId": [
+            "sg-test"
+          ]
+        },
+        "Tags": {
+          "Tag": [
+            {
+              "TagKey": "env",
+              "TagValue": "test"
+            }
+          ]
+        },
+        "VpcAttributes": {
+          "VpcId": "vpc-missing",
+          "VSwitchId": "vsw-missing",
+          "PrivateIpAddress": {
+            "IpAddress": [
+              "10.0.0.3"
+            ]
+          }
+        },
+        "PublicIpAddress": {
+          "IpAddress": [
+            "192.0.2.1"
+          ]
+        },
+        "EipAddress": {
+          "IpAddress": ""
+        },
+        "NetworkInterfaces": {
+          "NetworkInterface": [
+            {
+              "NetworkInterfaceId": "eni-complete",
+              "PrimaryIpAddress": "10.0.0.3",
+              "PrivateIpSets": {
+                "PrivateIpSet": [
+                  {
+                    "PrivateIpAddress": "10.0.0.3",
+                    "Primary": true
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "NextToken": ""
+}

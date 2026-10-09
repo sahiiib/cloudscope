@@ -19,7 +19,7 @@ A task can start when all its dependencies are `done`.
 | T-005 | DB models and first migration | codex | T-004 | done |
 | T-006 | Settings and accounts.yaml loader | codex | T-002 | done |
 | T-010 | AWS EC2 provider | codex | T-005, T-006 | review |
-| T-011 | Alibaba ECS provider | codex | T-005, T-006 | todo |
+| T-011 | Alibaba ECS provider | codex | T-005, T-006 | review |
 | T-012 | Sync runner | codex | T-010 | todo |
 | T-013 | `cloudscope collect` CLI | codex | T-012 | todo |
 | T-014 | First real sync with test keys | human + claude | T-013, T-011 | todo |
