@@ -83,8 +83,9 @@ make test
 cd backend && uv run cloudscope api
 ```
 
-The API listens on `http://localhost:8000`. `/healthz` and `/readyz` return
-`{"status":"ok"}`; readiness does not check a database until T-005.
+The API listens on `http://localhost:8000`. `/healthz` returns `{"status":"ok"}`
+without a database. `/readyz` checks the database configured by exported
+`CLOUDSCOPE_DATABASE_URL` and returns 503 if it is missing or unavailable.
 Use `uv run cloudscope api --host 0.0.0.0 --port 9000` to change the bind address,
 or export `CLOUDSCOPE_API_HOST` and `CLOUDSCOPE_API_PORT`. CLI options take
 precedence over environment variables; defaults remain `127.0.0.1:8000`.
@@ -104,7 +105,20 @@ and drop it on teardown, leaving the development database untouched. Override
 the maintenance connection by exporting `CLOUDSCOPE_TEST_DATABASE_URL`; its
 user needs permission to create databases. Tests do not load `.env` or use
 `CLOUDSCOPE_DATABASE_URL`. CI uses a Postgres 16 service with the same fixtures.
-Schema migrations are added in T-005.
+Apply the schema after starting Postgres:
+
+```bash
+export CLOUDSCOPE_DATABASE_URL=postgresql+psycopg://cloudscope:cloudscope@localhost:5432/cloudscope
+make migrate
+```
+
+Migrations need only the database URL, not the Fernet/authentication key. The
+migration user must be able to create tables/functions and enable `pg_trgm`.
+The initial migration creates the six application tables, all specified
+indexes and a stored generated search column. Migration tests upgrade,
+downgrade and upgrade again in a throwaway database; `db_session` gives model
+tests an isolated transaction on that migrated schema. A downgrade removes
+the application tables/data but retains the shared `pg_trgm` extension.
 
 Runtime configuration is available through `cloudscope.config.Settings`.
 Export `CLOUDSCOPE_DATABASE_URL` and a valid `CLOUDSCOPE_SECRET_KEY` before
