@@ -1,10 +1,11 @@
 # HTTP API
 
 Base path `/api`. JSON only. All endpoints except `/api/auth/login`,
-`/api/auth/mfa/verify-login` and `/healthz` require a session with
-`mfa_passed = true`. Errors use FastAPI's `{"detail": ...}` shape.
+`/api/auth/mfa/verify-login`, `/healthz` and `/readyz` require a session with
+`mfa_passed = true`. Logout also accepts an unexpired session awaiting MFA. Errors use FastAPI's `{"detail": ...}` shape.
 
-OpenAPI is served at `/api/docs` (admin only in production).
+OpenAPI UI is served at `/api/docs`, with its schema at `/api/openapi.json`
+(both admin only).
 
 ## Health
 
