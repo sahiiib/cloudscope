@@ -16,7 +16,7 @@ A task can start when all its dependencies are `done`.
 | T-002 | Backend project scaffold | codex | T-001 | done |
 | T-003 | Frontend project scaffold | codex | T-001 | done |
 | T-004 | Local Postgres via docker compose | codex | T-002 | done |
-| T-005 | DB models and first migration | codex | T-004 | review |
+| T-005 | DB models and first migration | codex | T-004 | done |
 | T-006 | Settings and accounts.yaml loader | codex | T-002 | done |
 | T-010 | AWS EC2 provider | codex | T-005, T-006 | todo |
 | T-011 | Alibaba ECS provider | codex | T-005, T-006 | todo |
