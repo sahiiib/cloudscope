@@ -1,0 +1,56 @@
+{
+  "folders": [
+    { "name": "cloudscope", "path": "." },
+    { "name": "backend", "path": "backend" },
+    { "name": "frontend", "path": "frontend" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.mypy_cache": true,
+      "**/.ruff_cache": true,
+      "**/.pytest_cache": true,
+      "**/node_modules": true
+    },
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "editor.formatOnSave": true,
+    "git.autofetch": true,
+    "git.pruneOnFetch": true,
+    "githubPullRequests.defaultMergeMethod": "squash",
+
+    "python.defaultInterpreterPath": "${workspaceFolder:backend}/.venv/bin/python",
+    "python.testing.pytestEnabled": true,
+    "python.testing.cwd": "${workspaceFolder:backend}",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.codeActionsOnSave": { "source.organizeImports": "explicit" }
+    },
+    "mypy-type-checker.args": ["--config-file=${workspaceFolder:backend}/pyproject.toml"],
+
+    "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "eslint.workingDirectories": [{ "directory": "frontend", "changeProcessCWD": true }],
+
+    "yaml.schemas": {
+      "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.yml"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "github.vscode-pull-request-github",
+      "github.vscode-github-actions",
+      "eamodio.gitlens",
+      "ms-python.python",
+      "charliermarsh.ruff",
+      "ms-python.mypy-type-checker",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "redhat.vscode-yaml",
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "ms-azuretools.vscode-docker",
+      "openai.chatgpt",
+      "anthropic.claude-code"
+    ]
+  }
+}

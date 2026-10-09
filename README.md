@@ -60,6 +60,17 @@ AGENTS.md           Rules for coding agents (Codex, Claude) working in this repo
 | [docs/specs/deployment.md](docs/specs/deployment.md) | Docker, Helm, local cluster, EKS |
 | [docs/specs/cloud-access.md](docs/specs/cloud-access.md) | IAM / RAM setup in each account |
 
+## Open in VS Code
+
+```bash
+gh repo clone sahiiib/cloudscope
+code cloudscope/cloudscope.code-workspace
+```
+
+Accept "Install recommended extensions" when VS Code asks. The workspace
+includes GitHub Pull Requests, Python/ruff/mypy, ESLint/Prettier, YAML,
+Kubernetes, Docker, Codex and Claude Code.
+
 ## Quick start (local development)
 
 > Not runnable yet. These commands become valid as tasks in
