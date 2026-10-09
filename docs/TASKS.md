@@ -14,7 +14,7 @@ A task can start when all its dependencies are `done`.
 | --- | --- | --- | --- | --- |
 | T-001 | Repo skeleton, Makefile, .gitignore, CI | claude | – | done |
 | T-002 | Backend project scaffold | codex | T-001 | done |
-| T-003 | Frontend project scaffold | codex | T-001 | review |
+| T-003 | Frontend project scaffold | codex | T-001 | done |
 | T-004 | Local Postgres via docker compose | codex | T-002 | done |
 | T-005 | DB models and first migration | codex | T-004 | todo |
 | T-006 | Settings and accounts.yaml loader | codex | T-002 | done |
