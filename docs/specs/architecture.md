@@ -73,13 +73,13 @@ Two sources:
 
 | Variable | Purpose |
 | --- | --- |
-| `CLOUDSCOPE_DATABASE_URL` | `postgresql+psycopg://...` |
+| `CLOUDSCOPE_DATABASE_URL` | Required `postgresql+psycopg://...` URL with a database name |
 | `CLOUDSCOPE_API_HOST` | API bind address, default `127.0.0.1`; use `0.0.0.0` in containers |
 | `CLOUDSCOPE_API_PORT` | API listen port, default `8000` |
-| `CLOUDSCOPE_SECRET_KEY` | Fernet key for encrypting TOTP secrets |
+| `CLOUDSCOPE_SECRET_KEY` | Required valid Fernet key for encrypting TOTP secrets |
 | `CLOUDSCOPE_ACCOUNTS_FILE` | Path to accounts YAML (default `config/accounts.yaml`) |
 | `CLOUDSCOPE_SESSION_TTL_HOURS` | Session lifetime, default 12 |
-| `CLOUDSCOPE_COOKIE_SECURE` | `true` in k8s, `false` for local http |
+| `CLOUDSCOPE_COOKIE_SECURE` | Default `true`; set `false` for local http |
 | `CLOUDSCOPE_COLLECT_CONCURRENCY` | Parallel (account, region) scans, default 8 |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_PROFILE` | Base AWS credentials (local only; standard boto3 chain) |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | Base Alibaba credentials |
@@ -87,6 +87,15 @@ Two sources:
 The API host and port are read directly from the process environment by Typer;
 `cloudscope api --host ... --port ...` overrides them. Export these variables
 or inject them through the container environment; the CLI does not load `.env`.
+
+`cloudscope.config.Settings` validates runtime settings when instantiated;
+imports do not load configuration or contact any external service. Port must be
+1–65535, and session lifetime and collector concurrency must be positive.
+The database URL and Fernet key use `SecretStr` so representations and JSON
+serialization mask them; consumers explicitly call `get_secret_value()`.
+Settings read exported environment variables, not `.env` automatically.
+Relative accounts-file paths are resolved from the process working directory.
+The standalone API scaffold does not yet require DB/auth settings to start.
 
 2. **Accounts file** (`config/accounts.yaml`, mounted from a ConfigMap; contains
    no secrets):
@@ -109,6 +118,15 @@ accounts:
 ```
 
 `regions: all` means: ask the provider for enabled regions at sync time.
+
+`load_accounts(path)` returns a list of validated `AccountConfig` models.
+The root must contain `accounts`, which may be an empty list. Providers are
+`aws` or `alibaba`; account IDs must be quoted strings. IDs, names and listed
+regions cannot be blank. Optional `role_arn` and `external_id` may be omitted
+or null, but cannot be blank strings. Unknown fields are rejected. Each
+(provider, account_id) pair must be unique; the same ID in different providers
+is allowed. Errors identify the file, entry index/name and invalid field;
+duplicate-account errors name both entries. YAML uses the safe loader.
 
 ## Key design decisions
 

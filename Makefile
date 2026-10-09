@@ -31,7 +31,7 @@ ifneq ($(HAS_FRONTEND),)
 endif
 
 dev-db:
-	docker compose up -d postgres
+	docker compose up -d --wait postgres
 
 migrate:
 	cd backend && uv run alembic upgrade head
