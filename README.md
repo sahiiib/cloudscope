@@ -106,6 +106,16 @@ user needs permission to create databases. Tests do not load `.env` or use
 `CLOUDSCOPE_DATABASE_URL`. CI uses a Postgres 16 service with the same fixtures.
 Schema migrations are added in T-005.
 
+Runtime configuration is available through `cloudscope.config.Settings`.
+Export `CLOUDSCOPE_DATABASE_URL` and a valid `CLOUDSCOPE_SECRET_KEY` before
+instantiating settings; `.env` is not loaded automatically. Secure cookies
+default to enabled; use `CLOUDSCOPE_COOKIE_SECURE=false` for local HTTP.
+From `backend/`, set `CLOUDSCOPE_ACCOUNTS_FILE=../config/accounts.yaml` (relative
+paths use the working directory). `load_accounts(settings.accounts_file)`
+loads the validated account list. Account IDs must be quoted YAML strings;
+invalid entries and duplicate provider/account pairs report descriptive errors.
+See [configuration](docs/specs/architecture.md#configuration) for all defaults.
+
 > The full application setup below is not runnable yet. These commands become valid as tasks in
 > [docs/TASKS.md](docs/TASKS.md) land.
 
