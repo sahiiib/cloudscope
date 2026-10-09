@@ -99,7 +99,8 @@ npm run dev
 Open `http://localhost:5173`. Vite proxies `/api` to the backend on port 8000.
 `npm run lint`, `npm test`, and `npm run build` check the frontend. The shared
 `src/api/client.ts` wrapper sends the CSRF header and same-origin credentials,
-redirects HTTP 401 to `/login`, and throws `ApiError` on failed responses.
+redirects HTTP 401 to `/login` unless already there or submitting login/MFA,
+and throws `ApiError` on failed responses so login errors can be shown inline.
 Callers decode successful response bodies. The login UI comes in T-030.
 
 > The full application setup below is not runnable yet. These commands become valid as tasks in

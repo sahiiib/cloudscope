@@ -19,7 +19,9 @@ export async function apiFetch(
     credentials: 'same-origin',
   });
 
-  if (response.status === 401) {
+  const isLoginRequest =
+    path.startsWith('/api/auth/login') || path.startsWith('/api/auth/mfa/verify-login');
+  if (response.status === 401 && !isLoginRequest && window.location.pathname !== '/login') {
     window.location.assign('/login');
   }
   if (!response.ok) {

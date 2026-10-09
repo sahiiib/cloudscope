@@ -37,15 +37,36 @@ describe('apiFetch', () => {
 
   test('redirects unauthorized requests to login and rejects the request', async () => {
     const assign = vi.fn();
-    vi.stubGlobal('location', { assign });
+    vi.stubGlobal('location', { assign, pathname: '/' });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
     await expect(apiFetch('/api/auth/me')).rejects.toMatchObject({ status: 401 });
     expect(assign).toHaveBeenCalledWith('/login');
   });
 
+  test.each(['/api/auth/login', '/api/auth/mfa/verify-login'] as const)(
+    'keeps a 401 from %s available for inline errors without redirecting',
+    async (path) => {
+      const assign = vi.fn();
+      vi.stubGlobal('location', { assign, pathname: '/' });
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+      await expect(apiFetch(path, { method: 'POST' })).rejects.toMatchObject({
+        name: 'ApiError', status: 401,
+      });
+      expect(assign).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not reload login when the session check returns 401', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', { assign, pathname: '/login' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+    await expect(apiFetch('/api/auth/me')).rejects.toMatchObject({ name: 'ApiError', status: 401 });
+    expect(assign).not.toHaveBeenCalled();
+  });
+
   test('rejects other failed responses without redirecting', async () => {
     const assign = vi.fn();
-    vi.stubGlobal('location', { assign });
+    vi.stubGlobal('location', { assign, pathname: '/' });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
     await expect(apiFetch('/api/accounts')).rejects.toBeInstanceOf(ApiError);
     expect(assign).not.toHaveBeenCalled();
