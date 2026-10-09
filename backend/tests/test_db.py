@@ -18,3 +18,5 @@ def test_postgres_round_trip_in_throwaway_database(db_engine: Engine) -> None:
         assert connection.scalar(text("SELECT name FROM fixture_smoke WHERE id = 1")) == (
             "test-instance"
         )
+    with db_engine.begin() as connection:
+        connection.execute(text("DROP TABLE fixture_smoke"))

@@ -2,11 +2,17 @@
 
 import os
 from collections.abc import Iterator
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import URL, Engine, create_engine
 from sqlalchemy.engine import make_url
+from sqlalchemy.orm import Session
+
+from cloudscope.db.session import create_db_engine, create_session_factory
 
 DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://cloudscope:cloudscope@localhost:5432/postgres"
 
@@ -36,9 +42,37 @@ def database_url() -> Iterator[URL]:
 
 @pytest.fixture(scope="session")
 def db_engine(database_url: URL) -> Iterator[Engine]:
-    """Provide a sync SQLAlchemy engine; schema/migrations arrive in T-005."""
-    engine = create_engine(database_url)
+    """Provide a sync SQLAlchemy engine using the production connection settings."""
+    engine = create_db_engine(database_url)
     try:
         yield engine
     finally:
         engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def alembic_config() -> Config:
+    return Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+
+
+@pytest.fixture(scope="session")
+def migrated_engine(db_engine: Engine, alembic_config: Config) -> Engine:
+    with db_engine.connect() as connection:
+        alembic_config.attributes["connection"] = connection
+        try:
+            command.upgrade(alembic_config, "head")
+        finally:
+            alembic_config.attributes.pop("connection", None)
+    return db_engine
+
+
+@pytest.fixture
+def db_session(migrated_engine: Engine) -> Iterator[Session]:
+    factory = create_session_factory(migrated_engine)
+    with migrated_engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            with factory(bind=connection, join_transaction_mode="create_savepoint") as session:
+                yield session
+        finally:
+            transaction.rollback()

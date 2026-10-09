@@ -3,6 +3,12 @@
 PostgreSQL 16. All timestamps are `timestamptz` in UTC. Migrations live in
 `backend/migrations` (Alembic). Requires the `pg_trgm` extension.
 
+The initial migration installs `pg_trgm` if needed. Downgrade removes the
+Cloudscope tables and search helper but retains the extension because it may
+already be used by other applications. Apply schema changes with Alembic,
+not `Base.metadata.create_all()`. Connections created by `create_db_engine`
+set their PostgreSQL session timezone to UTC.
+
 ## `accounts`
 
 Synced from `accounts.yaml` at the start of every collect run.
@@ -55,6 +61,13 @@ Indexes:
 - GIN trigram on `search_text`
 - btree on `provider`, `account_id`, `region`, `state`, `present`
 - GIN on `tags`
+
+`search_text` is a **stored generated column**, computed by the immutable
+SQL helper `cloudscope_instance_search_text`. It concatenates the name,
+instance ID, both IP arrays, and decoded tag keys/values, then lowercases the
+result. PostgreSQL recalculates it on inserts and updates, including collector
+upserts; callers must not supply this column. The helper operates only on text
+arrays and JSON values and uses `pg_catalog` as its search path.
 
 ### Normalized `state`
 
@@ -110,6 +123,9 @@ an extra API call is required.
 | `status` | text | `running` \| `success` \| `partial` \| `failed` |
 | `instances_seen` | int | |
 
+`finished_at` is nullable while the run is active. New runs default to
+`status = running`, zero instances, and the current timestamp.
+
 ## `sync_results`
 
 One row per (run, account, region).
@@ -122,6 +138,9 @@ One row per (run, account, region).
 | `instances_seen` | int | |
 | `error` | text null | Short message, no credentials |
 | `duration_ms` | int | |
+
+Primary key: `(run_id, provider, account_id, region)`. The account pair also
+references `accounts`. These constraints enforce one result per scan target.
 
 ## `users`
 
@@ -137,6 +156,9 @@ One row per (run, account, region).
 | `failed_logins` | int | |
 | `locked_until` | timestamptz null | |
 | `created_at`, `last_login_at` | timestamptz | |
+
+`last_login_at` is nullable until the first successful login. New users are
+active but not admins, have MFA disabled, and start with zero failed logins.
 
 ## `sessions`
 
