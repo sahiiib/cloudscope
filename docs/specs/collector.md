@@ -58,6 +58,23 @@ Per region:
 - `cpu`: `CpuOptions.CoreCount * ThreadsPerCore`. `memory_mib` is left `null`
   for now (needs `describe_instance_types`; later task).
 
+`AWSProvider` takes an optional `(account, region) -> EC2Reader` factory.
+The default `AWSClientFactory` uses the boto3 credential chain and adaptive
+retries. Assumed sessions are cached by account/role/external ID and refreshed
+five minutes before expiry; session/client construction is serialized for
+threaded collection. Region discovery defaults to `us-east-1` and can be
+configured for other AWS partitions. AssumeRole always uses this fixed discovery
+region for STS, independent of which target region is scanned first.
+Explicit configured regions need no API call.
+
+Describe pagination follows every NextToken, with repeated tokens treated as
+errors. Enrichment uses batched ID filters (100 IDs) and per-scan maps; images
+are described for their names. Missing lookup results are null, while API errors
+propagate so a failed scan cannot be mistaken for an empty inventory.
+Normalized records preserve the original instance payload in `raw`, with SDK
+datetimes represented as UTC ISO strings for JSONB. Collection does not write to
+the database until the runner is added in T-012.
+
 Required permissions: see [cloud-access.md](cloud-access.md).
 
 ## Alibaba Cloud
