@@ -77,6 +77,7 @@ The backend scaffold runs with Python 3.12 and uv:
 
 ```bash
 make setup
+make dev-db
 make lint
 make test
 cd backend && uv run cloudscope api
@@ -87,6 +88,23 @@ The API listens on `http://localhost:8000`. `/healthz` and `/readyz` return
 Use `uv run cloudscope api --host 0.0.0.0 --port 9000` to change the bind address,
 or export `CLOUDSCOPE_API_HOST` and `CLOUDSCOPE_API_PORT`. CLI options take
 precedence over environment variables; defaults remain `127.0.0.1:8000`.
+
+Local Postgres 16 runs through Docker Compose. `make dev-db` waits for it to
+be healthy on `localhost:5432`; the development user, password and database
+are all `cloudscope`, matching `.env.example`. The port is bound to loopback.
+If port 5432 is occupied, run `POSTGRES_PORT=55432 make dev-db` and update
+your database URL port; for tests, export
+`CLOUDSCOPE_TEST_DATABASE_URL=postgresql+psycopg://cloudscope:cloudscope@localhost:55432/postgres`.
+Data persists in the named `postgres_data` volume across container restarts.
+`docker compose down` stops it while retaining that volume.
+
+Database tests require this server. The session-scoped `database_url` and
+`db_engine` pytest fixtures create a unique `cloudscope_test_<uuid>` database
+and drop it on teardown, leaving the development database untouched. Override
+the maintenance connection by exporting `CLOUDSCOPE_TEST_DATABASE_URL`; its
+user needs permission to create databases. Tests do not load `.env` or use
+`CLOUDSCOPE_DATABASE_URL`. CI uses a Postgres 16 service with the same fixtures.
+Schema migrations are added in T-005.
 
 Runtime configuration is available through `cloudscope.config.Settings`.
 Export `CLOUDSCOPE_DATABASE_URL` and a valid `CLOUDSCOPE_SECRET_KEY` before
