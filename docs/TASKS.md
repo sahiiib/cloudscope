@@ -24,7 +24,7 @@ A task can start when all its dependencies are `done`.
 | T-013 | `cloudscope collect` CLI | codex | T-012 | todo |
 | T-014 | First real sync with test keys | human + claude | T-013, T-011 | todo |
 | T-020 | Users, passwords, `create-user` CLI | codex | T-005 | done |
-| T-021 | Sessions and login API | codex | T-020 | review |
+| T-021 | Sessions and login API | codex | T-020 | done |
 | T-022 | TOTP MFA | codex | T-021 | todo |
 | T-023 | Instances, accounts, sync API | codex | T-021, T-012 | todo |
 | T-024 | Admin users API | codex | T-022 | todo |
