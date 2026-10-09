@@ -9,6 +9,19 @@ Local users only for now. SSO (OIDC) is a later phase.
 - First admin is created with `cloudscope create-user <name> --admin` (prompts
   for the password, never takes it as an argument).
 
+`cloudscope.auth.passwords` provides `hash_password`, `verify_password` and
+`verify_and_rehash`. The last returns `(valid, replacement_hash)`; the login
+handler added in T-021 must persist a non-null replacement after successful
+verification. Wrong passwords and malformed stored hashes return failure and
+never trigger rehash. Minimum length applies when creating/changing passwords.
+
+`create-user` uses the exported database URL and an already-migrated schema;
+it does not need the Fernet key. The password is entered twice with input
+hidden and is never accepted as an argument or option. Users are active,
+non-admin by default, and have MFA disabled; `--admin` explicitly grants admin.
+Duplicate usernames fail without updating existing users. Database/hash errors
+are reported without their underlying exception details or local variables.
+
 ## Login flow
 
 ```

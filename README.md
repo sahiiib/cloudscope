@@ -120,6 +120,18 @@ downgrade and upgrade again in a throwaway database; `db_session` gives model
 tests an isolated transaction on that migrated schema. A downgrade removes
 the application tables/data but retains the shared `pg_trgm` extension.
 
+After exporting the database URL and applying migrations, create a local user:
+
+```bash
+cd backend
+uv run cloudscope create-user admin --admin
+```
+
+Enter the password twice at the hidden prompts (at least 12 characters).
+Omit `--admin` for a regular user. Only an Argon2id hash is stored; the command
+rejects duplicate usernames and never accepts passwords on the command line.
+The login API is implemented separately in T-021.
+
 Runtime configuration is available through `cloudscope.config.Settings`.
 Export `CLOUDSCOPE_DATABASE_URL` and a valid `CLOUDSCOPE_SECRET_KEY` before
 instantiating settings; `.env` is not loaded automatically. Secure cookies
