@@ -68,14 +68,16 @@ class AuthService:
         sessions: sessionmaker[Session],
         *,
         ttl_hours: int = 12,
+        max_age_days: int = 7,
         cookie_secure: bool = True,
         clock: Callable[[], datetime] = utc_now,
         limiter: LoginRateLimiter | None = None,
     ) -> None:
-        if ttl_hours <= 0:
+        if ttl_hours <= 0 or max_age_days <= 0:
             raise ValueError("Session lifetime must be positive")
         self.sessions = sessions
         self.ttl = timedelta(hours=ttl_hours)
+        self.max_age = timedelta(days=max_age_days)
         self.cookie_secure = cookie_secure
         self.clock = clock
         self.limiter = limiter or LoginRateLimiter()
@@ -124,7 +126,7 @@ class AuthService:
                             delete(UserSession).where(UserSession.id_hash == token_hash(old_token))
                         )
                     token = secrets.token_urlsafe(32)
-                    ttl = HALF_SESSION_TTL if user.mfa_enabled else self.ttl
+                    ttl = HALF_SESSION_TTL if user.mfa_enabled else min(self.ttl, self.max_age)
                     session.add(
                         UserSession(
                             id_hash=token_hash(token),
@@ -169,20 +171,21 @@ class AuthService:
             or not user.is_active
             or stored is None
             or stored.expires_at <= self.clock()
+            or stored.created_at + self.max_age <= self.clock()
         ):
             raise HTTPException(401, "Authentication required")
         if require_mfa and not stored.mfa_passed:
             raise HTTPException(401, "MFA verification required")
         return user, stored
 
-    def authenticate(self, token: str | None) -> User:
+    def authenticate(self, token: str | None) -> tuple[User, datetime]:
         with self.sessions.begin() as session:
             user, stored = self._lookup(session, token)
             now = self.clock()
             stored.last_seen_at = now
-            stored.expires_at = now + self.ttl
+            stored.expires_at = min(now + self.ttl, stored.created_at + self.max_age)
             session.expunge(user)
-            return user
+            return user, stored.expires_at
 
     def logout(self, token: str | None) -> None:
         with self.sessions.begin() as session:

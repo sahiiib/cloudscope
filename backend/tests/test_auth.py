@@ -440,3 +440,46 @@ def test_successful_login_cleans_only_own_expired_sessions(
         token_hash("other-expired"),
         token_hash(client.cookies[COOKIE_NAME]),
     }
+
+
+def test_active_session_and_cookie_cannot_extend_past_absolute_cap(
+    client: TestClient, db_session: Session
+) -> None:
+    login(client)
+    # Keep activity within the idle timeout until an hour before the seven-day cap.
+    for hours in range(11, 168, 11):
+        client.app.state.auth.clock = lambda hours=hours: NOW + timedelta(hours=hours)
+        assert client.get("/api/auth/me").status_code == 200
+    client.app.state.auth.clock = lambda: NOW + timedelta(days=7, hours=-1)
+    response = client.get("/api/auth/me")
+    assert response.status_code == 200
+    assert "Max-Age=3600" in response.headers["set-cookie"]
+    stored = db_session.scalar(select(UserSession))
+    assert stored is not None and stored.expires_at == NOW + timedelta(days=7)
+    assert stored.created_at == NOW
+
+
+@pytest.mark.parametrize("offset", [timedelta(0), timedelta(seconds=1)])
+def test_absolute_cap_rejects_even_unexpired_legacy_session(
+    client: TestClient, db_session: Session, offset: timedelta
+) -> None:
+    login(client)
+    stored = db_session.scalar(select(UserSession))
+    assert stored is not None
+    stored.expires_at = NOW + timedelta(days=8)
+    db_session.commit()
+    client.app.state.auth.clock = lambda: NOW + timedelta(days=7) + offset
+    response = client.get("/api/auth/me")
+    assert response.status_code == 401
+    assert "set-cookie" not in response.headers
+
+
+def test_login_caps_idle_timeout_longer_than_absolute_lifetime(
+    client: TestClient, db_session: Session
+) -> None:
+    client.app.state.auth.ttl = timedelta(days=10)
+    client.app.state.auth.max_age = timedelta(days=2)
+    response = login(client)
+    assert "Max-Age=172800" in response.headers["set-cookie"]
+    stored = db_session.scalar(select(UserSession))
+    assert stored is not None and stored.expires_at == NOW + timedelta(days=2)

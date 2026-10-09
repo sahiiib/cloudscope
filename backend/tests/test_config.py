@@ -29,6 +29,7 @@ def test_settings_defaults(configured_environment: None) -> None:
     settings = Settings()
     assert settings.accounts_file == Path("config/accounts.yaml")
     assert settings.session_ttl_hours == 12
+    assert settings.session_max_age_days == 7
     assert settings.cookie_secure is True
     assert settings.collect_concurrency == 8
     assert settings.api_host == "127.0.0.1"
@@ -46,6 +47,7 @@ def test_settings_environment_overrides(
 ) -> None:
     monkeypatch.setenv("CLOUDSCOPE_ACCOUNTS_FILE", str(tmp_path / "accounts.yaml"))
     monkeypatch.setenv("CLOUDSCOPE_SESSION_TTL_HOURS", "24")
+    monkeypatch.setenv("CLOUDSCOPE_SESSION_MAX_AGE_DAYS", "3")
     monkeypatch.setenv("CLOUDSCOPE_COOKIE_SECURE", "false")
     monkeypatch.setenv("CLOUDSCOPE_COLLECT_CONCURRENCY", "3")
     monkeypatch.setenv("CLOUDSCOPE_API_HOST", "0.0.0.0")
@@ -53,6 +55,7 @@ def test_settings_environment_overrides(
     settings = Settings()
     assert settings.accounts_file == tmp_path / "accounts.yaml"
     assert settings.session_ttl_hours == 24
+    assert settings.session_max_age_days == 3
     assert settings.cookie_secure is False
     assert settings.collect_concurrency == 3
     assert settings.api_host == "0.0.0.0"
@@ -72,6 +75,8 @@ def test_required_settings(
     ("field", "value"),
     [
         ("SESSION_TTL_HOURS", "0"),
+        ("SESSION_MAX_AGE_DAYS", "0"),
+        ("SESSION_MAX_AGE_DAYS", "-1"),
         ("COLLECT_CONCURRENCY", "-1"),
         ("API_PORT", "0"),
         ("API_PORT", "65536"),

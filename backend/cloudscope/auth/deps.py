@@ -21,8 +21,8 @@ def require_csrf(request: Request) -> None:
 
 
 def current_user(request: Request, auth: Annotated[AuthService, Depends(get_auth)]) -> User:
-    user = auth.authenticate(request.cookies.get(COOKIE_NAME))
-    request.state.refresh_session = True
+    user, expires_at = auth.authenticate(request.cookies.get(COOKIE_NAME))
+    request.state.session_expires_at = expires_at
     return user
 
 

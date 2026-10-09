@@ -43,10 +43,14 @@ and expires after 5 minutes.
   (`HttpOnly`, `SameSite=Lax`, `Secure` when `CLOUDSCOPE_COOKIE_SECURE=true`,
   `Path=/`).
 - Only the SHA-256 of the token is stored (`sessions.id_hash`).
-- Lifetime `CLOUDSCOPE_SESSION_TTL_HOURS` (default 12), sliding on activity up
-  to that max. This is an idle timeout: each authenticated request refreshes
-  the database expiration and browser cookie by the configured duration. There
-  is no separate absolute lifetime; half-authenticated sessions never slide.
+- Idle timeout: `CLOUDSCOPE_SESSION_TTL_HOURS` (default 12 hours), with an
+  absolute cap of `CLOUDSCOPE_SESSION_MAX_AGE_DAYS` (default 7 days, positive)
+  from login, whichever comes first. On activity, expiration is
+  `min(now + ttl, created_at + max_age)`; the cookie uses the same remaining
+  time. Requests at or after the absolute cap return 401 even if active.
+- Half-authenticated sessions expire after five minutes and never slide. After
+  successful MFA verification in T-022, the rotated session's `created_at` is
+  the rotation time, starting its absolute lifetime.
 - CSRF: state-changing requests must send header `X-Requested-With: cloudscope`
   (the UI always does); combined with `SameSite=Lax` this blocks cross-site
   form posts.
@@ -75,7 +79,9 @@ loads `Settings` (including database URL and Fernet key); missing/invalid settin
 leave authentication unavailable (503) while health probes remain usable. The
 Fernet key is validated now and used by MFA in T-022. `create_app` also accepts an
 injected engine/settings/clock for tests. `current_user` checks expiration, active
-user status and completed MFA; `require_admin` additionally checks admin status.
+user status and completed MFA. Full sessions use a 12-hour idle timeout and
+a 7-day absolute cap from login (both configurable), whichever comes first.
+`require_admin` additionally checks admin status.
 
 Login rotates an existing cookie, stores only the new token hash, persists any
 Argon2 rehash, and resets failure counters on success. Five wrong passwords lock

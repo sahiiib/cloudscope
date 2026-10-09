@@ -59,6 +59,7 @@ def create_app(
             app.state.auth = AuthService(
                 create_session_factory(database_engine),
                 ttl_hours=runtime_settings.session_ttl_hours,
+                max_age_days=runtime_settings.session_max_age_days,
                 cookie_secure=runtime_settings.cookie_secure,
                 clock=clock,
             )
@@ -94,11 +95,13 @@ def create_app(
     @app.middleware("http")
     async def refresh_cookie(request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
-        if getattr(request.state, "refresh_session", False) and response.status_code < 400:
+        expires_at = cast(datetime | None, getattr(request.state, "session_expires_at", None))
+        if expires_at is not None and response.status_code < 400:
             auth = cast(AuthService, request.app.state.auth)
             token = request.cookies.get(COOKIE_NAME)
             if token and "set-cookie" not in response.headers:
-                set_session_cookie(response, token, auth, int(auth.ttl.total_seconds()))
+                remaining = max(0, int((expires_at - auth.clock()).total_seconds()))
+                set_session_cookie(response, token, auth, remaining)
         return response
 
     @app.get("/api/docs", include_in_schema=False)
