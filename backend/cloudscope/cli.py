@@ -12,6 +12,9 @@ def main() -> None:
 
 
 @app.command()
-def api() -> None:
-    """Serve the HTTP API on localhost:8000."""
-    uvicorn.run("cloudscope.api.app:create_app", factory=True, host="127.0.0.1", port=8000)
+def api(
+    host: str = typer.Option("127.0.0.1", envvar="CLOUDSCOPE_API_HOST"),
+    port: int = typer.Option(8000, envvar="CLOUDSCOPE_API_PORT"),
+) -> None:
+    """Serve the HTTP API."""
+    uvicorn.run("cloudscope.api.app:create_app", factory=True, host=host, port=port)
