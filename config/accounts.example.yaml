@@ -1,0 +1,27 @@
+# Copy to config/accounts.yaml (git-ignored). No secrets in this file.
+# Spec: docs/specs/architecture.md#configuration
+accounts:
+  # Test-key mode: no role_arn, the base AWS credentials are used directly.
+  - provider: aws
+    account_id: "111111111111"
+    name: aws-test
+    regions: all
+
+  # Role mode: base credentials assume this read-only role.
+  - provider: aws
+    account_id: "222222222222"
+    name: aws-prod
+    role_arn: arn:aws:iam::222222222222:role/cloudscope-readonly
+    external_id: cloudscope
+    regions: [eu-central-1, us-east-1]
+
+  - provider: alibaba
+    account_id: "1111111111111111"
+    name: alibaba-test
+    regions: [cn-hangzhou, me-east-1]
+
+  - provider: alibaba
+    account_id: "2222222222222222"
+    name: alibaba-prod
+    role_arn: acs:ram::2222222222222222:role/cloudscope-readonly
+    regions: all
