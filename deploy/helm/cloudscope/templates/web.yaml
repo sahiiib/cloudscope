@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cs.name" . }}-web
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      {{- include "cs.labels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "cs.labels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets: {{ .Values.imagePullSecrets | toJson }}
+      securityContext: {runAsNonRoot: true, runAsUser: 101, runAsGroup: 101, fsGroup: 101, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: web
+          image: "{{ .Values.image.web.repository }}:{{ .Values.image.web.tag }}"
+          securityContext: {{- include "cs.security" . | nindent 12 }}
+          env:
+            - {name: API_UPSTREAM, value: "{{ include "cs.name" . }}-api:8000"}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe: {httpGet: {path: /, port: http}}
+          livenessProbe: {httpGet: {path: /, port: http}, initialDelaySeconds: 10}
+          volumeMounts:
+            - {name: config, mountPath: /etc/nginx/conf.d}
+            - {name: tmp, mountPath: /tmp}
+          resources: {{ .Values.resources.web | toJson }}
+      volumes:
+        - {name: config, emptyDir: {}}
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cs.name" . }}-web
+spec:
+  selector:
+    {{- include "cs.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  ports: [{name: http, port: 8080, targetPort: http}]

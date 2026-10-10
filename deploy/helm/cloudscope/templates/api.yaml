@@ -1,0 +1,44 @@
+{{- if contains "*" .Values.api.forwardedAllowIPs }}{{ fail "api.forwardedAllowIPs must not contain *" }}{{ end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cs.name" . }}-api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "cs.labels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "cs.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+      annotations:
+        checksum/accounts: {{ .Values.accounts | toJson | sha256sum }}
+    spec:
+      {{- include "cs.backendPod" . | nindent 6 }}
+      containers:
+        - name: api
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          args: [api]
+          securityContext: {{- include "cs.security" . | nindent 12 }}
+          ports: [{name: http, containerPort: 8000}]
+          env:
+            {{- include "cs.env" . | nindent 12 }}
+            - name: CLOUDSCOPE_FORWARDED_ALLOW_IPS
+              value: {{ .Values.api.forwardedAllowIPs | quote }}
+          volumeMounts: {{- include "cs.mounts" . | nindent 12 }}
+          readinessProbe: {httpGet: {path: /readyz, port: http}, initialDelaySeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, initialDelaySeconds: 10}
+          resources: {{ .Values.resources.api | toJson }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cs.name" . }}-api
+spec:
+  selector:
+    {{- include "cs.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  ports: [{name: http, port: 8000, targetPort: http}]

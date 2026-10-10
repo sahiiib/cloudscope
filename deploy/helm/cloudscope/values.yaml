@@ -1,0 +1,43 @@
+image:
+  backend: {repository: ghcr.io/sahiiib/cloudscope-backend, tag: latest}
+  web: {repository: ghcr.io/sahiiib/cloudscope-web, tag: latest}
+imagePullSecrets: []
+existingSecret: cloudscope
+secrets:
+  create: false
+  data: {}
+accounts: []
+api:
+  replicas: 2
+  # Replace with the web/ingress pod CIDRs. Never use '*'.
+  forwardedAllowIPs: "127.0.0.1"
+  cookieSecure: true
+web:
+  replicas: 2
+collector:
+  schedule: "*/15 * * * *"
+  concurrency: 8
+  suspend: false
+postgres:
+  enabled: true
+  image: postgres:16
+  user: cloudscope
+  database: cloudscope
+  storageClass: ""
+  size: 10Gi
+serviceAccount:
+  annotations: {}
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: cloudscope.local
+  tls: []
+networkPolicy:
+  enabled: true
+resources:
+  api: {requests: {cpu: 100m, memory: 128Mi}, limits: {memory: 512Mi}}
+  web: {requests: {cpu: 50m, memory: 32Mi}, limits: {memory: 128Mi}}
+  collector: {requests: {cpu: 100m, memory: 128Mi}, limits: {memory: 1Gi}}
+  migrate: {requests: {cpu: 100m, memory: 128Mi}, limits: {memory: 512Mi}}
+  postgres: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 1Gi}}
