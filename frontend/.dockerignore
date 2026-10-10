@@ -1,0 +1,14 @@
+# Excludes host dependencies, .env files and all unrelated local artifacts.
+**
+!package.json
+!package-lock.json
+!index.html
+!vite.config.ts
+!tsconfig*.json
+!src/
+!src/**
+!nginx.conf.template
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

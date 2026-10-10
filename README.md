@@ -207,3 +207,10 @@ run status and a table of per-region counts/errors. Exit status is 0 for success
 or partial success, 1 for failure; inspect the summary for partial failures.
 Filters leave unscanned inventory untouched. Only one CLI collection can run
 against a database at a time.
+
+### Container images
+
+Backend and web Dockerfiles live in their respective directories. See
+[image build and validation](docs/specs/deployment.md#image-build-and-validation-t-040)
+for build commands, the credential-free smoke test, runtime configuration and
+GHCR tags. CI builds amd64/arm64 images on PRs and publishes them on `main`.
