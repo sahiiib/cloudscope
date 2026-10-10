@@ -179,3 +179,20 @@ cd ../frontend && npm install && npm run dev   # http://localhost:5173
   `secrets/` are git-ignored.
 - Cloud credentials must be read-only. See
   [docs/specs/cloud-access.md](docs/specs/cloud-access.md).
+
+### Collect inventory
+
+With the database migrated and runtime settings exported (including a valid
+`CLOUDSCOPE_SECRET_KEY`), run from `backend/`:
+
+```bash
+uv run cloudscope collect
+uv run cloudscope collect --account 111111111111 --region us-east-1 --trigger manual
+```
+
+Set `CLOUDSCOPE_ACCOUNTS_FILE=../config/accounts.yaml` when running from
+`backend/`. For scheduled collection, use `--trigger schedule`. Output includes
+run status and a table of per-region counts/errors. Exit status is 0 for success
+or partial success, 1 for failure; inspect the summary for partial failures.
+Filters leave unscanned inventory untouched. Only one CLI collection can run
+against a database at a time.

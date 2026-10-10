@@ -2,6 +2,28 @@
 
 Entry point: `cloudscope collect [--account ID] [--region R] [--trigger schedule|manual]`.
 
+`collect` uses exported `Settings` (database URL, Fernet key, accounts path and
+concurrency); it never implicitly loads `.env`. It prints a tab-separated summary
+and exits 0 for success/partial, 1 for failed/configuration/database errors.
+Invalid command-line options return 2. Setup failures print only safe categories:
+configuration field locations (without inputs/messages), the configured path for
+a missing accounts file, database exception class, the fixed unknown-account
+message, or an unexpected exception class. Invalid YAML reports the `accounts`
+location. Exception payloads are never printed; control characters in field
+locations and file paths are escaped.
+
+`--account` selects an account ID (across providers if shared); an unknown ID is
+an error before reconciliation. `--region` intersects configured/discovered
+regions, without forcing scans outside that list. No matching region yields a
+failed run and exit 1. The runner always reconciles the complete account file,
+so filtered-out accounts remain enabled. Unscanned inventory is untouched and
+`last_success_at` advances only if every resolved region of that account ran
+successfully. A filtered subset does not imply a fully successful account sync.
+
+The CLI holds PostgreSQL advisory lock `1129530192` throughout collection and
+releases it on exit. A concurrent CLI run fails immediately; future manual API
+callers must use the same database-scoped lock. SDK retries remain provider-owned.
+
 ## Flow
 
 1. Load `accounts.yaml`, upsert `accounts` (mark removed ones `enabled = false`).

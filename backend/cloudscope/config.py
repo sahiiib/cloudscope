@@ -93,6 +93,17 @@ class AccountsConfig(BaseModel):
 class AccountsConfigError(ValueError):
     """An accounts file cannot be read or fails validation."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        locations: list[tuple[str | int, ...]] | None = None,
+        missing_file: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.locations = locations
+        self.missing_file = missing_file
+
 
 def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[AccountConfig]:
     """Load safe YAML, reporting entry names and fields without dumping file contents."""
@@ -100,10 +111,14 @@ def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[Accou
     try:
         with path.open(encoding="utf-8") as stream:
             data = yaml.safe_load(stream)
+    except FileNotFoundError:
+        raise AccountsConfigError(f"Cannot read accounts file {path}", missing_file=True) from None
     except (OSError, UnicodeError):
         raise AccountsConfigError(f"Cannot read accounts file {path}") from None
     except yaml.YAMLError:
-        raise AccountsConfigError(f"Invalid YAML in accounts file {path}") from None
+        raise AccountsConfigError(
+            f"Invalid YAML in accounts file {path}", locations=[("accounts",)]
+        ) from None
 
     try:
         return AccountsConfig.model_validate(data).accounts
@@ -124,4 +139,12 @@ def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[Accou
                     if isinstance(name, str):
                         location += f" ({name!r})"
             messages.append(f"{location}: {error['msg']}")
-        raise AccountsConfigError(f"Invalid accounts file {path}: " + "; ".join(messages)) from None
+        raise AccountsConfigError(
+            f"Invalid accounts file {path}: " + "; ".join(messages),
+            locations=[
+                error["loc"]
+                for error in exc.errors(
+                    include_input=False, include_context=False, include_url=False
+                )
+            ],
+        ) from None

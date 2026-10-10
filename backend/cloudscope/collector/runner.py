@@ -26,6 +26,10 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+class AccountFilterError(ValueError):
+    """The requested account ID is absent from the complete configuration."""
+
+
 class SyncRunner:
     """Share providers across workers, but never share SQLAlchemy sessions.
 
@@ -57,11 +61,22 @@ class SyncRunner:
         self,
         accounts: Sequence[AccountConfig],
         *,
+        account_id: str | None = None,
+        region: str | None = None,
         trigger: Literal["schedule", "manual"] = "manual",
     ) -> SyncRun:
         accounts = AccountsConfig(accounts=list(accounts)).accounts
         if trigger not in ("schedule", "manual"):
             raise ValueError("invalid collection trigger")
+        selected = [
+            account
+            for account in accounts
+            if account_id is None or account.account_id == account_id
+        ]
+        if account_id is not None and not selected:
+            raise AccountFilterError("Account filter does not match configuration")
+        if region is not None and not region.strip():
+            raise ValueError("Region filter cannot be blank")
         with self.sessions.begin() as session:
             session.execute(update(Account).values(enabled=False))
             for account in accounts:
@@ -83,14 +98,20 @@ class SyncRunner:
             run_id = run.id
 
         jobs: list[tuple[AccountConfig, str]] = []
-        for account in accounts:
+        complete_accounts: set[tuple[str, str]] = set()
+        for account in selected:
             started = monotonic()
             try:
                 provider = self.providers[account.provider]
                 regions = list(dict.fromkeys(provider.list_regions(account)))
                 if not regions or any(not region.strip() or region == "*" for region in regions):
                     raise ValueError("no valid regions")
-                jobs.extend((account, region) for region in regions)
+                selected_regions = [
+                    target for target in regions if region is None or target == region
+                ]
+                if selected_regions == regions:
+                    complete_accounts.add((account.provider, account.account_id))
+                jobs.extend((account, target) for target in selected_regions)
             except Exception as exc:
                 self._error(run_id, account, "*", "Region discovery failed", started, exc)
 
@@ -115,7 +136,13 @@ class SyncRunner:
             failures = sum(result.status == "error" for result in results)
             run = session.get_one(SyncRun, run_id)
             run.status = (
-                "success" if failures == 0 else "failed" if failures == len(results) else "partial"
+                "failed"
+                if not results and region is not None
+                else "success"
+                if failures == 0
+                else "failed"
+                if failures == len(results)
+                else "partial"
             )
             run.finished_at = self.clock()
             run.instances_seen = sum(result.instances_seen for result in results)
@@ -126,8 +153,10 @@ class SyncRunner:
                     if (result.provider, result.account_id)
                     == (account.provider, account.account_id)
                 ]
-                if account_results and all(
-                    result.status == "success" for result in account_results
+                if (
+                    (account.provider, account.account_id) in complete_accounts
+                    and account_results
+                    and all(result.status == "success" for result in account_results)
                 ):
                     session.execute(
                         update(Account)
