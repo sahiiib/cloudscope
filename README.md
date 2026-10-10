@@ -173,6 +173,17 @@ uv run cloudscope api              # http://localhost:8000
 cd ../frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
+### TOTP MFA
+
+Apply `make migrate` before using the MFA API (migration `0003` adds replay and
+attempt tracking). Authenticated users can enroll with `/api/auth/mfa/setup`,
+scan its QR in Google Authenticator, and confirm with `/api/auth/mfa/enable`.
+The API also provides `/api/auth/mfa/verify-login` and `/api/auth/mfa/disable`.
+All POST requests require `X-Requested-With: cloudscope`. See
+[the MFA flow and manual verification steps](docs/specs/auth.md#mfa-implementation-and-verification).
+The setup URI/QR contains the secret: keep it private. Keep the Fernet key stable
+across API replicas and restarts so enrolled secrets remain decryptable.
+
 ## Security
 
 - Never commit credentials. `.env`, `config/accounts.yaml` and anything under

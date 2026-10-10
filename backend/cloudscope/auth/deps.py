@@ -5,6 +5,7 @@ from typing import Annotated, cast
 from fastapi import Depends, HTTPException, Request
 
 from cloudscope.auth.sessions import COOKIE_NAME, AuthService
+from cloudscope.auth.totp import MFAService
 from cloudscope.db.models import User
 
 
@@ -30,3 +31,10 @@ def require_admin(user: Annotated[User, Depends(current_user)]) -> User:
     if not user.is_admin:
         raise HTTPException(403, "Admin access required")
     return user
+
+
+def get_mfa(request: Request) -> MFAService:
+    service = cast(MFAService | None, getattr(request.app.state, "mfa", None))
+    if service is None:
+        raise HTTPException(503, "MFA unavailable")
+    return service

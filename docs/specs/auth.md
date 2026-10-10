@@ -100,8 +100,46 @@ Password changes require the current password and a new password of at least
 again. Validation errors omit submitted input values. The session table already
 exists from T-005; migration `0002` indexes `sessions.user_id` and adds cascading
 deletion when its user is deleted. Successful login also removes that user’s
-expired sessions in the same transaction. TOTP verification remains T-022.
+expired sessions in the same transaction. T-022 implements the MFA endpoints below.
 
 `/api/docs` and `/api/openapi.json` require an authenticated admin, including in
 local development. A secure cookie requires HTTPS; use the documented
 `CLOUDSCOPE_COOKIE_SECURE=false` only for local HTTP development.
+
+## MFA implementation and verification
+
+Migration `0003` adds nullable `users.totp_last_used_step` and nonnegative
+`sessions.mfa_failures` (default 0). Apply migrations before serving the new API.
+A user row lock serializes enrollment, verification and disable operations
+across sessions/processes. Matching steps in the previous/current/next 30-second
+window are accepted only when newer than the last consumed step. Enabling and
+disabling MFA also consume a code; wait for a fresh code before the next action.
+
+Setup requires a full session, generates a new encrypted pending secret and
+returns an issuer/account provisioning URI plus a standard QR SVG with
+`Cache-Control: no-store`. Repeating setup while disabled replaces the pending
+secret. Setup/enable return 409 when MFA is already enabled; enable requires a
+pending secret. Enabling revokes other sessions while preserving the current
+session which proved possession of the code. Disable requires a full session,
+the password and a fresh code; it clears the secret/replay marker and revokes
+other sessions. Missing/invalid CSRF headers return 403 on all four endpoints.
+
+Verify-login accepts only an unexpired half-session. Wrong, malformed or replayed
+codes increment its persisted failure counter; the fifth failure deletes that
+session. A valid code deletes the old session and creates a full session with a
+fresh random token and `created_at` equal to the verification time. The normal
+idle/absolute caps and cookie flags apply to the new session. A wrong encryption
+key fails closed with a generic 503. Audit logs never include secrets or codes.
+
+Manual Google Authenticator check (requires a phone; automated tests do not
+replace this check):
+1. Log in with a disposable local user and call `POST /api/auth/mfa/setup` with
+   the CSRF header. Display the returned `qr_svg` locally; do not share it or
+   paste the provisioning URI into external QR services.
+2. Scan using Google Authenticator and confirm the account is `cloudscope` /
+   the username. Send its six-digit code to `/api/auth/mfa/enable`.
+3. Log out, log in, wait for a fresh code, and submit it to
+   `/api/auth/mfa/verify-login`. Confirm `/api/auth/me` succeeds and the previous
+   half-session token no longer works.
+4. Use the password and another fresh code to disable MFA; remove the disposable
+   entry from the authenticator afterward.

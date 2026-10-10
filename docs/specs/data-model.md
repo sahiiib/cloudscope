@@ -173,3 +173,8 @@ active but not admins, have MFA disabled, and start with zero failed logins.
 Migration `0002` adds the `ix_sessions_user_id` btree index and
 `ON DELETE CASCADE` on the session user foreign key. Deleting a user deletes
 their sessions; login cleanup and password-change revocation use this index.
+
+Migration `0003` adds nullable bigint `users.totp_last_used_step` for the last
+consumed TOTP timestep, and integer `sessions.mfa_failures` (default 0, check
+`>= 0`) for half-session verification attempts. MFA operations lock the user row
+so replay checks and updates commit atomically across simultaneous requests.
