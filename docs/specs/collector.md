@@ -5,7 +5,12 @@ Entry point: `cloudscope collect [--account ID] [--region R] [--trigger schedule
 `collect` uses exported `Settings` (database URL, Fernet key, accounts path and
 concurrency); it never implicitly loads `.env`. It prints a tab-separated summary
 and exits 0 for success/partial, 1 for failed/configuration/database errors.
-Invalid command-line options return 2. Exception payloads are never printed.
+Invalid command-line options return 2. Setup failures print only safe categories:
+configuration field locations (without inputs/messages), the configured path for
+a missing accounts file, database exception class, the fixed unknown-account
+message, or an unexpected exception class. Invalid YAML reports the `accounts`
+location. Exception payloads are never printed; control characters in field
+locations and file paths are escaped.
 
 `--account` selects an account ID (across providers if shared); an unknown ID is
 an error before reconciliation. `--region` intersects configured/discovered

@@ -26,6 +26,10 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+class AccountFilterError(ValueError):
+    """The requested account ID is absent from the complete configuration."""
+
+
 class SyncRunner:
     """Share providers across workers, but never share SQLAlchemy sessions.
 
@@ -70,7 +74,7 @@ class SyncRunner:
             if account_id is None or account.account_id == account_id
         ]
         if account_id is not None and not selected:
-            raise ValueError("Account filter does not match configuration")
+            raise AccountFilterError("Account filter does not match configuration")
         if region is not None and not region.strip():
             raise ValueError("Region filter cannot be blank")
         with self.sessions.begin() as session:

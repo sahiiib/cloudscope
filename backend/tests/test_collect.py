@@ -107,3 +107,61 @@ def test_bad_configuration_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None
     result = CliRunner().invoke(app, ["collect"])
     assert result.exit_code == 1
     assert "fake-secret" not in result.output
+
+
+@pytest.mark.parametrize(
+    "category,expected",
+    [
+        ("settings", "Configuration invalid: secret_key"),
+        ("accounts", "Configuration invalid: accounts.0.provider"),
+        ("yaml", "Configuration invalid: accounts"),
+        ("missing", "Accounts file not found: "),
+        ("database", "Database error: OperationalError"),
+        ("filter", "Account filter does not match configuration"),
+        ("unknown", "Collection failed: RuntimeError"),
+        ("value", "Collection failed: ValueError"),
+    ],
+)
+def test_collect_failure_categories_are_safe(
+    collect_env: object,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    category: str,
+    expected: str,
+) -> None:
+    from sqlalchemy.exc import OperationalError
+
+    secret = "fake-secret-in-exception-text"
+    args = ["collect"]
+    config = tmp_path / "diagnostic-accounts.yaml"
+    if category == "settings":
+        monkeypatch.setenv("CLOUDSCOPE_SECRET_KEY", secret)
+    elif category in {"accounts", "yaml", "missing"}:
+        monkeypatch.setenv("CLOUDSCOPE_ACCOUNTS_FILE", str(config))
+        if category == "accounts":
+            invalid = ACCOUNT.model_dump()
+            invalid.update(provider=secret, name=secret)
+            config.write_text(yaml.safe_dump({"accounts": [invalid]}))
+        elif category == "yaml":
+            config.write_text(f"accounts: [{secret}")
+        else:
+            expected += str(config)
+    elif category == "filter":
+        args += ["--account", secret]
+    else:
+        error = (
+            OperationalError(secret, {"password": secret}, Exception(secret))
+            if category == "database"
+            else ValueError(secret)
+            if category == "value"
+            else RuntimeError(secret)
+        )
+
+        def fail_engine(*args: object, **kwargs: object) -> None:
+            raise error
+
+        monkeypatch.setattr("cloudscope.cli.create_db_engine", fail_engine)
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 1
+    assert result.output.strip() == expected
+    assert secret not in result.output
