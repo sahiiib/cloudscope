@@ -27,7 +27,7 @@ A task can start when all its dependencies are `done`.
 | T-021 | Sessions and login API | codex | T-020 | done |
 | T-022 | TOTP MFA | codex | T-021 | done |
 | T-023 | Instances, accounts, sync API | codex | T-021, T-012 | todo |
-| T-024 | Admin users API | codex | T-022 | todo |
+| T-024 | Admin users API | codex | T-022 | done |
 | T-030 | UI: app shell, login, MFA step | codex | T-003, T-022 | review |
 | T-031 | UI: search page | codex | T-030, T-023 | todo |
 | T-032 | UI: instance details page | codex | T-031 | todo |
@@ -38,7 +38,7 @@ A task can start when all its dependencies are `done`.
 | T-042 | Local cluster install guide and values | claude | T-041 | todo |
 | T-043 | Deploy to local kubeadm cluster | human + claude | T-042 | todo |
 | T-050 | AWS read-only role StackSet + hub role templates | codex | T-010 | todo |
-| T-051 | Alibaba RAM role Terraform | codex | T-011 | todo |
+| T-051 | Alibaba RAM role Terraform | codex | T-011 | done |
 | T-052 | Roll out roles in all accounts | human | T-050, T-051 | todo |
 | T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | todo |
 
