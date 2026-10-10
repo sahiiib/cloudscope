@@ -20,11 +20,11 @@ export default function ProtectedLayout() {
     onSuccess: () => { queryClient.clear(); navigate('/login', { replace: true }); },
   });
   if (me.isPending) return <main role="status">Checking your session…</main>;
-  if (me.isError) {
+  if (me.isError && !me.data) {
     if (me.error instanceof ApiError && me.error.status === 401) {
       return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
     }
-    return <main><p role="alert">Unable to check your session.</p><button onClick={() => void me.refetch()}>Try again</button></main>;
+    return <main><p role="alert">Unable to check your session.</p><button type="button" onClick={() => void me.refetch()}>Try again</button></main>;
   }
   return <>
     <header className="topbar">
@@ -34,7 +34,7 @@ export default function ProtectedLayout() {
       </nav>
       <details className="user-menu"><summary>{me.data.username}</summary>
         <div><span>{me.data.is_admin ? 'Administrator' : 'Member'}</span>
-          <button onClick={() => logout.mutate()} disabled={logout.isPending}>{logout.isPending ? 'Signing out…' : 'Log out'}</button>
+          <button type="button" onClick={() => logout.mutate()} disabled={logout.isPending}>{logout.isPending ? 'Signing out…' : 'Log out'}</button>
         </div>
       </details>
     </header>
