@@ -35,7 +35,10 @@ test('logout clears cached inventory and returns to login', async () => {
 
 
 test('cached user keeps the shell visible after a failed refetch', async () => {
-  fetchApi.mockRejectedValue(new ApiError(503));
+  fetchApi.mockImplementation(async path => {
+    if (path === '/api/auth/me') throw new ApiError(503);
+    return response([]);
+  });
   const cache = setup('/sync', true);
   expect(screen.getByRole('navigation')).toBeInTheDocument();
   await waitFor(() => expect(cache.getQueryState(['auth', 'me'])?.status).toBe('error'));
