@@ -1,0 +1,15 @@
+# Only application and migration inputs can enter the build context.
+**
+!pyproject.toml
+!uv.lock
+!cloudscope/
+!cloudscope/**
+!alembic.ini
+!migrations/
+!migrations/**
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

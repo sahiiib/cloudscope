@@ -85,3 +85,59 @@ ingress:
 - Database: in-cluster StatefulSet or RDS PostgreSQL (`postgres.enabled=false`,
   `DATABASE_URL` points at RDS).
 - Ingress: AWS Load Balancer Controller, internal ALB, TLS via ACM.
+
+## Image build and validation (T-040)
+
+Build from the repository root, with Docker Buildx:
+
+```sh
+docker buildx build --load -t cloudscope-backend:test backend
+docker buildx build --load -t cloudscope-web:test frontend
+scripts/test-images.sh
+```
+
+The backend runs as UID/GID 10001, listens on all interfaces on port 8000 and
+uses `cloudscope` as its entrypoint. Its default command is `api`; override it
+with `collect` or `create-user <name> --admin`. To run migrations, override the
+entrypoint: `docker run --rm --env-file <runtime-env> --entrypoint alembic
+cloudscope-backend:test upgrade head`. The image includes `alembic.ini` and all
+migrations. No uv installation or source checkout is needed at runtime.
+
+Provide runtime environment variables using a container secret/env mechanism,
+and mount accounts read-only at `/app/config/accounts.yaml` (or override
+`CLOUDSCOPE_ACCOUNTS_FILE`). Paths use `/app` as the working directory. Database
+hosts must be reachable from the container; `localhost` inside it is not the
+host's PostgreSQL. No credentials or account configuration are copied during
+build. The backend context allowlist excludes tests, host virtualenvs and local
+configuration. uv uses the frozen lockfile and installs production dependencies
+plus the package non-editably; no dev dependencies are in the final image.
+
+`CLOUDSCOPE_FORWARDED_ALLOW_IPS` configures the comma-separated proxy IPs/CIDRs
+that uvicorn trusts for forwarded client IP and protocol headers (default
+`127.0.0.1`). The CLI option `--forwarded-allow-ips` overrides the environment.
+The Helm chart (T-041) sets this to the web/ingress pod CIDR; never use `*`.
+Restrict direct API access to those proxies, and have the ingress sanitize
+client-supplied forwarded headers. This preserves individual client IPs for
+login rate limiting and audit logs across ingress → web → API. The web proxy
+preserves the ingress's `X-Forwarded-Proto`, falling back to its own scheme only
+when that header is absent.
+
+The web image builds with Node 20 and runs unprivileged nginx as UID/GID 101 on
+8080. `API_UPSTREAM` defaults to `cloudscope-api:8000`; override it with the API
+service's DNS name/port. The upstream must resolve when nginx starts. `/api/`
+requests retain their path, headers and cookies through the proxy. Other routes
+fall back to index.html for React Router; missing `/assets/` files return 404.
+TLS termination remains the ingress's responsibility; secure auth cookies stay
+enabled by default. The frontend build context also excludes `.env` and host
+node_modules. No build-time credentials or environment-specific API URL are used.
+The nginx base is pinned to `1.30.5-alpine`. A read-only root filesystem needs
+emptyDir mounts on `/etc/nginx/conf.d` and `/tmp` for the nginx entrypoint/runtime.
+
+The Images workflow first smoke-tests both amd64 images as non-root containers,
+checking the CLI, migration discovery, health endpoint, SPA fallback and API
+proxy. It then builds both `linux/amd64` and `linux/arm64` variants on PRs. Only a
+push to `main` logs in to GHCR and publishes `latest` and `sha-<full-commit-sha>`
+for both repositories listed above; PRs never publish. Use immutable SHA tags in
+deployments. GitHub's repository token needs package-write access to the package
+when publishing to an already-existing GHCR repository. No registry token is
+passed into Docker builds.
