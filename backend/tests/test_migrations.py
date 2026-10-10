@@ -50,6 +50,17 @@ def test_migration_schema_and_round_trip(migrated_engine: Engine, alembic_config
                 == "CASCADE"
             )
             connection.commit()
+            command.downgrade(alembic_config, "0002")
+            assert "totp_last_used_step" not in {
+                column["name"] for column in inspect(connection).get_columns("users")
+            }
+            assert "mfa_failures" not in {
+                column["name"] for column in inspect(connection).get_columns("sessions")
+            }
+            connection.commit()
+            command.upgrade(alembic_config, "head")
+            assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+            connection.commit()
             command.downgrade(alembic_config, "0001")
             assert not any(
                 index["name"] == "ix_sessions_user_id"

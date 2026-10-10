@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, cast
 
+from cryptography.fernet import Fernet
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -19,6 +20,7 @@ from cloudscope.api.routes.auth import router as auth_router
 from cloudscope.api.routes.auth import set_session_cookie
 from cloudscope.auth.deps import require_admin
 from cloudscope.auth.sessions import COOKIE_NAME, AuthService, utc_now
+from cloudscope.auth.totp import MFAService
 from cloudscope.config import Settings
 from cloudscope.db.models import User
 from cloudscope.db.session import create_db_engine, create_session_factory
@@ -55,6 +57,7 @@ def create_app(
             except ValidationError:
                 runtime_settings = None
         app.state.auth = None
+        app.state.mfa = None
         if database_engine is not None and runtime_settings is not None:
             app.state.auth = AuthService(
                 create_session_factory(database_engine),
@@ -62,6 +65,9 @@ def create_app(
                 max_age_days=runtime_settings.session_max_age_days,
                 cookie_secure=runtime_settings.cookie_secure,
                 clock=clock,
+            )
+            app.state.mfa = MFAService(
+                app.state.auth, Fernet(runtime_settings.secret_key.get_secret_value().encode())
             )
         try:
             yield

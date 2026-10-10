@@ -154,7 +154,7 @@ class AuthService:
             raise HTTPException(401, "Invalid username or password")
         return result
 
-    def _lookup(
+    def lookup_session(
         self, session: Session, token: str | None, *, require_mfa: bool = True
     ) -> tuple[User, UserSession]:
         if not token or len(token) > 128:
@@ -180,7 +180,7 @@ class AuthService:
 
     def authenticate(self, token: str | None) -> tuple[User, datetime]:
         with self.sessions.begin() as session:
-            user, stored = self._lookup(session, token)
+            user, stored = self.lookup_session(session, token)
             now = self.clock()
             stored.last_seen_at = now
             stored.expires_at = min(now + self.ttl, stored.created_at + self.max_age)
@@ -189,12 +189,12 @@ class AuthService:
 
     def logout(self, token: str | None) -> None:
         with self.sessions.begin() as session:
-            _, stored = self._lookup(session, token, require_mfa=False)
+            _, stored = self.lookup_session(session, token, require_mfa=False)
             session.delete(stored)
 
     def change_password(self, token: str | None, current: str, new: str) -> None:
         with self.sessions.begin() as session:
-            user, _ = self._lookup(session, token)
+            user, _ = self.lookup_session(session, token)
             if not verify_password(current, user.password_hash):
                 raise HTTPException(401, "Invalid current password")
             user.password_hash = hash_password(new)

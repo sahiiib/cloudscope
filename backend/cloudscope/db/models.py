@@ -152,6 +152,7 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     totp_secret_enc: Mapped[str | None] = mapped_column(Text)
+    totp_last_used_step: Mapped[int | None] = mapped_column(BigInteger)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     failed_logins: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -163,6 +164,9 @@ class User(Base):
 
 class UserSession(Base):
     __tablename__ = "sessions"
+    __table_args__ = (CheckConstraint("mfa_failures >= 0", name="mfa_failures"),)
+
+    mfa_failures: Mapped[int] = mapped_column(Integer, server_default=text("0"))
 
     id_hash: Mapped[str] = mapped_column(Text, primary_key=True)
     user_id: Mapped[int] = mapped_column(
