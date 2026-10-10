@@ -18,6 +18,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from cloudscope.api.routes.auth import router as auth_router
 from cloudscope.api.routes.auth import set_session_cookie
+from cloudscope.api.routes.users import router as users_router
 from cloudscope.auth.deps import require_admin
 from cloudscope.auth.sessions import COOKIE_NAME, AuthService, utc_now
 from cloudscope.auth.totp import MFAService
@@ -79,6 +80,7 @@ def create_app(
     app = FastAPI(
         title="Cloudscope", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
     )
+    app.include_router(users_router)
     app.include_router(auth_router)
 
     @app.exception_handler(RequestValidationError)
