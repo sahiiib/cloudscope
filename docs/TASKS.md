@@ -26,7 +26,7 @@ A task can start when all its dependencies are `done`.
 | T-020 | Users, passwords, `create-user` CLI | codex | T-005 | done |
 | T-021 | Sessions and login API | codex | T-020 | done |
 | T-022 | TOTP MFA | codex | T-021 | done |
-| T-023 | Instances, accounts, sync API | codex | T-021, T-012 | todo |
+| T-023 | Instances, accounts, sync API | codex | T-021, T-012 | done |
 | T-024 | Admin users API | codex | T-022 | done |
 | T-030 | UI: app shell, login, MFA step | codex | T-003, T-022 | todo |
 | T-031 | UI: search page | codex | T-030, T-023 | todo |

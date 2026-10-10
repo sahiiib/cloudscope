@@ -16,12 +16,16 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import RequestResponseEndpoint
 
+from cloudscope.api.routes.accounts import router as accounts_router
 from cloudscope.api.routes.auth import router as auth_router
 from cloudscope.api.routes.auth import set_session_cookie
+from cloudscope.api.routes.instances import router as instances_router
+from cloudscope.api.routes.sync import router as sync_router
 from cloudscope.api.routes.users import router as users_router
 from cloudscope.auth.deps import require_admin
 from cloudscope.auth.sessions import COOKIE_NAME, AuthService, utc_now
 from cloudscope.auth.totp import MFAService
+from cloudscope.collector.manual import ManualSync
 from cloudscope.config import Settings
 from cloudscope.db.models import User
 from cloudscope.db.session import create_db_engine, create_session_factory
@@ -59,7 +63,9 @@ def create_app(
                 runtime_settings = None
         app.state.auth = None
         app.state.mfa = None
+        app.state.manual_sync = None
         if database_engine is not None and runtime_settings is not None:
+            app.state.manual_sync = ManualSync(database_engine, runtime_settings)
             app.state.auth = AuthService(
                 create_session_factory(database_engine),
                 ttl_hours=runtime_settings.session_ttl_hours,
@@ -73,6 +79,8 @@ def create_app(
         try:
             yield
         finally:
+            if app.state.manual_sync is not None:
+                app.state.manual_sync.close()
             if engine is None and database_engine is not None:
                 database_engine.dispose()
                 database_engine = None
@@ -82,6 +90,9 @@ def create_app(
     )
     app.include_router(users_router)
     app.include_router(auth_router)
+    app.include_router(instances_router)
+    app.include_router(accounts_router)
+    app.include_router(sync_router)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
