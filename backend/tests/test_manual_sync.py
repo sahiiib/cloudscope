@@ -5,11 +5,10 @@ from threading import Event
 
 import pytest
 from cryptography.fernet import Fernet
-from fastapi import HTTPException
 from pydantic import SecretStr
 from sqlalchemy import Engine, text
 
-from cloudscope.collector.manual import COLLECTION_LOCK_KEY, ManualSync
+from cloudscope.collector.manual import COLLECTION_LOCK_KEY, ManualSync, SyncAlreadyRunning
 from cloudscope.collector.runner import SyncRunner
 from cloudscope.config import Settings
 
@@ -37,9 +36,8 @@ def test_manual_sync_lock_and_failure_release(
         first.start()
         assert entered.wait(5)
         for service in (first, second):
-            with pytest.raises(HTTPException) as exc:
+            with pytest.raises(SyncAlreadyRunning):
                 service.start()
-            assert exc.value.status_code == 409
         release.set()
         first.close()
         with migrated_engine.connect() as connection:
@@ -47,9 +45,8 @@ def test_manual_sync_lock_and_failure_release(
                 text("SELECT pg_try_advisory_lock(:key)"), {"key": COLLECTION_LOCK_KEY}
             )
             try:
-                with pytest.raises(HTTPException) as exc:
+                with pytest.raises(SyncAlreadyRunning):
                     second.start()
-                assert exc.value.status_code == 409
             finally:
                 connection.execute(
                     text("SELECT pg_advisory_unlock(:key)"), {"key": COLLECTION_LOCK_KEY}

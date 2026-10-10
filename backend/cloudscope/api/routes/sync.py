@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from cloudscope.api.routes.instances import Auth
 from cloudscope.auth.deps import current_user, require_admin, require_csrf
-from cloudscope.collector.manual import ManualSync
+from cloudscope.collector.manual import ManualSync, SyncAlreadyRunning, SyncConfigError
 from cloudscope.db.models import SyncResult, SyncRun
 
 router = APIRouter(prefix="/api/sync/runs", dependencies=[Depends(current_user)])
@@ -67,5 +67,10 @@ def start_run(request: Request) -> dict[str, str]:
     service = cast(ManualSync | None, getattr(request.app.state, "manual_sync", None))
     if service is None:
         raise HTTPException(503, "Collection unavailable")
-    service.start()
+    try:
+        service.start()
+    except SyncAlreadyRunning:
+        raise HTTPException(409, "Another collection is running") from None
+    except SyncConfigError:
+        raise HTTPException(503, "Collection unavailable") from None
     return {"status": "accepted"}

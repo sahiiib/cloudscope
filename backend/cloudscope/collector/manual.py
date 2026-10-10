@@ -4,7 +4,6 @@ import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Lock
 
-from fastapi import HTTPException
 from sqlalchemy import Engine, text
 
 from cloudscope.collector.alibaba import AlibabaProvider
@@ -17,6 +16,14 @@ logger = logging.getLogger(__name__)
 COLLECTION_LOCK_KEY = 1129530192
 
 
+class SyncAlreadyRunning(Exception):
+    """A collector already owns the collection lock."""
+
+
+class SyncConfigError(Exception):
+    """Collection could not be started; details must remain private."""
+
+
 class ManualSync:
     def __init__(self, engine: Engine, settings: Settings) -> None:
         self.engine, self.settings = engine, settings
@@ -25,13 +32,13 @@ class ManualSync:
 
     def start(self) -> None:
         if not self.guard.acquire(blocking=False):
-            raise HTTPException(409, "Another collection is running")
+            raise SyncAlreadyRunning("Another collection is running")
         ready: Future[None] = Future()
         try:
             self.pool.submit(self._run, ready)
         except Exception:
             self.guard.release()
-            raise HTTPException(503, "Collection unavailable") from None
+            raise SyncConfigError("Collection unavailable") from None
         ready.result()
 
     def _run(self, ready: Future[None]) -> None:
@@ -41,7 +48,7 @@ class ManualSync:
                     text("SELECT pg_try_advisory_lock(:key)"), {"key": COLLECTION_LOCK_KEY}
                 )
                 if not acquired:
-                    raise HTTPException(409, "Another collection is running")
+                    raise SyncAlreadyRunning("Another collection is running")
                 try:
                     accounts = load_accounts(self.settings.accounts_file)
                     runner = SyncRunner(
@@ -59,8 +66,8 @@ class ManualSync:
             if not ready.done():
                 ready.set_exception(
                     exc
-                    if isinstance(exc, HTTPException)
-                    else HTTPException(503, "Collection unavailable")
+                    if isinstance(exc, SyncAlreadyRunning)
+                    else SyncConfigError("Collection unavailable")
                 )
             else:
                 logger.error("event=manual_sync_failed error=%s", type(exc).__name__)

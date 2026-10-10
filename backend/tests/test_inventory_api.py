@@ -148,14 +148,14 @@ def test_auth_and_sync_history(
 
 
 def test_manual_sync_response(client: TestClient, db_session: Session, user: User) -> None:
-    from fastapi import HTTPException
+    from cloudscope.collector.manual import SyncAlreadyRunning
 
     class Service:
         running = False
 
         def start(self) -> None:
             if self.running:
-                raise HTTPException(409, "Another collection is running")
+                raise SyncAlreadyRunning()
             self.running = True
 
     user.is_admin = True
@@ -165,5 +165,63 @@ def test_manual_sync_response(client: TestClient, db_session: Session, user: Use
         login(client)
         assert client.post("/api/sync/runs", headers=CSRF).status_code == 202
         assert client.post("/api/sync/runs", headers=CSRF).status_code == 409
+    finally:
+        client.app.state.manual_sync = None
+
+
+def test_account_sort_uses_name(client: TestClient, db_session: Session, inventory: None) -> None:
+    # Reverse account-name order relative to provider/account IDs.
+    db_session.get_one(Account, ("aws", "111111111111")).name = "Zulu"
+    db_session.get_one(Account, ("alibaba", "222222222222")).name = "Alpha"
+    db_session.commit()
+    login(client)
+    items = client.get("/api/instances?sort=account").json()["items"]
+    assert [item["account_name"] for item in items] == ["Alpha", "Zulu", "Zulu"]
+
+
+def test_launch_time_nulls_last(client: TestClient, db_session: Session, inventory: None) -> None:
+    from datetime import UTC, datetime
+
+    from sqlalchemy import select
+
+    rows = list(db_session.scalars(select(Instance).where(Instance.present).order_by(Instance.id)))
+    rows[0].launch_time = None
+    rows[1].launch_time = datetime(2026, 2, 1, tzinfo=UTC)
+    rows[2].launch_time = datetime(2026, 1, 1, tzinfo=UTC)
+    db_session.commit()
+    login(client)
+    items = client.get("/api/instances?sort=launch_time").json()["items"]
+    assert [item["instance_id"] for item in items] == [
+        rows[2].instance_id,
+        rows[1].instance_id,
+        rows[0].instance_id,
+    ]
+    assert items[-1]["launch_time"] is None
+
+
+def test_missing_instance_detail(client: TestClient, inventory: None) -> None:
+    login(client)
+    response = client.get("/api/instances/aws/111111111111/eu-central-1/i-test-3")
+    assert response.status_code == 200
+    assert response.json()["present"] is False
+
+
+def test_manual_sync_config_error_is_sanitized(
+    client: TestClient, db_session: Session, user: User
+) -> None:
+    from cloudscope.collector.manual import SyncConfigError
+
+    class Service:
+        def start(self) -> None:
+            raise SyncConfigError("private-placeholder")
+
+    user.is_admin = True
+    db_session.commit()
+    client.app.state.manual_sync = Service()
+    try:
+        login(client)
+        response = client.post("/api/sync/runs", headers=CSRF)
+        assert response.status_code == 503
+        assert response.json() == {"detail": "Collection unavailable"}
     finally:
         client.app.state.manual_sync = None
