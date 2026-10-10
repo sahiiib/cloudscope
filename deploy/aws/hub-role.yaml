@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cloudscope EKS Pod Identity hub role; only assumes inventory roles.
+Parameters:
+  ClusterArn:
+    Type: String
+    Description: ARN of the EKS cluster running Cloudscope in this account.
+    AllowedPattern: 'arn:aws[a-zA-Z-]*:eks:[a-z0-9-]+:[0-9]{12}:cluster/[A-Za-z0-9][A-Za-z0-9_-]*'
+  Namespace:
+    Type: String
+    Default: cloudscope
+    Description: Namespace containing the cloudscope Kubernetes service account.
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: '[a-z0-9]([a-z0-9-]*[a-z0-9])?'
+Resources:
+  HubRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudscope-hub
+      Description: EKS Pod Identity for the Cloudscope collector.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: pods.eks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+              - sts:TagSession
+            Condition:
+              StringEquals:
+                aws:RequestTag/eks-cluster-arn: !Ref ClusterArn
+                aws:RequestTag/kubernetes-namespace: !Ref Namespace
+                aws:RequestTag/kubernetes-service-account: cloudscope
+      Policies:
+        - PolicyName: cloudscope-assume-readonly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::*:role/cloudscope-readonly'
+Outputs:
+  RoleArn:
+    Description: HubRoleArn for the read-only StackSet and the Pod Identity association.
+    Value: !GetAtt HubRole.Arn
