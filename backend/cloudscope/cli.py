@@ -15,6 +15,7 @@ from cloudscope.auth.passwords import hash_password
 from cloudscope.collector.alibaba import AlibabaProvider
 from cloudscope.collector.aws import AWSProvider
 from cloudscope.collector.base import Provider
+from cloudscope.collector.manual import COLLECTION_LOCK_KEY
 from cloudscope.collector.runner import AccountFilterError, SyncRunner
 from cloudscope.config import AccountsConfigError, Settings, load_accounts
 from cloudscope.db.models import SyncResult, User
@@ -103,9 +104,9 @@ def collect(
         engine = create_db_engine(settings.database_url.get_secret_value())
         factory = create_session_factory(engine)
         # A session-level advisory lock serializes CLI processes across hosts.
-        # Future API/manual callers must use this same lock key.
+        # API/manual callers use this same lock key.
         with engine.connect() as lock:
-            lock_key = 1129530192  # Stable Cloudscope collection lock, database-scoped.
+            lock_key = COLLECTION_LOCK_KEY
             acquired = lock.scalar(text("SELECT pg_try_advisory_lock(:key)"), {"key": lock_key})
             if not acquired:
                 typer.echo("Another collection is running.", err=True)
