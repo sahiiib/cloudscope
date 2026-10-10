@@ -34,7 +34,7 @@ A task can start when all its dependencies are `done`.
 | T-033 | UI: sync status page | codex | T-030, T-023 | todo |
 | T-034 | UI: settings (password, MFA, users) | codex | T-030, T-024 | todo |
 | T-040 | Dockerfiles and image build in CI | codex | T-013, T-003 | done |
-| T-041 | Helm chart | codex | T-040 | todo |
+| T-041 | Helm chart | codex | T-040 | review |
 | T-042 | Local cluster install guide and values | claude | T-041 | todo |
 | T-043 | Deploy to local kubeadm cluster | human + claude | T-042 | todo |
 | T-050 | AWS read-only role StackSet + hub role templates | codex | T-010 | done |

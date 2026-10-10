@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "cs.name" . }}-migrate
+  annotations:
+    # Managed DB/Secret must exist before a first-install migration can run.
+    helm.sh/hook: {{ if or .Values.postgres.enabled .Values.secrets.create }}post-install,post-upgrade{{ else }}pre-install,pre-upgrade{{ end }}
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "cs.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      imagePullSecrets: {{ .Values.imagePullSecrets | toJson }}
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      initContainers:
+        - name: wait-for-database
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          command: [python, -c]
+          args:
+            - |
+              import os, time
+              from sqlalchemy import create_engine, text
+              engine = create_engine(os.environ["CLOUDSCOPE_DATABASE_URL"], connect_args={"connect_timeout": 5})
+              for attempt in range(30):
+                  try:
+                      with engine.connect() as connection:
+                          connection.execute(text("SELECT 1"))
+                      break
+                  except Exception:
+                      time.sleep(3)
+              else:
+                  raise SystemExit("Database did not become ready")
+          securityContext: {{- include "cs.security" . | nindent 12 }}
+          env:
+            - name: CLOUDSCOPE_DATABASE_URL
+              valueFrom:
+                secretKeyRef: {name: {{ include "cs.secret" . }}, key: DATABASE_URL}
+          resources: {{ .Values.resources.migrate | toJson }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          command: [alembic]
+          args: [upgrade, head]
+          securityContext: {{- include "cs.security" . | nindent 12 }}
+          env:
+            - name: CLOUDSCOPE_DATABASE_URL
+              valueFrom:
+                secretKeyRef: {name: {{ include "cs.secret" . }}, key: DATABASE_URL}
+          resources: {{ .Values.resources.migrate | toJson }}

@@ -141,3 +141,15 @@ for both repositories listed above; PRs never publish. Use immutable SHA tags in
 deployments. GitHub's repository token needs package-write access to the package
 when publishing to an already-existing GHCR repository. No registry token is
 passed into Docker builds.
+
+## Helm implementation (T-041)
+
+See the [chart README](../../deploy/helm/cloudscope/README.md) for values, Secret
+keys, proxy CIDRs and installation. Internal PostgreSQL also requires the
+`POSTGRES_PASSWORD` Secret key, matching the password in `DATABASE_URL`.
+
+Bootstrap deviation: when PostgreSQL or the Secret is chart-managed, migration
+is a `post-install,post-upgrade` hook so those resources exist first. With an
+external database and existing Secret it remains `pre-install,pre-upgrade`.
+A bounded database readiness check precedes Alembic. This ordering and its
+upgrade limitation are documented in the chart README.

@@ -1,0 +1,62 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cs.name" . }}-postgres
+spec:
+  clusterIP: None
+  selector:
+    {{- include "cs.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  ports: [{name: postgres, port: 5432}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "cs.name" . }}-postgres
+spec:
+  serviceName: {{ include "cs.name" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cs.labels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "cs.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, fsGroup: 999, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image | quote }}
+          securityContext: {{- include "cs.security" . | nindent 12 }}
+          env:
+            - {name: POSTGRES_USER, value: {{ .Values.postgres.user | quote }}}
+            - {name: POSTGRES_DB, value: {{ .Values.postgres.database | quote }}}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ include "cs.secret" . }}, key: POSTGRES_PASSWORD}
+          ports: [{name: postgres, containerPort: 5432}]
+          readinessProbe:
+            exec: {command: [pg_isready, -U, {{ .Values.postgres.user | quote }}, -d, {{ .Values.postgres.database | quote }}]}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: run, mountPath: /var/run/postgresql}
+            - {name: tmp, mountPath: /tmp}
+          resources: {{ .Values.resources.postgres | toJson }}
+      volumes:
+        - {name: run, emptyDir: {}}
+        - {name: tmp, emptyDir: {}}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- if .Values.postgres.storageClass }}
+        storageClassName: {{ .Values.postgres.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.postgres.size | quote }}}}
+{{- end }}

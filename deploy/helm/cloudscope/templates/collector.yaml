@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "cs.name" . }}-collector
+spec:
+  schedule: {{ .Values.collector.schedule | quote }}
+  suspend: {{ .Values.collector.suspend }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            {{- include "cs.labels" . | nindent 12 }}
+            app.kubernetes.io/component: collector
+        spec:
+          {{- include "cs.backendPod" . | nindent 10 }}
+          restartPolicy: Never
+          containers:
+            - name: collector
+              image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+              args: [collect, --trigger, schedule]
+              securityContext: {{- include "cs.security" . | nindent 16 }}
+              env: {{- include "cs.env" . | nindent 16 }}
+              volumeMounts: {{- include "cs.mounts" . | nindent 16 }}
+              resources: {{ .Values.resources.collector | toJson }}

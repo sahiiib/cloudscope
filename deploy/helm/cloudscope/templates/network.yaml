@@ -1,0 +1,23 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- range $target, $sources := dict "postgres" (list "api" "collector" "migrate") "api" (list "web") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "cs.name" $ }}-{{ $target }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cs.labels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $target }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {{- include "cs.labels" $ | nindent 14 }}
+            matchExpressions:
+              - {key: app.kubernetes.io/component, operator: In, values: {{ $sources | toJson }}}
+      ports:
+        - {protocol: TCP, port: {{ if eq $target "postgres" }}5432{{ else }}8000{{ end }}}
+{{- end }}
+{{- end }}
