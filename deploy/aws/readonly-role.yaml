@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cloudscope read-only inventory role, deployed once per account with StackSets.
+Parameters:
+  HubRoleArn:
+    Type: String
+    Description: ARN of the cloudscope-hub role in the hub account.
+    AllowedPattern: 'arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/.+'
+  ExternalId:
+    Type: String
+    Default: cloudscope
+    MinLength: 2
+    MaxLength: 1224
+    AllowedPattern: '[A-Za-z0-9_+=,.@:/-]+'
+    Description: Must match external_id in the collector accounts configuration.
+Resources:
+  ReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudscope-readonly
+      Description: Read-only EC2 and VPC inventory for Cloudscope.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref HubRoleArn
+            Action:
+              - sts:AssumeRole
+              - sts:TagSession
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: cloudscope-inventory
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeRegions
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSecurityGroupRules
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeInstanceTypes
+                  - ec2:DescribeImages
+                  - ec2:DescribeKeyPairs
+Outputs:
+  RoleArn:
+    Description: Use as role_arn for this account in accounts.yaml.
+    Value: !GetAtt ReadOnlyRole.Arn
