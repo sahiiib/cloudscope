@@ -25,3 +25,12 @@ frontend/dist/
 .idea/
 .vscode/
 .DS_Store
+
+# Terraform local state and account-specific inputs
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+crash.log

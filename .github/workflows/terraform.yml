@@ -1,0 +1,25 @@
+name: Terraform
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  alibaba-validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy/alibaba
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.9
+      - run: terraform init -backend=false -input=false -lockfile=readonly
+      - run: terraform fmt -check -recursive
+      - run: terraform validate
+      - run: terraform test
