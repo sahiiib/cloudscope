@@ -8,20 +8,21 @@ export class ApiError extends Error {
 /** Fetch a same-origin API endpoint; callers decode the response body. */
 export async function apiFetch(
   path: `/api/${string}`,
-  options: RequestInit = {},
+  options: RequestInit & { redirectOnUnauthorized?: boolean } = {},
 ): Promise<Response> {
-  const headers = new Headers(options.headers);
+  const { redirectOnUnauthorized = true, ...requestOptions } = options;
+  const headers = new Headers(requestOptions.headers);
   headers.set('X-Requested-With', 'cloudscope');
 
   const response = await fetch(path, {
-    ...options,
+    ...requestOptions,
     headers,
     credentials: 'same-origin',
   });
 
   const isLoginRequest =
     path.startsWith('/api/auth/login') || path.startsWith('/api/auth/mfa/verify-login');
-  if (response.status === 401 && !isLoginRequest && window.location.pathname !== '/login') {
+  if (redirectOnUnauthorized && response.status === 401 && !isLoginRequest && window.location.pathname !== '/login') {
     window.location.assign('/login');
   }
   if (!response.ok) {
