@@ -57,3 +57,17 @@ shows per account/region results with errors. Admins get a "Sync now" button.
 - Change password.
 - Enable MFA (show QR, confirm code) / disable MFA.
 - Admin only: users list, create user, deactivate, reset MFA.
+
+## App shell implementation (T-030)
+
+The shell checks `/api/auth/me` before rendering protected routes. A 401 returns
+to login and preserves the requested in-app path; a network/server failure shows
+a retry action. Login and MFA failures remain inline, including rate limiting.
+Passwords/codes stay only in component state and are cleared after submission;
+no tokens or credentials are written to browser storage. A user menu shows the
+username/role and logout. Successful login/logout clears the query cache.
+
+Search, Sync and Settings currently have protected placeholder pages; their full
+content belongs to T-031, T-033 and T-034. Layout adapts to narrow screens and OS
+light/dark preference. The shared HTTP client still redirects other 401s; the
+route guard explicitly handles its own redirect to retain the destination.
