@@ -1,0 +1,18 @@
+.settings-page { display: grid; gap: 1rem; }
+.settings-page > h1, .settings-page > p { margin: 0; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); gap: 1.5rem; }
+.settings-card { border: 1px solid var(--border); border-radius: .6rem; padding: 1.5rem; align-self: start; min-width: 0; }
+.settings-card h2 { margin-top: 0; }
+.settings-card fieldset { display: grid; gap: 1rem; padding: 0; margin: 0; border: 0; min-width: 0; }
+.settings-card form { max-width: 30rem; }
+.settings-check { display: flex; align-items: center; gap: .5rem; }
+.settings-check input { width: auto; }
+.settings-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.settings-table-scroll { overflow-x: auto; }
+.settings-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.settings-table th, .settings-table td { text-align: left; padding: .75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.settings-table button { font-size: .85rem; }
+.settings-confirm { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border); background: var(--surface); border-radius: .4rem; }
+.mfa-enrollment { display: grid; gap: 1rem; margin-bottom: 1rem; }
+.mfa-enrollment img { background: white; max-width: 100%; height: auto; padding: 1rem; }
+.mfa-uri { display: block; overflow-wrap: anywhere; padding: 1rem 0; }
