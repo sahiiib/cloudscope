@@ -26,7 +26,8 @@ For local development and the local cluster we use existing test access keys.
 
 1. **Hub role** `cloudscope-hub` in the account that runs EKS. Trusted by EKS
    Pod Identity (`pods.eks.amazonaws.com`) for the `cloudscope` service account.
-   Permission: only
+   The trust allows `sts:AssumeRole` and `sts:TagSession`, because Pod Identity
+   attaches session tags. Permission: only
    ```json
    {"Effect": "Allow", "Action": "sts:AssumeRole",
     "Resource": "arn:aws:iam::*:role/cloudscope-readonly"}
@@ -34,7 +35,9 @@ For local development and the local cluster we use existing test access keys.
 2. **Read-only role** `cloudscope-readonly` in every account, deployed with a
    CloudFormation StackSet from the management account
    (`deploy/aws/readonly-role.yaml`). Trust: the hub role ARN, condition
-   `sts:ExternalId = cloudscope`. Permissions:
+   `sts:ExternalId = cloudscope`. The trust allows `sts:AssumeRole` and
+   `sts:TagSession`, because Pod Identity session tags are transitive in the
+   role chain. Permissions:
    ```json
    {"Effect": "Allow", "Resource": "*", "Action": [
      "ec2:DescribeInstances", "ec2:DescribeRegions",
