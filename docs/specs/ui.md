@@ -71,3 +71,14 @@ Search, Sync and Settings currently have protected placeholder pages; their full
 content belongs to T-031, T-033 and T-034. Layout adapts to narrow screens and OS
 light/dark preference. The shared HTTP client still redirects other 401s; the
 route guard explicitly handles its own redirect to retain the destination.
+
+## Search implementation (T-031)
+
+The search route now fetches inventory and facets with TanStack Query. Search is
+sent after 300 ms; repeatable filters, missing visibility, sort and pagination
+are shareable URL parameters and restore on browser navigation. Changing a
+filter/sort/page size resets pagination. The default size is 50 (maximum 500).
+Rows expose detail links for T-032, ID copy, state badges, all default fields,
+relative launch dates with exact timestamps, and the first three tags. Loading,
+empty and retryable error states are inline; facet counts can fail independently
+of inventory. No inventory or credentials are persisted in browser storage.
