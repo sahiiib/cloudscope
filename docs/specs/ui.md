@@ -71,3 +71,13 @@ Search, Sync and Settings currently have protected placeholder pages; their full
 content belongs to T-031, T-033 and T-034. Layout adapts to narrow screens and OS
 light/dark preference. The shared HTTP client still redirects other 401s; the
 route guard explicitly handles its own redirect to retain the destination.
+
+## Sync implementation (T-033)
+
+The Sync route loads the latest 20 runs and refreshes every five seconds while
+visible. Expanding a run fetches its per-account/region results, including errors
+and duration; unfinished details also refresh until complete. Cached history
+remains visible during a refetch failure. Administrators can request a manual
+sync; the button is disabled while a request or a known run is active. Conflicts
+and unavailable collection are shown inline and history is refreshed after the
+request. Non-admin users only see history and refresh controls.
