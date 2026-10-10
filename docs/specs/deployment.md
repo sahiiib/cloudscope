@@ -112,6 +112,16 @@ build. The backend context allowlist excludes tests, host virtualenvs and local
 configuration. uv uses the frozen lockfile and installs production dependencies
 plus the package non-editably; no dev dependencies are in the final image.
 
+`CLOUDSCOPE_FORWARDED_ALLOW_IPS` configures the comma-separated proxy IPs/CIDRs
+that uvicorn trusts for forwarded client IP and protocol headers (default
+`127.0.0.1`). The CLI option `--forwarded-allow-ips` overrides the environment.
+The Helm chart (T-041) sets this to the web/ingress pod CIDR; never use `*`.
+Restrict direct API access to those proxies, and have the ingress sanitize
+client-supplied forwarded headers. This preserves individual client IPs for
+login rate limiting and audit logs across ingress → web → API. The web proxy
+preserves the ingress's `X-Forwarded-Proto`, falling back to its own scheme only
+when that header is absent.
+
 The web image builds with Node 20 and runs unprivileged nginx as UID/GID 101 on
 8080. `API_UPSTREAM` defaults to `cloudscope-api:8000`; override it with the API
 service's DNS name/port. The upstream must resolve when nginx starts. `/api/`
@@ -120,6 +130,8 @@ fall back to index.html for React Router; missing `/assets/` files return 404.
 TLS termination remains the ingress's responsibility; secure auth cookies stay
 enabled by default. The frontend build context also excludes `.env` and host
 node_modules. No build-time credentials or environment-specific API URL are used.
+The nginx base is pinned to `1.30.5-alpine`. A read-only root filesystem needs
+emptyDir mounts on `/etc/nginx/conf.d` and `/tmp` for the nginx entrypoint/runtime.
 
 The Images workflow first smoke-tests both amd64 images as non-root containers,
 checking the CLI, migration discovery, health endpoint, SPA fallback and API

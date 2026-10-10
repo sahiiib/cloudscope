@@ -32,9 +32,17 @@ def main() -> None:
 def api(
     host: str = typer.Option("127.0.0.1", envvar="CLOUDSCOPE_API_HOST"),
     port: int = typer.Option(8000, envvar="CLOUDSCOPE_API_PORT"),
+    forwarded_allow_ips: str = typer.Option("127.0.0.1", envvar="CLOUDSCOPE_FORWARDED_ALLOW_IPS"),
 ) -> None:
     """Serve the HTTP API."""
-    uvicorn.run("cloudscope.api.app:create_app", factory=True, host=host, port=port)
+    uvicorn.run(
+        "cloudscope.api.app:create_app",
+        factory=True,
+        host=host,
+        port=port,
+        proxy_headers=True,
+        forwarded_allow_ips=forwarded_allow_ips,
+    )
 
 
 @app.command()
