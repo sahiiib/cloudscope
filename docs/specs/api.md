@@ -106,3 +106,36 @@ Distinct values with counts for filters, respecting the other filters:
 | GET | `/api/sync/runs?limit=20` | Recent runs with summary |
 | GET | `/api/sync/runs/{id}` | Run plus per account/region results |
 | POST | `/api/sync/runs` | Admin. Starts a manual run in a background thread; `409` if one is running |
+
+### Inventory and sync query semantics
+
+Repeated values within one filter are ORed; different filters and repeated tags
+are ANDed. Free text treats `%` and `_` literally. Facets omit their own dimension
+while retaining every other filter (including tags/search/missing). Account facet
+values are account IDs; accounts with the same ID across providers share a bucket.
+Sorting uses nulls last and a stable instance-ID database tie-breaker. Account
+sorting uses account name. Account counts include present instances only; disabled
+and empty accounts remain listed. Detail lookup also allows missing instances.
+
+Sync history defaults to 20 runs, with `limit` between 1 and 500. Run detail adds
+`results` containing provider, account_id, region, status, instances_seen, error,
+and duration_ms. Manual sync returns `202 {"status": "accepted"}`; clients poll
+history for progress. It shares the CLI's database advisory lock and returns 409
+while either caller is collecting. Invalid collection configuration returns a
+sanitized 503. API shutdown waits for its collection thread to finish.
+### Admin user management semantics
+
+User responses contain `id`, `username`, `is_admin`, `is_active`, `mfa_enabled`,
+`created_at`, and `last_login_at`; hashes, encrypted secrets and lockout state are
+never returned. Create returns 201 (409 for an existing username); usernames must
+be nonblank, at most 256 characters, without surrounding whitespace. Passwords
+must be at least 12 characters. PATCH returns the updated user; omitted fields
+remain unchanged, explicit nulls and unknown fields are rejected. Unknown IDs
+return 404. MFA reset returns 204.
+
+All mutations require an admin full session and the CSRF header. Password or
+privilege/activity changes revoke all of the target's sessions. Password reset
+also clears password lockout counters. MFA reset clears enrollment and replay
+state and revokes both full and half sessions. Self changes clear the cookie.
+Removing the last active administrator returns 409; admin mutations serialize
+this check and recheck the actor's authorization inside the transaction.

@@ -72,3 +72,13 @@ describe('apiFetch', () => {
     expect(assign).not.toHaveBeenCalled();
   });
 });
+
+test('allows the route guard to handle 401 without a full page redirect', async () => {
+  const assign = vi.fn();
+  vi.stubGlobal('location', { assign, pathname: '/sync' });
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+  vi.stubGlobal('fetch', fetchMock);
+  await expect(apiFetch('/api/auth/me', { redirectOnUnauthorized: false })).rejects.toMatchObject({ status: 401 });
+  expect(assign).not.toHaveBeenCalled();
+  expect(fetchMock.mock.calls[0][1]).not.toHaveProperty('redirectOnUnauthorized');
+});
