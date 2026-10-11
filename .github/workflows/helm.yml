@@ -18,3 +18,9 @@ jobs:
       - run: helm template cloudscope deploy/helm/cloudscope --set image.backend.tag=sha-${{ github.sha }},image.web.tag=sha-${{ github.sha }} > /tmp/cloudscope.yaml
       - working-directory: backend
         run: uv run --frozen pytest tests/test_helm_chart.py
+      - name: Render with the local-cluster example values
+        run: |
+          helm lint deploy/helm/cloudscope -f deploy/helm/values.local.example.yaml
+          helm template cloudscope deploy/helm/cloudscope -f deploy/helm/values.local.example.yaml > /tmp/local.yaml
+          grep -q 'ingressClassName: "istio"' /tmp/local.yaml
+          grep -q 'storageClassName: "local-path"' /tmp/local.yaml

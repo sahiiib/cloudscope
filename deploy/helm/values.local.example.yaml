@@ -1,0 +1,64 @@
+# Values for the local kubeadm cluster (Proxmox, Calico, Istio, local-path).
+# Guide: docs/install-local.md
+#
+# Copy to deploy/helm/values.local.yaml (git-ignored) and fill in the
+# placeholders there. That copy holds real account IDs: never commit it.
+
+image:
+  # Immutable tags pushed by CI for a main commit: sha-<full 40-char sha>.
+  backend: {repository: ghcr.io/sahiiib/cloudscope-backend, tag: "sha-REPLACE_WITH_MAIN_SHA"}
+  web: {repository: ghcr.io/sahiiib/cloudscope-web, tag: "sha-REPLACE_WITH_MAIN_SHA"}
+
+# GHCR packages of a private repo need a pull secret (see the guide, step 3).
+imagePullSecrets:
+  - name: ghcr-pull
+
+# Pre-created by hand (see the guide, step 3). Never put secrets in this file.
+existingSecret: cloudscope
+
+# Same shape as config/accounts.example.yaml. Test-key mode: no role_arn.
+accounts:
+  - provider: aws
+    account_id: "111111111111"
+    name: aws-test
+    regions: all
+  - provider: alibaba
+    account_id: "1111111111111111"
+    name: alibaba-test
+    regions: all
+
+api:
+  replicas: 2
+  # Calico pod CIDR (kubectl get ippools -o yaml | grep cidr). The API only
+  # trusts X-Forwarded-For from these addresses. Never '*'.
+  forwardedAllowIPs: "10.244.0.0/16"
+  # Plain HTTP on the LAN through the Istio NodePort, so the session cookie
+  # cannot be Secure. Set back to true as soon as the app is served over TLS.
+  cookieSecure: false
+
+web:
+  replicas: 2
+
+collector:
+  schedule: "*/15 * * * *"
+  concurrency: 8
+  suspend: false
+
+postgres:
+  enabled: true
+  # rancher/local-path-provisioner: data lives on one node's disk. Not the
+  # default StorageClass on this cluster, so it must be named here.
+  storageClass: local-path
+  size: 10Gi
+
+# The cluster has Istio, not ingress-nginx. istiod serves Kubernetes Ingress
+# objects whose class is "istio" through istio-ingressgateway (NodePort 31008).
+ingress:
+  enabled: true
+  className: istio
+  annotations: {}
+  host: cloudscope.home.arpa
+  tls: []
+
+networkPolicy:
+  enabled: true

@@ -35,7 +35,7 @@ A task can start when all its dependencies are `done`.
 | T-034 | UI: settings (password, MFA, users) | codex | T-030, T-024 | done |
 | T-040 | Dockerfiles and image build in CI | codex | T-013, T-003 | done |
 | T-041 | Helm chart | codex | T-040 | done |
-| T-042 | Local cluster install guide and values | claude | T-041 | todo |
+| T-042 | Local cluster install guide and values | claude | T-041 | review |
 | T-043 | Deploy to local kubeadm cluster | human + claude | T-042 | todo |
 | T-050 | AWS read-only role StackSet + hub role templates | codex | T-010 | done |
 | T-051 | Alibaba RAM role Terraform | codex | T-011 | done |
@@ -264,7 +264,9 @@ in-cluster Postgres on/off, existingSecret, IRSA annotations, ingress on/off.
 ### T-042: Local cluster install guide and values
 Owner: claude · Specs: [deployment](specs/deployment.md#local-cluster-kubeadm-3-nodes-on-proxmox)
 
-- `deploy/helm/values.local.yaml` and `docs/install-local.md`.
+- `deploy/helm/values.local.yaml` and `docs/install-local.md`. (Delivered as
+  `values.local.example.yaml`; the filled-in `values.local.yaml` is git-ignored
+  because it holds real account IDs.)
 
 ### T-043: Deploy to local kubeadm cluster
 Owner: human + claude

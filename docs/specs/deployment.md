@@ -56,6 +56,10 @@ ingress:
 
 ## Local cluster (kubeadm, 3 nodes on Proxmox)
 
+Step-by-step guide for the actual cluster (Istio gateway, `local-path`,
+Calico): [install-local.md](../install-local.md), with values in
+`deploy/helm/values.local.example.yaml`.
+
 1. **Storage**: if the cluster has no default StorageClass, install
    `rancher/local-path-provisioner` (simple, node-local) or Longhorn
    (replicated across the 3 nodes, recommended if the data should survive a
