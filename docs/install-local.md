@@ -12,7 +12,7 @@ What this cluster has, and what the guide assumes:
 | Pod CIDR | Calico pool `10.244.0.0/16`, does not overlap the LAN |
 | Ingress | Istio: `istio-ingressgateway` Service, NodePort `31008` (HTTP) / `32497` (HTTPS); no MetalLB |
 | CNI | Calico, which enforces the chart's NetworkPolicies |
-| Exposure | LAN only. No cloudflared tunnel: the app is not on the internet |
+| Exposure | LAN through the Istio gateway; until the move to EKS, also a Cloudflare tunnel (see "Cloudflare tunnel") |
 
 Run every command from a machine with `kubectl` and `helm` (3.x) pointed at
 the cluster, inside a checkout of this repository.
@@ -155,6 +155,37 @@ kubectl -n cloudscope get jobs --watch
 
 Set the new `sha-<sha>` in both image tags, then rerun the `helm upgrade
 --install` command from step 5. Migrations run before the new pods roll out.
+
+## Cloudflare tunnel (temporary, until EKS)
+
+The tunnel puts the app on the internet, so login and MFA become the only
+gate. Do these before adding the route:
+
+1. Every user has MFA enabled (Settings), the admin first.
+2. Put a Cloudflare Access application with an allow policy for your own
+   e-mail in front of the hostname. Then strangers never reach the login page.
+
+In the existing cloudflared tunnel, add a public hostname (for example
+`cloudscope.<your-domain>`) whose service points straight at the web Service,
+not at Istio:
+
+```
+http://cloudscope-web.cloudscope.svc.cluster.local:8080
+```
+
+No chart change is needed. The web pod has no NetworkPolicy, so cloudflared
+can reach it from its own namespace; the API stays reachable only from web.
+Cloudflare serves HTTPS and sends `X-Forwarded-Proto: https`, which the web
+nginx passes on. The session cookie still lacks the `Secure` flag, because
+LAN access is plain HTTP; turn `api.cookieSecure` back on once LAN access
+moves to HTTPS or is dropped.
+
+Client IPs work through the tunnel: Cloudflare appends the real client IP to
+`X-Forwarded-For`, the cloudflared pod address is inside `10.244.0.0/16`, so
+the API sees the real IP and a forged header does not dodge the login limit.
+
+Remove the route when the app moves to EKS (internal ALB, see
+[specs/deployment.md](specs/deployment.md#eks-production)).
 
 ## Client IPs and the login rate limit
 
