@@ -1,0 +1,47 @@
+# Example only: replace account IDs, network ranges, host, certificate and image tags.
+# See docs/install-eks.md. Pod Identity associations are configured in EKS, not annotations.
+image:
+  backend:
+    tag: "" # required: sha-<full-commit-sha>
+  web:
+    tag: "" # required: sha-<full-commit-sha>
+existingSecret: cloudscope
+secrets:
+  create: false
+serviceAccount:
+  name: cloudscope # must match the hub role trust
+  annotations: {}
+postgres:
+  enabled: false # RDS; DATABASE_URL comes from External Secrets
+api:
+  cookieSecure: true
+  # EXAMPLE ONLY: replace with web pod + ALB subnet CIDRs. Never '*'.
+  forwardedAllowIPs: "10.0.0.0/16"
+ingress:
+  enabled: true
+  className: alb
+  host: cloudscope.example.com
+  tls: [] # ACM terminates TLS on the ALB, not a Kubernetes TLS Secret
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:111111111111:certificate/00000000-0000-0000-0000-000000000000
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/inbound-cidrs: "10.1.0.0/16" # replace with allowed client ranges
+    alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.xff_header_processing.mode=append,routing.http.drop_invalid_header_fields.enabled=true
+accounts:
+  - provider: aws
+    account_id: "222222222222"
+    name: example-aws
+    regions: all
+    role_arn: arn:aws:iam::222222222222:role/cloudscope-readonly
+    external_id: cloudscope
+  - provider: alibaba
+    account_id: "3333333333333333"
+    name: example-alibaba
+    regions: all
+    role_arn: acs:ram::3333333333333333:role/cloudscope-readonly

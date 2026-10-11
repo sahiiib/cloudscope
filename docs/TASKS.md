@@ -35,12 +35,12 @@ A task can start when all its dependencies are `done`.
 | T-034 | UI: settings (password, MFA, users) | codex | T-030, T-024 | done |
 | T-040 | Dockerfiles and image build in CI | codex | T-013, T-003 | done |
 | T-041 | Helm chart | codex | T-040 | done |
-| T-042 | Local cluster install guide and values | claude | T-041 | review |
+| T-042 | Local cluster install guide and values | claude | T-041 | done |
 | T-043 | Deploy to local kubeadm cluster | human + claude | T-042 | todo |
 | T-050 | AWS read-only role StackSet + hub role templates | codex | T-010 | done |
 | T-051 | Alibaba RAM role Terraform | codex | T-011 | done |
 | T-052 | Roll out roles in all accounts | human | T-050, T-051 | todo |
-| T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | todo |
+| T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | done |
 
 ---
 
