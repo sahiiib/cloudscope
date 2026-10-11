@@ -34,3 +34,6 @@ frontend/dist/
 *.tfvars
 *.tfvars.json
 crash.log
+
+# Local Helm values with real account IDs (copy of values.local.example.yaml)
+deploy/helm/values.local.yaml
