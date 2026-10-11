@@ -1,0 +1,15 @@
+.instance-details { display: grid; gap: 1rem; }
+.instance-details h1 { margin: 0; }
+.instance-details section { margin: 1.5rem 0; padding: 1.5rem; border: 1px solid var(--border); border-radius: .6rem; min-width: 0; }
+.instance-details h2 { margin-top: 0; }
+.instance-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; }
+.instance-fields dt { font-weight: 600; }
+.instance-fields dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.detail-scroll { overflow-x: auto; }
+.instance-details table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.instance-details th, .instance-details td { padding: .6rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.instance-details pre { max-height: 35rem; overflow: auto; padding: 1rem; background: var(--surface); }
+.instance-details summary { cursor: pointer; margin-bottom: 1rem; }
+.security-group { border-top: 1px solid var(--border); padding-top: .5rem; }
+.missing-notice { padding: 1rem; background: var(--surface); border-left: 4px solid var(--accent); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

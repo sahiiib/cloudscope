@@ -109,3 +109,15 @@ The enrollment QR is displayed locally as an image, not injected HTML or sent to
 an external QR service. Provisioning data stays in mounted component state only,
 outside query/mutation caches, and is removed after confirmation/cancel/navigation.
 MFA changes refresh the shell's current-user state and the admin users list.
+
+## Instance details implementation (T-032)
+
+The protected details route loads an instance using all four identity fields.
+Summary, Tags, Network, Security groups and Raw JSON are separate components
+using the shared normalized provider data. Optional/missing values show
+"Not available"; empty security rule arrays explicitly show "No rules". Network
+IDs remain visible when enriched VPC/subnet details are absent. Alibaba rules
+also expose policy, priority and source ports. Timestamps include their exact
+UTC offset; a missing instance keeps its last observed data with a clear notice.
+404 and retryable request failures have separate states. Raw JSON is collapsible,
+rendered as text, and copied locally with clipboard success/failure feedback.
