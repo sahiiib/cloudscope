@@ -71,3 +71,18 @@ Search, Sync and Settings currently have protected placeholder pages; their full
 content belongs to T-031, T-033 and T-034. Layout adapts to narrow screens and OS
 light/dark preference. The shared HTTP client still redirects other 401s; the
 route guard explicitly handles its own redirect to retain the destination.
+
+## Settings implementation (T-034)
+
+Settings includes password changes, authenticator enrollment/confirmation and
+disable, plus an administrator-only user list and create/deactivate/reactivate/
+reset-MFA controls. Destructive user changes require an inline confirmation.
+Password changes and successful self-admin mutations clear cached data and return
+to login because the API revokes the current session. Last-admin conflicts,
+duplicate usernames and invalid credentials/codes remain actionable inline.
+
+Passwords/codes are cleared after submission and are never mutation variables.
+The enrollment QR is displayed locally as an image, not injected HTML or sent to
+an external QR service. Provisioning data stays in mounted component state only,
+outside query/mutation caches, and is removed after confirmation/cancel/navigation.
+MFA changes refresh the shell's current-user state and the admin users list.
