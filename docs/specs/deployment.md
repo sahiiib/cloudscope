@@ -77,6 +77,13 @@ ingress:
 
 ## EKS (production)
 
+T-053 provides [EKS values](../../deploy/helm/values.eks.yaml), an
+[External Secrets manifest](../../deploy/eks/external-secret.yaml) and the
+[EKS configuration guide](../install-eks.md). The example uses RDS by default,
+separate Pod Identities for the collector and ESO, and an internal ALB with ACM.
+The guide covers the in-cluster DB alternative, secret readiness before
+migration, credential rotation and deployment-specific placeholders.
+
 - AWS credentials: no static keys. The collector ServiceAccount gets the hub
   role via EKS Pod Identity (preferred) or IRSA; the hub role may only
   `sts:AssumeRole` into `cloudscope-readonly` roles. See

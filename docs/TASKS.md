@@ -40,7 +40,7 @@ A task can start when all its dependencies are `done`.
 | T-050 | AWS read-only role StackSet + hub role templates | codex | T-010 | done |
 | T-051 | Alibaba RAM role Terraform | codex | T-011 | done |
 | T-052 | Roll out roles in all accounts | human | T-050, T-051 | todo |
-| T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | todo |
+| T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | review |
 
 ---
 
