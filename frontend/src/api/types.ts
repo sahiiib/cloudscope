@@ -28,3 +28,13 @@ export interface SyncResult {
   duration_ms: number;
 }
 export interface SyncRunDetail extends SyncRun { results: SyncResult[] }
+
+export interface MFASetup {
+  otpauth_uri: string;
+  qr_svg: string;
+}
+export interface ManagedUser extends AuthUser {
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
