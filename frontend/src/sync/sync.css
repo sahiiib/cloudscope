@@ -1,0 +1,16 @@
+.sync-page { display: grid; gap: 1.25rem; }
+.sync-heading, .sync-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.sync-heading h1 { margin-bottom: .25rem; }
+.sync-heading p { margin-top: 0; }
+.sync-scroll { overflow-x: auto; }
+.sync-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.sync-table th, .sync-table td { text-align: left; padding: .75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.sync-table th { white-space: nowrap; }
+.sync-table caption { text-align: left; font-weight: 600; padding: .5rem; }
+.sync-table .sync-table { background: var(--surface); }
+.sync-status { display: inline-block; border-radius: .3rem; padding: .1rem .5rem; background: var(--surface); }
+.sync-success { background: #d9f6e6; color: #155238; }
+.sync-running { background: #dceaff; color: #193e7a; }
+.sync-partial { background: #fff0c2; color: #6b4a00; }
+.sync-failed, .sync-error.sync-status { background: #ffe0e0; color: #852929; }
+.sync-error { overflow-wrap: anywhere; min-width: 10rem; max-width: 30rem; }

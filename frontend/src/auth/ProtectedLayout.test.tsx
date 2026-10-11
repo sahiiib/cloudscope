@@ -7,7 +7,7 @@ test('guard redirects unauthenticated visitors and preserves their destination',
   fetchApi.mockRejectedValueOnce(new ApiError(401));
   setup('/sync');
   await screen.findByRole('heading', { name: 'Sign in' });
-  fetchApi.mockResolvedValueOnce(response({ mfa_required: false })).mockResolvedValue(response(user));
+  fetchApi.mockResolvedValueOnce(response({ mfa_required: false })).mockImplementation(async path => response(path === '/api/auth/me' ? user : []));
   signIn();
   expect(await screen.findByRole('heading', { name: 'Sync' })).toBeInTheDocument();
 });
@@ -35,7 +35,10 @@ test('logout clears cached inventory and returns to login', async () => {
 
 
 test('cached user keeps the shell visible after a failed refetch', async () => {
-  fetchApi.mockRejectedValue(new ApiError(503));
+  fetchApi.mockImplementation(async path => {
+    if (path === '/api/auth/me') throw new ApiError(503);
+    return response([]);
+  });
   const cache = setup('/sync', true);
   expect(screen.getByRole('navigation')).toBeInTheDocument();
   await waitFor(() => expect(cache.getQueryState(['auth', 'me'])?.status).toBe('error'));

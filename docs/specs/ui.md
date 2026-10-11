@@ -67,9 +67,8 @@ Passwords/codes stay only in component state and are cleared after submission;
 no tokens or credentials are written to browser storage. A user menu shows the
 username/role and logout. Successful login/logout clears the query cache.
 
-Search, Sync and Settings currently have protected placeholder pages; their full
-content belongs to T-031, T-033 and T-034. Layout adapts to narrow screens and OS
-light/dark preference. The shared HTTP client still redirects other 401s; the
+Search, Sync and Settings are described in their own sections below. Layout
+adapts to narrow screens and OS light/dark preference. The shared HTTP client still redirects other 401s; the
 route guard explicitly handles its own redirect to retain the destination.
 
 ## Search implementation (T-031)
@@ -84,6 +83,17 @@ empty and retryable error states are inline; facet counts can fail independently
 of inventory. Previous rows, pagination and facet options stay visible while
 new query results load, with an Updating indicator. No inventory or credentials
 are persisted in browser storage.
+
+## Sync implementation (T-033)
+
+The Sync route loads the latest 20 runs and refreshes every five seconds while
+a run is in progress, or every thirty seconds when idle, while visible. Expanding
+a run fetches its per-account/region results, including errors and duration; unfinished details also refresh until complete. Cached history
+remains visible during a refetch failure. Administrators can request a manual
+sync; the button is disabled while a request or a known run is active. Conflicts
+and unavailable collection are shown inline and history is refreshed after the
+request. A 403 explains that permission was lost and asks the user to reload
+to refresh access. Non-admin users only see history and refresh controls.
 
 ## Settings implementation (T-034)
 
