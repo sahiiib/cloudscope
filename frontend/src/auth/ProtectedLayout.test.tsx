@@ -7,7 +7,7 @@ test('guard redirects unauthenticated visitors and preserves their destination',
   fetchApi.mockRejectedValueOnce(new ApiError(401));
   setup('/sync');
   await screen.findByRole('heading', { name: 'Sign in' });
-  fetchApi.mockResolvedValueOnce(response({ mfa_required: false })).mockResolvedValue(response(user));
+  fetchApi.mockResolvedValueOnce(response({ mfa_required: false })).mockImplementation(async path => response(path === '/api/auth/me' ? user : []));
   signIn();
   expect(await screen.findByRole('heading', { name: 'Sync' })).toBeInTheDocument();
 });

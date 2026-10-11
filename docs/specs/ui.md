@@ -75,12 +75,13 @@ route guard explicitly handles its own redirect to retain the destination.
 ## Sync implementation (T-033)
 
 The Sync route loads the latest 20 runs and refreshes every five seconds while
-visible. Expanding a run fetches its per-account/region results, including errors
-and duration; unfinished details also refresh until complete. Cached history
+a run is in progress, or every thirty seconds when idle, while visible. Expanding
+a run fetches its per-account/region results, including errors and duration; unfinished details also refresh until complete. Cached history
 remains visible during a refetch failure. Administrators can request a manual
 sync; the button is disabled while a request or a known run is active. Conflicts
 and unavailable collection are shown inline and history is refreshed after the
-request. Non-admin users only see history and refresh controls.
+request. A 403 explains that permission was lost and asks the user to reload
+to refresh access. Non-admin users only see history and refresh controls.
 
 ## Settings implementation (T-034)
 

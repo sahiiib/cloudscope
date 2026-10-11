@@ -50,14 +50,14 @@ test('admin starts a sync and the refreshed running state disables another reque
   expect(await screen.findByText('Sync requested. Progress appears below.')).toBeInTheDocument();
 });
 
-test.each([409, 503])('explains a %s start failure and keeps history usable', async status => {
+test.each([409, 503, 403])('explains a %s start failure and keeps history usable', async status => {
   fetchApi.mockImplementation(async (_path, options) => {
     if (options?.method === 'POST') throw new ApiError(status);
     return response([run]);
   });
   setup(); await screen.findByText('1m 5s');
   fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(status === 409 ? 'already running' : 'unavailable');
+  expect(await screen.findByRole('alert')).toHaveTextContent(status === 403 ? 'You no longer have permission to start a sync. Reload the page to refresh your access.' : status === 409 ? 'already running' : 'unavailable');
   expect(screen.getByRole('button', { name: 'Run #7' })).toBeInTheDocument();
 });
 
@@ -75,11 +75,37 @@ test('polls history and preserves cached runs on a failed refresh', async () => 
   await act(async () => { await vi.advanceTimersByTimeAsync(50); });
   expect(screen.getByRole('button', { name: 'Run #7' })).toBeInTheDocument();
   const before = fetchApi.mock.calls.length;
-  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
   expect(fetchApi.mock.calls.length).toBeGreaterThan(before);
   vi.useRealTimers();
   fetchApi.mockRejectedValue(new ApiError(503));
   fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Showing the last received runs'));
   expect(screen.getByRole('button', { name: 'Run #7' })).toBeInTheDocument();
+});
+
+
+test('polls every 30 seconds when idle, every 5 while running, then slows on completion', async () => {
+  vi.useFakeTimers();
+  let running = false;
+  fetchApi.mockImplementation(async () => response([{ ...run, status: running ? 'running' : 'success', finished_at: running ? null : run.finished_at }]));
+  setup();
+  await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+  const initial = fetchApi.mock.calls.length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  expect(fetchApi).toHaveBeenCalledTimes(initial);
+  running = true;
+  await act(async () => { await vi.advanceTimersByTimeAsync(25000); });
+  expect(fetchApi).toHaveBeenCalledTimes(initial + 1);
+  expect(screen.getByText('Last 20 runs · refreshes every 5 seconds')).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  expect(fetchApi).toHaveBeenCalledTimes(initial + 2);
+  running = false;
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  expect(fetchApi).toHaveBeenCalledTimes(initial + 3);
+  expect(screen.getByText('Last 20 runs · refreshes every 30 seconds')).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  expect(fetchApi).toHaveBeenCalledTimes(initial + 3);
+  await act(async () => { await vi.advanceTimersByTimeAsync(25000); });
+  expect(fetchApi).toHaveBeenCalledTimes(initial + 4);
 });

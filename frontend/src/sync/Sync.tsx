@@ -13,7 +13,7 @@ export default function Sync() {
   const runs = useQuery({
     queryKey: ['sync', 'runs'],
     queryFn: async ({ signal }): Promise<SyncRun[]> => (await apiFetch('/api/sync/runs?limit=20', { signal })).json(),
-    refetchInterval: 5000,
+    refetchInterval: q => q.state.data?.some(r => r.status === 'running') ? 5000 : 30000,
   });
   const start = useMutation({
     mutationFn: async () => { await apiFetch('/api/sync/runs', { method: 'POST' }); },
@@ -23,8 +23,9 @@ export default function Sync() {
   const running = items.some(run => run.status === 'running');
   const startError = start.error instanceof ApiError && start.error.status === 409 ? 'A sync is already running. History will refresh automatically.'
     : start.error instanceof ApiError && start.error.status === 503 ? 'Collection is unavailable. Ask an administrator to check the collector configuration.'
+    : start.error instanceof ApiError && start.error.status === 403 ? 'You no longer have permission to start a sync. Reload the page to refresh your access.'
     : 'Unable to start sync. Please try again.';
-  return <section className="sync-page"><div className="sync-heading"><div><h1>Sync</h1><p>Last 20 runs · refreshes every 5 seconds</p></div>
+  return <section className="sync-page"><div className="sync-heading"><div><h1>Sync</h1><p>Last 20 runs · refreshes every {running ? 5 : 30} seconds</p></div>
     <div className="sync-actions"><button className="secondary" disabled={runs.isFetching} onClick={() => void client.invalidateQueries({ queryKey: ['sync'] })}>Refresh</button>
       {user.is_admin && <button disabled={start.isPending || running} onClick={() => start.mutate()}>{start.isPending ? 'Starting…' : running ? 'Sync running' : 'Sync now'}</button>}</div>
     </div>
