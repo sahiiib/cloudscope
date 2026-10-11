@@ -75,3 +75,53 @@ export interface ManagedUser extends AuthUser {
   created_at: string;
   last_login_at: string | null;
 }
+
+export interface SecurityRule {
+  protocol?: string | null;
+  port_range?: string | null;
+  source?: string | null;
+  destination?: string | null;
+  description?: string | null;
+  policy?: string | null;
+  priority?: number | string | null;
+  source_port_range?: string | null;
+}
+export interface SecurityGroup {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  inbound?: SecurityRule[] | null;
+  outbound?: SecurityRule[] | null;
+}
+export interface NetworkSegment { id?: string | null; name?: string | null; cidr?: string | null }
+export interface NetworkInterface {
+  id: string;
+  private_ips?: string[] | null;
+  public_ip?: string | null;
+  mac?: string | null;
+  security_group_ids?: string[] | null;
+}
+export interface InstanceExtras {
+  security_groups?: SecurityGroup[] | null;
+  vpc?: NetworkSegment | null;
+  subnet?: NetworkSegment | null;
+  network_interfaces?: NetworkInterface[] | null;
+  key_pair?: { name?: string | null } | null;
+  iam_role?: string | null;
+  image?: { id?: string | null; name?: string | null } | null;
+  cpu?: number | null;
+  memory_mib?: number | null;
+  monitoring?: string | null;
+}
+export interface InstanceDetail extends InstanceSummary {
+  zone: string | null;
+  vpc_id: string | null;
+  subnet_id: string | null;
+  key_name: string | null;
+  image_id: string | null;
+  platform: string | null;
+  provider_state: string;
+  first_seen: string;
+  details: InstanceExtras | null;
+  raw: Record<string, unknown> | null;
+}
