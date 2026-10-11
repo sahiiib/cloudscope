@@ -45,6 +45,7 @@ postgres:
   storageClass: ""
   size: 10Gi
 serviceAccount:
+  name: cloudscope           # must match AWS hub role trust
   annotations: {}            # eks.amazonaws.com/role-arn for IRSA
 ingress:
   enabled: false
@@ -148,8 +149,20 @@ See the [chart README](../../deploy/helm/cloudscope/README.md) for values, Secre
 keys, proxy CIDRs and installation. Internal PostgreSQL also requires the
 `POSTGRES_PASSWORD` Secret key, matching the password in `DATABASE_URL`.
 
-Bootstrap deviation: when PostgreSQL or the Secret is chart-managed, migration
-is a `post-install,post-upgrade` hook so those resources exist first. With an
-external database and existing Secret it remains `pre-install,pre-upgrade`.
-A bounded database readiness check precedes Alembic. This ordering and its
-upgrade limitation are documented in the chart README.
+Image tags default to empty and are required at render time; set both
+`image.backend.tag` and `image.web.tag` to immutable `sha-<commit>` tags.
+The ServiceAccount name defaults to `cloudscope` regardless of release name,
+matching the AWS hub role trust.
+
+When PostgreSQL or the Secret is chart-managed, migration uses
+`post-install,pre-upgrade`. Only first install migrates after rollout, allowing
+those resources to be created first. External database plus existing Secret uses
+`pre-install,pre-upgrade`. Every normal upgrade migrates before application
+rollout, with a bounded database readiness check before Alembic.
+
+A DATABASE_URL change in a chart-managed Secret is not visible to the
+pre-upgrade Job: it reads the old value. Prepare and migrate the new target
+before switching the application's URL. Switching `postgres.enabled` from false
+to true on upgrade is unsupported because the new database does not yet exist;
+use separate provisioning or a planned new install/data transfer. See the chart
+README's Migration order section for both edge cases.

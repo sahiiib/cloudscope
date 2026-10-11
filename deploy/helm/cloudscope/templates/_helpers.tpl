@@ -33,7 +33,7 @@ readOnlyRootFilesystem: true
 capabilities: {drop: [ALL]}
 {{- end -}}
 {{- define "cs.backendPod" -}}
-serviceAccountName: {{ include "cs.name" . }}
+serviceAccountName: {{ .Values.serviceAccount.name }}
 securityContext:
   runAsNonRoot: true
   runAsUser: 10001

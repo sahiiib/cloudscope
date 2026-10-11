@@ -19,7 +19,7 @@ spec:
       securityContext: {runAsNonRoot: true, runAsUser: 101, runAsGroup: 101, fsGroup: 101, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: web
-          image: "{{ .Values.image.web.repository }}:{{ .Values.image.web.tag }}"
+          image: "{{ .Values.image.web.repository }}:{{ required "set image.web.tag to sha-<commit>" .Values.image.web.tag }}"
           securityContext: {{- include "cs.security" . | nindent 12 }}
           env:
             - {name: API_UPSTREAM, value: "{{ include "cs.name" . }}-api:8000"}

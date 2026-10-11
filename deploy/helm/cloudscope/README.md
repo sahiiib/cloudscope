@@ -3,15 +3,17 @@
 Render before installing:
 
 ```sh
-helm lint deploy/helm/cloudscope
+helm lint deploy/helm/cloudscope -f values.local.yaml
 helm template cloudscope deploy/helm/cloudscope -f values.local.yaml
 helm upgrade --install cloudscope deploy/helm/cloudscope \
   --namespace cloudscope --create-namespace --wait --timeout 10m -f values.local.yaml
 ```
 
 Keep local values containing account configuration or secrets outside Git. Use
-immutable `sha-<full-commit-sha>` image tags for both images; `latest` is only a
-convenience default. Resource names use the release name (e.g. `cloudscope-api`).
+immutable `sha-<full-commit-sha>` tags in `image.backend.tag` and `image.web.tag`
+in values.local.yaml (or pass both with `--set`). Both default to empty and
+rendering fails until explicitly supplied. Resource names use the release name
+(e.g. `cloudscope-api`), except the ServiceAccount.
 
 ## Configuration
 
@@ -33,6 +35,9 @@ convenience default. Resource names use the release name (e.g. `cloudscope-api`)
 - `postgres.enabled: false`: omit PostgreSQL/PVC and use an external DATABASE_URL.
   With internal PostgreSQL, set `postgres.storageClass` if no default exists;
   `postgres.size` defaults to 10Gi. PVC data survives StatefulSet removal.
+- `serviceAccount.name`: defaults to `cloudscope`, independent of the release
+  name, matching the AWS hub role trust. Changing it requires matching IAM trust
+  and workload identity configuration.
 - `serviceAccount.annotations`: IRSA / workload identity annotations. API and
   collector use this ServiceAccount; no Kubernetes API permissions are granted.
 - `ingress.enabled`, `className`, `annotations`, `host`, `tls`: expose web through
@@ -47,16 +52,27 @@ convenience default. Resource names use the release name (e.g. `cloudscope-api`)
 
 ## Migration order
 
-With an external database and existing Secret, migrations use the specified
-`pre-install,pre-upgrade` hooks. When the chart creates PostgreSQL or the Secret,
-use `post-install,post-upgrade` instead: a pre-install hook cannot access resources
-that Helm has not created yet. A bounded database readiness init container runs
-before `alembic upgrade head`; Helm waits for migration completion and fails the
-release if it fails. Successful hook Jobs are deleted, failed Jobs remain for
-inspection. Existing applications may briefly run before the post-upgrade
-migration: use external/pre-provisioned resources if migration-before-rollout is
-required. This is an explicit bootstrap deviation from the deployment spec,
-following [Helm hook ordering](https://helm.sh/docs/topics/charts_hooks/).
+With an external database and existing Secret, migrations use
+`pre-install,pre-upgrade`. When PostgreSQL or the Secret is chart-managed, they
+use `post-install,pre-upgrade`: only first install migrates after rollout, since
+those resources do not exist beforehand. All normal upgrades migrate before
+rolling out the new application. On first install, wait for the hook to finish
+before using the application. A bounded database readiness check precedes
+`alembic upgrade head`; Helm fails the release if migration fails. Successful
+hook Jobs are deleted; failed Jobs remain for inspection.
+
+Two upgrade edge cases require separate planning:
+
+- Changing a chart-managed DATABASE_URL Secret in the same upgrade: the
+  pre-upgrade Job reads the **old** Secret value, because Helm has not applied
+  the new Secret yet. Prepare the target database and migrate it explicitly
+  before switching the application's URL; do not rely on that hook to migrate
+  the new target. For an existing external Secret, the Job reads whichever
+  value is already present when it starts.
+- Switching `postgres.enabled` from `false` to `true` on upgrade is unsupported:
+  the new PostgreSQL resources are not available to the pre-upgrade hook.
+  Provision/migrate the database separately or perform a planned new install
+  and data transfer; do not toggle this value on an existing release.
 
 The chart does not create the initial admin. After a successful install:
 

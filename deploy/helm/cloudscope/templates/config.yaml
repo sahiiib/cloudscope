@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "cs.name" . }}
+  name: {{ .Values.serviceAccount.name }}
   labels: {{- include "cs.labels" . | nindent 4 }}
   annotations: {{ .Values.serviceAccount.annotations | toJson }}
 automountServiceAccountToken: false

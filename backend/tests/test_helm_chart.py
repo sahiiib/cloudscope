@@ -12,8 +12,15 @@ CHART = Path(__file__).resolve().parents[2] / "deploy/helm/cloudscope"
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="Helm is not installed")
 
 
-def render(*settings: str) -> list[dict[str, Any]]:
-    args = ["helm", "template", "cloudscope", str(CHART)]
+def render(*settings: str, release: str = "cloudscope") -> list[dict[str, Any]]:
+    args = [
+        "helm",
+        "template",
+        release,
+        str(CHART),
+        "--set",
+        "image.backend.tag=sha-test,image.web.tag=sha-test",
+    ]
     for setting in settings:
         args.extend(["--set", setting])
     result = subprocess.run(args, check=True, capture_output=True, text=True)
@@ -53,7 +60,7 @@ def test_default_chart_wiring_and_security() -> None:
     postgres = resource(docs, "StatefulSet", "cloudscope-postgres")["spec"]
     assert postgres["volumeClaimTemplates"][0]["spec"]["resources"]["requests"]["storage"] == "10Gi"
     migrate = resource(docs, "Job", "cloudscope-migrate")
-    assert migrate["metadata"]["annotations"]["helm.sh/hook"] == "post-install,post-upgrade"
+    assert migrate["metadata"]["annotations"]["helm.sh/hook"] == "post-install,pre-upgrade"
     assert migrate["spec"]["template"]["spec"]["containers"][0]["args"] == ["upgrade", "head"]
     assert migrate["spec"]["template"]["spec"]["initContainers"][0]["name"] == "wait-for-database"
     policy = resource(docs, "NetworkPolicy", "cloudscope-postgres")["spec"]
@@ -102,3 +109,32 @@ def test_chart_created_secret_and_required_values() -> None:
         render("secrets.create=true")
     with pytest.raises(subprocess.CalledProcessError):
         render("api.forwardedAllowIPs=*")
+
+
+@pytest.mark.parametrize("name", ["cloudscope", "custom-sa"])
+def test_service_account_name_is_independent_of_release(name: str) -> None:
+    settings = () if name == "cloudscope" else (f"serviceAccount.name={name}",)
+    docs = render(*settings, release="other")
+    resource(docs, "ServiceAccount", name)
+    api = resource(docs, "Deployment", "other-api")["spec"]["template"]["spec"]
+    cron = resource(docs, "CronJob", "other-collector")["spec"]["jobTemplate"]["spec"]
+    assert api["serviceAccountName"] == name
+    assert cron["template"]["spec"]["serviceAccountName"] == name
+
+
+@pytest.mark.parametrize("kind", ["backend", "web"])
+def test_empty_image_tag_is_rejected(kind: str) -> None:
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        render(f"image.{kind}.tag=")
+    assert f"set image.{kind}.tag to sha-<commit>" in error.value.stderr
+
+
+def test_chart_secret_with_external_database_uses_post_install_pre_upgrade() -> None:
+    docs = render(
+        "postgres.enabled=false",
+        "secrets.create=true",
+        "secrets.data.DATABASE_URL=placeholder",
+        "secrets.data.SECRET_KEY=placeholder",
+    )
+    job = resource(docs, "Job", "cloudscope-migrate")
+    assert job["metadata"]["annotations"]["helm.sh/hook"] == "post-install,pre-upgrade"

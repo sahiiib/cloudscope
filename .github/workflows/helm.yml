@@ -14,7 +14,7 @@ jobs:
         with:
           version: v3.17.3
       - uses: astral-sh/setup-uv@v6
-      - run: helm lint deploy/helm/cloudscope
-      - run: helm template cloudscope deploy/helm/cloudscope > /tmp/cloudscope.yaml
+      - run: helm lint deploy/helm/cloudscope --set image.backend.tag=sha-${{ github.sha }},image.web.tag=sha-${{ github.sha }}
+      - run: helm template cloudscope deploy/helm/cloudscope --set image.backend.tag=sha-${{ github.sha }},image.web.tag=sha-${{ github.sha }} > /tmp/cloudscope.yaml
       - working-directory: backend
         run: uv run --frozen pytest tests/test_helm_chart.py

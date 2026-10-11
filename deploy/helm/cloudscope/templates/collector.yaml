@@ -21,7 +21,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: collector
-              image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+              image: "{{ .Values.image.backend.repository }}:{{ required "set image.backend.tag to sha-<commit>" .Values.image.backend.tag }}"
               args: [collect, --trigger, schedule]
               securityContext: {{- include "cs.security" . | nindent 16 }}
               env: {{- include "cs.env" . | nindent 16 }}

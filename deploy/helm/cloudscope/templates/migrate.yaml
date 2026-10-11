@@ -4,7 +4,7 @@ metadata:
   name: {{ include "cs.name" . }}-migrate
   annotations:
     # Managed DB/Secret must exist before a first-install migration can run.
-    helm.sh/hook: {{ if or .Values.postgres.enabled .Values.secrets.create }}post-install,post-upgrade{{ else }}pre-install,pre-upgrade{{ end }}
+    helm.sh/hook: {{ if or .Values.postgres.enabled .Values.secrets.create }}post-install,pre-upgrade{{ else }}pre-install,pre-upgrade{{ end }}
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 1
@@ -21,7 +21,7 @@ spec:
       securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
       initContainers:
         - name: wait-for-database
-          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          image: "{{ .Values.image.backend.repository }}:{{ required "set image.backend.tag to sha-<commit>" .Values.image.backend.tag }}"
           command: [python, -c]
           args:
             - |
@@ -45,7 +45,7 @@ spec:
           resources: {{ .Values.resources.migrate | toJson }}
       containers:
         - name: migrate
-          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          image: "{{ .Values.image.backend.repository }}:{{ required "set image.backend.tag to sha-<commit>" .Values.image.backend.tag }}"
           command: [alembic]
           args: [upgrade, head]
           securityContext: {{- include "cs.security" . | nindent 12 }}

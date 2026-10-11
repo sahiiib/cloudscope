@@ -1,6 +1,6 @@
 image:
-  backend: {repository: ghcr.io/sahiiib/cloudscope-backend, tag: latest}
-  web: {repository: ghcr.io/sahiiib/cloudscope-web, tag: latest}
+  backend: {repository: ghcr.io/sahiiib/cloudscope-backend, tag: ""}
+  web: {repository: ghcr.io/sahiiib/cloudscope-web, tag: ""}
 imagePullSecrets: []
 existingSecret: cloudscope
 secrets:
@@ -26,6 +26,7 @@ postgres:
   storageClass: ""
   size: 10Gi
 serviceAccount:
+  name: cloudscope
   annotations: {}
 ingress:
   enabled: false
