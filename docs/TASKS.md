@@ -29,12 +29,12 @@ A task can start when all its dependencies are `done`.
 | T-023 | Instances, accounts, sync API | codex | T-021, T-012 | done |
 | T-024 | Admin users API | codex | T-022 | done |
 | T-030 | UI: app shell, login, MFA step | codex | T-003, T-022 | done |
-| T-031 | UI: search page | codex | T-030, T-023 | todo |
+| T-031 | UI: search page | codex | T-030, T-023 | done |
 | T-032 | UI: instance details page | codex | T-031 | todo |
 | T-033 | UI: sync status page | codex | T-030, T-023 | review |
 | T-034 | UI: settings (password, MFA, users) | codex | T-030, T-024 | done |
 | T-040 | Dockerfiles and image build in CI | codex | T-013, T-003 | done |
-| T-041 | Helm chart | codex | T-040 | todo |
+| T-041 | Helm chart | codex | T-040 | done |
 | T-042 | Local cluster install guide and values | claude | T-041 | todo |
 | T-043 | Deploy to local kubeadm cluster | human + claude | T-042 | todo |
 | T-050 | AWS read-only role StackSet + hub role templates | codex | T-010 | done |
