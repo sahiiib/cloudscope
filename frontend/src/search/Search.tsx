@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import type { AccountSummary, InstanceFacets, InstancePage } from '../api/types';
@@ -31,9 +31,9 @@ export default function Search() {
   filters.set('include_missing', String(params.get('include_missing') === 'true'));
   const filterQuery = filters.toString();
   const query = `${filterQuery}&sort=${encodeURIComponent(sort)}&page=${page}&page_size=${pageSize}`;
-  const instances = useQuery({ queryKey: ['instances', query], queryFn: async ({ signal }): Promise<InstancePage> =>
+  const instances = useQuery({ queryKey: ['instances', query], placeholderData: keepPreviousData, queryFn: async ({ signal }): Promise<InstancePage> =>
     (await apiFetch(`/api/instances?${query}`, { signal })).json() });
-  const facets = useQuery({ queryKey: ['instance-facets', filterQuery], queryFn: async ({ signal }): Promise<InstanceFacets> =>
+  const facets = useQuery({ queryKey: ['instance-facets', filterQuery], placeholderData: keepPreviousData, queryFn: async ({ signal }): Promise<InstanceFacets> =>
     (await apiFetch(`/api/instances/facets?${filterQuery}`, { signal })).json() });
   const accounts = useQuery({ queryKey: ['accounts'], queryFn: async ({ signal }): Promise<AccountSummary[]> =>
     (await apiFetch('/api/accounts', { signal })).json() });

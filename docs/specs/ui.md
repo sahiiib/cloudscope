@@ -81,7 +81,9 @@ filter/sort/page size resets pagination. The default size is 50 (maximum 500).
 Rows expose detail links for T-032, ID copy, state badges, all default fields,
 relative launch dates with exact timestamps, and the first three tags. Loading,
 empty and retryable error states are inline; facet counts can fail independently
-of inventory. No inventory or credentials are persisted in browser storage.
+of inventory. Previous rows, pagination and facet options stay visible while
+new query results load, with an Updating indicator. No inventory or credentials
+are persisted in browser storage.
 
 ## Settings implementation (T-034)
 

@@ -107,3 +107,20 @@ test('clearing filters cancels an uncommitted search and restores the input', as
   await new Promise(resolve => setTimeout(resolve, 350));
   expect(lastListQuery().get('q')).toBeNull();
 });
+
+test('keeps rows, pagination and keyboard focus while the next page is pending', async () => {
+  mockData([item], 150); setup(); await screen.findByText('web-1');
+  const next = screen.getByRole('button', { name: 'Next' });
+  let resolve!: (value: Response) => void;
+  const pending = new Promise<Response>(done => { resolve = done; });
+  fetchApi.mockImplementation(path => path.startsWith('/api/instances?') ? pending : Promise.resolve(response(facets)));
+  next.focus(); fireEvent.click(next);
+  await screen.findByText(/Updating…/);
+  expect(screen.getByRole('link', { name: 'web-1' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Next' })).toBe(next);
+  expect(next).toHaveFocus();
+  expect(screen.queryByText('Loading instances…')).not.toBeInTheDocument();
+  resolve(response({ items: [{ ...item, name: 'web-2' }], total: 150, page: 2, page_size: 50 }));
+  await screen.findByText('web-2');
+  expect(screen.queryByText(/Updating…/)).not.toBeInTheDocument();
+});
