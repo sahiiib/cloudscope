@@ -82,3 +82,18 @@ Rows expose detail links for T-032, ID copy, state badges, all default fields,
 relative launch dates with exact timestamps, and the first three tags. Loading,
 empty and retryable error states are inline; facet counts can fail independently
 of inventory. No inventory or credentials are persisted in browser storage.
+
+## Settings implementation (T-034)
+
+Settings includes password changes, authenticator enrollment/confirmation and
+disable, plus an administrator-only user list and create/deactivate/reactivate/
+reset-MFA controls. Destructive user changes require an inline confirmation.
+Password changes and successful self-admin mutations clear cached data and return
+to login because the API revokes the current session. Last-admin conflicts,
+duplicate usernames and invalid credentials/codes remain actionable inline.
+
+Passwords/codes are cleared after submission and are never mutation variables.
+The enrollment QR is displayed locally as an image, not injected HTML or sent to
+an external QR service. Provisioning data stays in mounted component state only,
+outside query/mutation caches, and is removed after confirmation/cancel/navigation.
+MFA changes refresh the shell's current-user state and the admin users list.

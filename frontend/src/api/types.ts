@@ -47,3 +47,13 @@ export interface AccountSummary {
   last_success_at: string | null;
   instance_count: number;
 }
+
+export interface MFASetup {
+  otpauth_uri: string;
+  qr_svg: string;
+}
+export interface ManagedUser extends AuthUser {
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
