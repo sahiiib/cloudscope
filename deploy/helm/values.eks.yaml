@@ -41,7 +41,7 @@ accounts:
     role_arn: arn:aws:iam::222222222222:role/cloudscope-readonly
     external_id: cloudscope
   - provider: alibaba
-    account_id: "333333333333"
+    account_id: "3333333333333333"
     name: example-alibaba
     regions: all
-    role_arn: acs:ram::333333333333:role/cloudscope-readonly
+    role_arn: acs:ram::3333333333333333:role/cloudscope-readonly
