@@ -39,11 +39,18 @@ export interface InstanceFacets {
   regions: Facet[];
   states: Facet[];
 }
-export interface AccountSummary {
+export interface AccountInput {
   provider: 'aws' | 'alibaba';
   account_id: string;
   name: string;
+  regions: 'all' | string[];
+  role_arn: string | null;
+  external_id: string | null;
   enabled: boolean;
+}
+export type AccountAccessResult = { ok: true; regions: number } | { ok: false; error: string };
+export interface AccountSummary extends AccountInput {
+  source: 'file' | 'ui';
   last_success_at: string | null;
   instance_count: number;
 }

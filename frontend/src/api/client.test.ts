@@ -82,3 +82,11 @@ test('allows the route guard to handle 401 without a full page redirect', async 
   expect(assign).not.toHaveBeenCalled();
   expect(fetchMock.mock.calls[0][1]).not.toHaveProperty('redirectOnUnauthorized');
 });
+
+test('preserves structured field errors and handles a non-JSON proxy error', async () => {
+  const detail = [{ loc: ['body', 'name'], msg: 'Invalid name', type: 'value_error' }];
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ detail }), { status: 422 }))
+    .mockResolvedValueOnce(new Response('Bad gateway', { status: 502 })));
+  await expect(apiFetch('/api/accounts', { method: 'POST' })).rejects.toMatchObject({ status: 422, detail });
+  await expect(apiFetch('/api/accounts')).rejects.toMatchObject({ status: 502, detail: undefined });
+});

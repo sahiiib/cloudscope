@@ -4,6 +4,7 @@ import type { AuthUser } from '../api/types';
 import PasswordSettings from './PasswordSettings';
 import MFASettings from './MFASettings';
 import UsersSettings from './UsersSettings';
+import CloudAccounts from './CloudAccounts';
 import './settings.css';
 
 export default function Settings() {
@@ -18,6 +19,7 @@ export default function Settings() {
   }
   return <section className="settings-page"><h1>Settings</h1><p>Signed in as {user.username}</p>
     <div className="settings-grid"><PasswordSettings onSessionEnd={endSession} /><MFASettings enabled={user.mfa_enabled} onChanged={mfaChanged} /></div>
+    {user.is_admin && <CloudAccounts />}
     {user.is_admin && <UsersSettings currentUserId={user.id} onSessionEnd={endSession} />}
   </section>;
 }
