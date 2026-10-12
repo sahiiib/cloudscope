@@ -4,6 +4,9 @@ A private web app that inventories compute instances across many cloud accounts
 and regions, so you can search for an instance and see which account and region
 it lives in, plus its full details.
 
+Contributing through a fork? Read [CONTRIBUTING.md](CONTRIBUTING.md) for task
+branches, pull requests, review and coordinated releases.
+
 Supported providers:
 
 - **AWS** EC2 instances (about 12 accounts)
