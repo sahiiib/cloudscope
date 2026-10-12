@@ -44,6 +44,7 @@ A task can start when all its dependencies are `done`.
 | T-060 | Accounts in the database: admin API, file + UI sources | codex | T-043 | done |
 | T-061 | UI: Settings → Cloud accounts | codex | T-060 | done |
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | done |
+| T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | review |
 
 ---
 
@@ -399,3 +400,15 @@ Also in T-062, small fixes from the T-060/T-061 reviews (#33, #34):
 - Audit/log lines: write `account_id` the same way everywhere (unquoted).
 - Account form: trim before comparing regions with `all` (`" all"` must not
   become a region named "all").
+
+### T-063: Fork collaboration and coordinated release workflow
+Owner: codex · Assigned by fork contributor · Spec: [CONTRIBUTING.md](../CONTRIBUTING.md)
+
+- Document upstream ownership, one task per branch/PR and maintainer review.
+- Add task and PR templates with validation, migration and recovery expectations.
+- Describe maintainer-owned branch protection, isolated environments and release
+  promotion using the same tested image digests.
+
+Acceptance: contribution guide links and commands match the repository; templates
+are usable on GitHub; deployment/migration rules preserve data and avoid parallel
+upgrades. Documentation distinguishes proposals from settings actually enabled.
