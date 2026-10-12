@@ -10,12 +10,12 @@ from pathlib import Path
 from time import monotonic
 from typing import Literal
 
-from sqlalchemy import Text, all_, bindparam, select, update
+from sqlalchemy import Text, all_, bindparam, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from cloudscope.collector.base import Provider
-from cloudscope.collector.errors import describe_error
+from cloudscope.collector.errors import describe_error, log_account_id
 from cloudscope.config import AccountConfig, AccountsConfig, load_accounts
 from cloudscope.db.models import Account, Instance, SyncResult, SyncRun
 
@@ -73,7 +73,13 @@ class SyncRunner:
         with self.sessions.begin() as session:
             session.execute(
                 update(Account)
-                .where(Account.source == "file", Account.enabled.is_(True))
+                .where(
+                    Account.source == "file",
+                    Account.enabled.is_(True),
+                    tuple_(Account.provider, Account.account_id).not_in(
+                        [(account.provider, account.account_id) for account in accounts]
+                    ),
+                )
                 .values(enabled=False, updated_at=self.clock())
             )
             for account in accounts:
@@ -91,14 +97,35 @@ class SyncRunner:
                             "enabled": True,
                             "updated_at": self.clock(),
                         },
-                        where=Account.source == "file",
+                        where=(Account.source == "file")
+                        & or_(
+                            *(
+                                getattr(Account, field).is_distinct_from(statement.excluded[field])
+                                for field in (
+                                    "name",
+                                    "role_arn",
+                                    "external_id",
+                                    "regions",
+                                    "enabled",
+                                )
+                            )
+                        ),
                     ).returning(Account.account_id)
                 )
-                if saved is None:
+                if (
+                    saved is None
+                    and session.scalar(
+                        select(Account.source).where(
+                            Account.provider == account.provider,
+                            Account.account_id == account.account_id,
+                        )
+                    )
+                    == "ui"
+                ):
                     logger.warning(
                         "event=account_file_conflict provider=%s account_id=%s",
                         account.provider,
-                        json.dumps(account.account_id),
+                        log_account_id(account.account_id),
                     )
             accounts = [
                 AccountConfig.model_validate(
@@ -121,6 +148,7 @@ class SyncRunner:
         jobs: list[tuple[AccountConfig, str]] = []
         complete_accounts: set[tuple[str, str]] = set()
         for account in selected:
+            self._refresh_alias(account)
             started = monotonic()
             try:
                 provider = self.providers[account.provider]
@@ -185,11 +213,35 @@ class SyncRunner:
                             Account.provider == account.provider,
                             Account.account_id == account.account_id,
                         )
-                        .values(last_success_at=run.finished_at)
+                        .values(last_success_at=run.finished_at, updated_at=Account.updated_at)
                     )
             session.flush()
             session.expunge(run)
             return run
+
+    def _refresh_alias(self, account: AccountConfig) -> None:
+        try:
+            alias = self.providers[account.provider].get_account_alias(account)
+        except Exception as exc:
+            logger.warning(
+                "event=account_alias_failed provider=%s account_id=%s error=%s",
+                account.provider,
+                log_account_id(account.account_id),
+                describe_error(exc),
+            )
+            return
+        with self.sessions.begin() as session:
+            session.execute(
+                update(Account)
+                .where(
+                    Account.provider == account.provider, Account.account_id == account.account_id
+                )
+                .values(
+                    cloud_alias=alias,
+                    cloud_alias_checked_at=self.clock(),
+                    updated_at=Account.updated_at,
+                )
+            )
 
     def _scan(self, run_id: int, account: AccountConfig, region: str) -> None:
         started = monotonic()
@@ -266,7 +318,7 @@ class SyncRunner:
             run_id,
             "discovery" if region == "*" else "scan",
             account.provider,
-            json.dumps(account.account_id),
+            log_account_id(account.account_id),
             json.dumps(region),
             code,
         )

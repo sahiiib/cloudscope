@@ -35,3 +35,12 @@ from cloudscope.collector.errors import describe_error
 )
 def test_describe_error_exposes_only_identifier(exc: Exception, expected: str) -> None:
     assert describe_error(exc) == expected
+
+
+def test_account_log_ids_are_unquoted_and_cannot_inject_fields():
+    from cloudscope.collector.errors import log_account_id
+
+    assert log_account_id("111111111111") == "111111111111"
+    assert (
+        log_account_id('bad\nid event="other"') == r"bad\u000aid\u0020event\u003d\u0022other\u0022"
+    )

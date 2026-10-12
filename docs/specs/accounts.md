@@ -63,14 +63,20 @@ Both are read-only calls already allowed by the roles in cloud-access.md. The
 result is `{"ok": true, "regions": <count>}` or
 `{"ok": false, "error": "<phase>: <SDK error code or exception class>"}`, with
 the same sanitizing as sync errors. The call times out after 30 s and never
-writes inventory. Cloud SDK code for it lives in `cloudscope/collector/`.
+writes inventory. Access-test SDK clients use a 5 s connect timeout, 10 s read
+timeout and at most two attempts per operation (collector scan retries stay
+unchanged). The HTTP deadline remains 30 s; an in-flight SDK attempt can finish
+in its worker after the deadline. AssumeRole errors are labelled
+`Assume role failed: <code>`; region discovery errors are labelled
+`Region discovery failed: <code>`. Cloud SDK code for it lives in `cloudscope/collector/`.
 
 ## Audit logging
 
 Every create, update, enable/disable and access test is logged as
 `event=account_<action> actor=<user id> provider=… account_id=…`, plus
 `changed=<field names>` for updates. Values of `role_arn` and `external_id` are
-never logged.
+never logged. Account IDs are consistently unquoted; unexpected characters in
+legacy file IDs are escaped to prevent log injection.
 
 ## Cloud account alias
 

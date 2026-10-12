@@ -9,7 +9,7 @@ import Search from './Search';
 vi.mock('../api/client', async original => ({ ...await original<typeof import('../api/client')>(), apiFetch: vi.fn() }));
 const fetchApi = vi.mocked(apiFetch);
 const item: InstanceSummary = {
-  provider: 'aws', account_id: '111111111111', account_name: 'Demo', region: 'eu-central-1',
+  provider: 'aws', account_id: '111111111111', account_name: 'Demo', account_alias: 'demo-alias', region: 'eu-central-1',
   instance_id: 'i-0123456789abcdef0', name: 'web-1', state: 'running', instance_type: 't3.small',
   private_ips: ['10.0.0.1'], public_ips: [], tags: { env: 'test', team: 'infra', app: 'web', extra: 'tag' },
   launch_time: '2026-01-01T00:00:00Z', last_observed: '2026-01-02T00:00:00Z', present: true,
@@ -46,7 +46,8 @@ test('restores URL filters, renders every default column and copies/navigates to
   expect(screen.getByLabelText('Show terminated/missing')).toBeChecked();
   expect(lastListQuery().get('q')).toBe('web');
   expect(lastListQuery().get('page_size')).toBe('50');
-  expect(screen.getAllByRole('columnheader')).toHaveLength(11);
+  expect(screen.getAllByRole('columnheader')).toHaveLength(13);
+  for (const label of ['Account alias', 'Account ID']) expect(screen.getByRole('columnheader', { name: label })).toBeInTheDocument();
   expect(screen.getByText('10.0.0.1')).toBeInTheDocument();
   expect(screen.getByText('+1')).toHaveAttribute('title', 'extra=tag');
   expect(document.querySelector('time')).toHaveAttribute('title', '2026-01-01T00:00:00.000Z');

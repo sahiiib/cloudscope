@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, func, or_, select
 
 from cloudscope.auth.deps import current_user, get_auth
 from cloudscope.auth.sessions import AuthService
@@ -78,7 +78,15 @@ class Filters:
         if not self.include_missing:
             conditions.append(Instance.present.is_(True))
         if self.q:
-            conditions.append(Instance.search_text.contains(self.q.lower(), autoescape=True))
+            conditions.append(
+                or_(
+                    Instance.search_text.contains(self.q.lower(), autoescape=True),
+                    *(
+                        func.lower(column).contains(self.q.lower(), autoescape=True)
+                        for column in (Account.name, Account.cloud_alias, Account.account_id)
+                    ),
+                )
+            )
         for field, values in self.values.items():
             if values and field != omit:
                 conditions.append(getattr(Instance, field).in_(values))
@@ -90,9 +98,12 @@ class Filters:
         return conditions
 
 
-def item(instance: Instance, account_name: str, *, detail: bool = False) -> dict[str, object]:
+def item(
+    instance: Instance, account_name: str, account_alias: str | None, *, detail: bool = False
+) -> dict[str, object]:
     return {
         "account_name": account_name,
+        "account_alias": account_alias,
         **{
             field: getattr(instance, field)
             for field in LIST_FIELDS + (DETAIL_FIELDS if detail else ())
@@ -118,10 +129,10 @@ def instances(
     order = column.desc() if sort.startswith("-") else column.asc()
     with auth.sessions() as session:
         total = session.scalar(
-            select(func.count()).select_from(Instance).where(*filters.conditions())
+            select(func.count()).select_from(Instance).join(Account).where(*filters.conditions())
         )
         rows = session.execute(
-            select(Instance, Account.name)
+            select(Instance, Account.name, Account.cloud_alias)
             .join(Account)
             .where(*filters.conditions())
             .order_by(order.nulls_last(), Instance.id)
@@ -129,7 +140,7 @@ def instances(
             .limit(page_size)
         )
         return {
-            "items": [item(instance, name) for instance, name in rows],
+            "items": [item(instance, name, alias) for instance, name, alias in rows],
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -151,6 +162,8 @@ def facets(
             column = getattr(Instance, field)
             rows = session.execute(
                 select(column, func.count())
+                .select_from(Instance)
+                .join(Account)
                 .where(*filters.conditions(omit=field))
                 .group_by(column)
                 .order_by(column)
@@ -165,7 +178,7 @@ def instance_detail(
 ) -> dict[str, object]:
     with auth.sessions() as session:
         row = session.execute(
-            select(Instance, Account.name)
+            select(Instance, Account.name, Account.cloud_alias)
             .join(Account)
             .where(
                 Instance.provider == provider,
@@ -176,4 +189,4 @@ def instance_detail(
         ).one_or_none()
         if row is None:
             raise HTTPException(404, "Instance not found")
-        return item(row[0], row[1], detail=True)
+        return item(row[0], row[1], row[2], detail=True)

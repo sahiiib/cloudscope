@@ -43,3 +43,26 @@ run "reject_non_account_principal" {
   }
   expect_failures = [var.central_account_id]
 }
+
+run "account_alias_permission_only" {
+  command = plan
+  assert {
+    condition = jsondecode(alicloud_ram_policy.account_alias.policy_document) == jsondecode(jsonencode({
+      Version = "1"
+      Statement = [{
+        Effect   = "Allow"
+        Action   = ["ram:GetAccountAlias"]
+        Resource = "*"
+      }]
+    }))
+    error_message = "The custom policy must grant only RAM GetAccountAlias."
+  }
+  assert {
+    condition = (
+      alicloud_ram_role_policy_attachment.account_alias.policy_type == "Custom" &&
+      alicloud_ram_role_policy_attachment.account_alias.role_name == "cloudscope-readonly" &&
+      alicloud_ram_role_policy_attachment.account_alias.policy_name == alicloud_ram_policy.account_alias.policy_name
+    )
+    error_message = "Attach the alias policy only to the existing read-only role."
+  }
+}

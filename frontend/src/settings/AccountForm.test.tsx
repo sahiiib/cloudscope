@@ -31,7 +31,7 @@ test.each([422, 409])('shows server %s beside its field, preserving the form', a
   expect(screen.getByLabelText('Name')).toHaveValue('Test');
 });
 test('edits UI fields, clearing optional values without sending immutable or response fields', async () => {
-  const account: AccountSummary = { provider: 'aws', account_id: '111111111111', name: 'Test', regions: 'all', role_arn: 'arn:aws:iam::111111111111:role/test', external_id: 'test-id', enabled: true, source: 'ui', last_success_at: null, instance_count: 2 };
+  const account: AccountSummary = { provider: 'aws', account_id: '111111111111', name: 'Test', regions: 'all', role_arn: 'arn:aws:iam::111111111111:role/test', external_id: 'test-id', enabled: true, source: 'ui', cloud_alias: 'demo-alias', last_success_at: null, instance_count: 2 };
   fetchApi.mockResolvedValue(response({}));
   const saved = vi.fn(); renderSettings(<AccountForm account={account} onSaved={saved} onCancel={vi.fn()} />);
   expect(screen.getByLabelText('Provider')).toBeDisabled();
@@ -54,4 +54,14 @@ test('rejects invalid input locally and supports Alibaba IDs without external ID
   fireEvent.change(screen.getByRole('textbox', { name: /^Account ID/ }), { target: { value: '1111111111111111' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+});
+
+test('trims the all-region sentinel before building the API payload', async () => {
+  fetchApi.mockResolvedValue(response({}));
+  const saved = vi.fn(); renderSettings(<AccountForm onSaved={saved} onCancel={vi.fn()} />);
+  fill();
+  fireEvent.change(screen.getByLabelText('Regions'), { target: { value: ' all ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
+  await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+  expect(JSON.parse(String(fetchApi.mock.calls[0][1]?.body)).regions).toBe('all');
 });

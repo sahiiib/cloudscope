@@ -233,3 +233,11 @@ Disable an account to stop scanning without deleting its inventory.
 `POST /api/accounts/{provider}/{account_id}/test` checks role access and lists
 regions without collecting inventory. It returns a sanitized result within
 30 seconds; an in-flight SDK operation may finish in the background after timeout.
+
+Account names, cloud aliases and IDs are shown separately in Search, instance
+details and Cloud accounts. Search matches all three. Run `make migrate` to add
+the alias columns before starting the updated API/collector. The next collection
+reads each enabled account's alias once; denied reads preserve the previous alias
+and do not fail inventory scans. Update existing read-only policies with
+`iam:ListAccountAliases` (AWS) and `ram:GetAccountAlias` (Alibaba), using the
+[role templates and policy instructions](docs/specs/cloud-access.md).

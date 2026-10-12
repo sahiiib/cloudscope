@@ -16,7 +16,7 @@ function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean;
   const { reset: resetAccess } = access;
   useEffect(() => { resetAccess(); }, [account.role_arn, account.external_id, account.regions, resetAccess]);
   return <tr>
-    <td>{account.provider === 'aws' ? 'AWS' : 'Alibaba'}</td><td>{account.name}</td><td>{account.account_id}</td>
+    <td>{account.provider === 'aws' ? 'AWS' : 'Alibaba'}</td><td>{account.name}</td><td>{account.cloud_alias ?? '–'}</td><td>{account.account_id}</td>
     <td>{account.regions === 'all' ? 'All' : account.regions.join(', ')}</td><td className="account-role">{account.role_arn ?? 'Base credentials'}</td>
     <td>{account.source === 'file' ? 'Managed by accounts.yaml' : 'UI'}</td><td>{account.enabled ? 'Enabled' : 'Disabled'}</td>
     <td>{account.last_success_at ? <time dateTime={account.last_success_at}>{new Date(account.last_success_at).toLocaleString()}</time> : 'Never'}</td><td>{account.instance_count}</td>
@@ -51,7 +51,7 @@ export default function CloudAccounts() {
     <div className="settings-actions"><button onClick={() => { setNotice(''); setEditing('new'); }} disabled={editing !== null}>Add cloud account</button><button className="secondary" disabled={accounts.isFetching} onClick={() => void refresh()}>Refresh accounts</button></div>
     {accounts.isPending && <p role="status">Loading accounts…</p>}
     {accounts.isError && <p role="alert" className="error">Unable to {accounts.data ? 'refresh' : 'load'} accounts. <button onClick={() => void accounts.refetch()}>Retry accounts</button></p>}
-    {Array.isArray(accounts.data) && <div className="settings-table-scroll"><table className="settings-table"><thead><tr>{['Provider', 'Name', 'Account ID', 'Regions', 'Role ARN', 'Source', 'Status', 'Last success', 'Instances', 'Actions'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+    {Array.isArray(accounts.data) && <div className="settings-table-scroll"><table className="settings-table"><thead><tr>{['Provider', 'Name', 'Account alias', 'Account ID', 'Regions', 'Role ARN', 'Source', 'Status', 'Last success', 'Instances', 'Actions'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
       <tbody>{accounts.data.map(account => <AccountRow key={`${account.provider}/${account.account_id}`} account={account} editing={editing !== null} onChanged={refresh} onEdit={() => { setNotice(''); setEditing(account); }} />)}</tbody></table>
       {accounts.data.length === 0 && <p>No cloud accounts yet.</p>}
     </div>}

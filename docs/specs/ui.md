@@ -60,7 +60,7 @@ shows per account/region results with errors. Admins get a "Sync now" button.
 - Enable MFA (show QR, confirm code) / disable MFA.
 - Admin only: users list, create user, deactivate, reset MFA.
 - Admin only: **Cloud accounts** ([accounts.md](accounts.md)). Table of all
-  accounts (provider, name, ID, regions, role, source, enabled, last success,
+  accounts (provider, name, cloud alias, ID, regions, role, source, enabled, last success,
   instance count). Add and edit forms for `ui` accounts; `file` accounts are
   read-only with a "Managed by accounts.yaml" label. Enable/disable with an
   inline confirmation. "Test access" shows the result inline.
@@ -142,3 +142,11 @@ Access tests display a region count or the sanitized provider error in the row;
 editing connection settings clears the previous test result. Successful writes
 invalidate account lists, search facets/results, instance details and sync queries,
 so the next view uses updated labels and configuration.
+
+## Account identity implementation (T-062)
+
+Search has separate Account, Account alias and Account ID columns; the account
+ID copy button reports success or failure without opening the instance. Details
+Summary has separate Account name, Account alias and Account ID rows. Settings
+also shows the cloud alias. Unknown/absent aliases display "–". Free-text search
+includes account names, aliases and IDs as well as the instance fields.

@@ -12,7 +12,7 @@ const fetchApi = vi.mocked(apiFetch);
 function response(body: unknown) { return new Response(JSON.stringify(body)); }
 function setup(provider = 'aws') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/instances/${provider}/111111111111/eu-central-1/i-0123456789abcdef0`]}><Routes>
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/instances/${provider}/${provider === 'aws' ? '111111111111' : '1111111111111111'}/eu-central-1/i-0123456789abcdef0`]}><Routes>
     <Route path="/instances/:provider/:account/:region/:id" element={<InstanceDetails />} />
   </Routes></MemoryRouter></QueryClientProvider>);
 }
@@ -24,7 +24,7 @@ test.each(['aws', 'alibaba'] as const)('renders all five sections from the %s fi
   for (const name of ['Summary', 'Tags', 'Network', 'Security groups', 'Raw JSON']) expect(screen.getByRole('region', { name })).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'Summary' })).getByText(`${provider}-web`)).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'Tags' })).getByText('infra')).toBeInTheDocument();
-  expect(fetchApi).toHaveBeenCalledWith(`/api/instances/${provider}/111111111111/eu-central-1/i-0123456789abcdef0`, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(fetchApi).toHaveBeenCalledWith(`/api/instances/${provider}/${provider === 'aws' ? '111111111111' : '1111111111111111'}/eu-central-1/i-0123456789abcdef0`, expect.objectContaining({ signal: expect.any(AbortSignal) }));
   fireEvent.click(screen.getByText('Show provider payload'));
   expect(screen.getByText(/"InstanceId"/)).toBeInTheDocument();
 });

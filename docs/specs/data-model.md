@@ -27,7 +27,7 @@ collect run) or from admins in the UI (`source = ui`). See
 | `external_id` | text null | AWS external ID |
 | `regions` | jsonb | `"all"` or a list of region IDs; default `"all"` |
 | `created_at` | timestamptz | default `now()` |
-| `updated_at` | timestamptz | set on every change |
+| `updated_at` | timestamptz | Configuration changes only; alias checks and scan success use their own timestamps |
 | `cloud_alias` | text null | Account alias read from the cloud ([accounts.md](accounts.md#cloud-account-alias)) |
 | `cloud_alias_checked_at` | timestamptz null | Last successful alias read |
 

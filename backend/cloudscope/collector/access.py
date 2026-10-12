@@ -3,9 +3,9 @@
 import asyncio
 from typing import Protocol, TypedDict
 
-from cloudscope.collector.alibaba import AlibabaProvider
-from cloudscope.collector.aws import AWSProvider
-from cloudscope.collector.errors import describe_error
+from cloudscope.collector.alibaba import AlibabaClientFactory, AlibabaProvider
+from cloudscope.collector.aws import AWSClientFactory, AWSProvider
+from cloudscope.collector.errors import AssumeRoleError, describe_error
 from cloudscope.config import AccountConfig
 
 
@@ -24,7 +24,10 @@ class AccountAccess:
         self.providers: dict[str, AccessProvider] = (
             providers
             if providers is not None
-            else {"aws": AWSProvider(), "alibaba": AlibabaProvider()}
+            else {
+                "aws": AWSProvider(client_factory=AWSClientFactory(access_test=True)),
+                "alibaba": AlibabaProvider(client_factory=AlibabaClientFactory(access_test=True)),
+            }
         )
         self.timeout = timeout
 
@@ -36,4 +39,9 @@ class AccountAccess:
             )
             return {"ok": True, "regions": len(regions)}
         except Exception as exc:
-            return {"ok": False, "error": f"Region discovery failed: {describe_error(exc)}"}
+            phase = (
+                "Assume role failed"
+                if isinstance(exc, AssumeRoleError)
+                else "Region discovery failed"
+            )
+            return {"ok": False, "error": f"{phase}: {describe_error(exc)}"}

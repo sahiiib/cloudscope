@@ -7,7 +7,7 @@ import InstanceTable from './InstanceTable';
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async original => ({ ...await original<typeof import('react-router-dom')>(), useNavigate: () => navigate }));
 const item: InstanceSummary = {
-  provider: 'aws', account_id: '111111111111', account_name: 'Demo', region: 'eu-central-1',
+  provider: 'aws', account_id: '111111111111', account_name: 'Demo', account_alias: 'demo-alias', region: 'eu-central-1',
   instance_id: 'i-0123456789abcdef0', name: 'web-1', state: 'stopped', instance_type: 't3.small',
   private_ips: [], public_ips: [], tags: { a: '1', b: '2', c: '3', d: '4', e: '5' },
   launch_time: null, last_observed: '2026-01-01T00:00:00Z', present: false,
@@ -45,4 +45,30 @@ test('links use their own navigation without triggering the row handler', () => 
   expect(screen.getByLabelText('Location')).toHaveTextContent('/instances/aws/111111111111/eu-central-1/i-0123456789abcdef0');
   fireEvent.click(screen.getByText('t3.small'));
   expect(navigate).toHaveBeenCalledExactlyOnceWith('/instances/aws/111111111111/eu-central-1/i-0123456789abcdef0');
+});
+
+test.each(['aws', 'alibaba'] as const)('shows separate account fields for %s and copies the account ID', async provider => {
+  const accountId = provider === 'aws' ? '111111111111' : '1111111111111111';
+  const copy = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal('navigator', { clipboard: { writeText: copy } });
+  render(<MemoryRouter><InstanceTable items={[{ ...item, provider, account_id: accountId, account_alias: `${provider}-alias` }]} sort="name" onSort={vi.fn()} /></MemoryRouter>);
+  const headers = screen.getAllByRole('columnheader').map(cell => cell.textContent);
+  const cells = screen.getAllByRole('row')[1].querySelectorAll('td');
+  expect(cells[headers.indexOf('Account')]).toHaveTextContent('Demo');
+  expect(cells[headers.indexOf('Account')]).not.toHaveTextContent(accountId);
+  expect(cells[headers.indexOf('Account alias')]).toHaveTextContent(`${provider}-alias`);
+  expect(cells[headers.indexOf('Account ID')]).toHaveTextContent(accountId);
+  fireEvent.click(screen.getByRole('button', { name: `Copy account ID ${accountId}` }));
+  await screen.findByText('Account ID copied.');
+  expect(copy).toHaveBeenCalledExactlyOnceWith(accountId);
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+test('null account alias is explicit and account ID copy failure stays inline', async () => {
+  vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('Denied')) } });
+  render(<MemoryRouter><InstanceTable items={[{ ...item, account_alias: null }]} sort="name" onSort={vi.fn()} /></MemoryRouter>);
+  expect(screen.getByText('–')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: `Copy account ID ${item.account_id}` }));
+  await screen.findByText('Unable to copy. Select and copy the account ID.');
+  expect(navigate).not.toHaveBeenCalled();
 });

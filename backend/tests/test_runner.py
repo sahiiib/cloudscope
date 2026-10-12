@@ -51,6 +51,9 @@ class FakeProvider:
         self.calls: list[str] = []
         self.barrier: Barrier | None = None
 
+    def get_account_alias(self, account: AccountConfig) -> str | None:
+        return None
+
     def list_regions(self, account: AccountConfig) -> list[str]:
         if self.discovery_error:
             raise RuntimeError("secret SDK error")
@@ -233,7 +236,7 @@ def test_error_diagnostics_exclude_messages(
         f"run_id={run.id}",
         f"phase={phase}",
         "provider=aws",
-        f'account_id="{ACCOUNT.account_id}"',
+        f"account_id={ACCOUNT.account_id}",
         f'region="{region}"',
         f"error={code}",
     ):
@@ -249,6 +252,9 @@ def test_file_and_ui_accounts_reconcile_without_overwriting_ui(
 
         def __init__(self):
             self.scanned = []
+
+        def get_account_alias(self, account):
+            return None
 
         def list_regions(self, account):
             assert isinstance(account.regions, list)
@@ -297,3 +303,32 @@ def test_file_and_ui_accounts_reconcile_without_overwriting_ui(
         session.get_one(Account, ("aws", ui.account_id)).enabled = True
     assert runner.run([], account_id=ui.account_id).instances_seen == 1
     assert provider.scanned == [ui]
+
+
+def test_file_timestamp_only_changes_when_configuration_changes(factory):
+    runner = SyncRunner(factory, {"aws": FakeProvider()}, clock=lambda: NOW)
+    runner.run([ACCOUNT])
+    runner.clock = lambda: NOW + timedelta(hours=1)
+    runner.run([ACCOUNT])
+    with factory() as session:
+        row = session.get_one(Account, ("aws", ACCOUNT.account_id))
+        assert row.updated_at == NOW
+        assert row.last_success_at == NOW + timedelta(hours=1)
+        assert row.cloud_alias_checked_at == NOW + timedelta(hours=1)
+    renamed = ACCOUNT.model_copy(update={"name": "Renamed"})
+    runner.run([renamed])
+    with factory() as session:
+        assert session.get_one(Account, ("aws", ACCOUNT.account_id)).updated_at == NOW + timedelta(
+            hours=1
+        )
+    runner.clock = lambda: NOW + timedelta(hours=2)
+    runner.run([])
+    runner.clock = lambda: NOW + timedelta(hours=3)
+    runner.run([])
+    with factory() as session:
+        row = session.get_one(Account, ("aws", ACCOUNT.account_id))
+        assert not row.enabled and row.updated_at == NOW + timedelta(hours=2)
+    runner.run([renamed])
+    with factory() as session:
+        row = session.get_one(Account, ("aws", ACCOUNT.account_id))
+        assert row.enabled and row.updated_at == NOW + timedelta(hours=3)

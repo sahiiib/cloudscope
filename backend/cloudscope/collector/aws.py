@@ -15,6 +15,7 @@ from cloudscope.collector.base import (
     unique,
     utc_datetime,
 )
+from cloudscope.collector.errors import AssumeRoleError
 from cloudscope.config import AccountConfig
 
 
@@ -23,10 +24,13 @@ class EC2Reader(Protocol):
 
 
 class BotoReader:
-    def __init__(self, client: Any) -> None:
-        self.client = client
+    def __init__(self, client: Any, iam: Callable[[], Any] | None = None) -> None:
+        self.client, self.iam = client, iam
 
     def call(self, operation: str, **params: Any) -> Payload:
+        if operation == "list_account_aliases" and self.iam is not None:
+            result: Payload = self.iam().list_account_aliases(**params)
+            return result
         if operation not in {
             "describe_instances",
             "describe_regions",
@@ -36,7 +40,7 @@ class BotoReader:
             "describe_images",
         }:
             raise ValueError("Unsupported read operation")
-        result: Payload = getattr(self.client, operation)(**params)
+        result = getattr(self.client, operation)(**params)
         return result
 
 
@@ -49,6 +53,7 @@ class AWSClientFactory:
         session_factory: Callable[..., Any] = boto3.Session,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         discovery_region: str = "us-east-1",
+        access_test: bool = False,
     ) -> None:
         self._base = base_session
         self._session_factory = session_factory
@@ -56,7 +61,15 @@ class AWSClientFactory:
         self._sts_region = discovery_region
         self._cache: dict[tuple[str, str, str | None], tuple[Any, datetime]] = {}
         self._lock = Lock()
-        self._config = Config(retries={"mode": "adaptive", "max_attempts": 5})
+        self._config = (
+            Config(
+                connect_timeout=5,
+                read_timeout=10,
+                retries={"mode": "standard", "total_max_attempts": 2},
+            )
+            if access_test
+            else Config(retries={"mode": "adaptive", "max_attempts": 5})
+        )
 
     def __call__(self, account: AccountConfig, region: str) -> EC2Reader:
         with self._lock:
@@ -73,9 +86,12 @@ class AWSClientFactory:
                     }
                     if account.external_id:
                         request["ExternalId"] = account.external_id
-                    credentials = self._base.client(
-                        "sts", region_name=self._sts_region, config=self._config
-                    ).assume_role(**request)["Credentials"]
+                    try:
+                        credentials = self._base.client(
+                            "sts", region_name=self._sts_region, config=self._config
+                        ).assume_role(**request)["Credentials"]
+                    except Exception as exc:
+                        raise AssumeRoleError(exc) from None
                     session = self._session_factory(
                         aws_access_key_id=credentials["AccessKeyId"],
                         aws_secret_access_key=credentials["SecretAccessKey"],
@@ -87,7 +103,12 @@ class AWSClientFactory:
                     self._cache[key] = (session, expiration)
                 else:
                     session = cached[0]
-            return BotoReader(session.client("ec2", region_name=region, config=self._config))
+            return BotoReader(
+                session.client("ec2", region_name=region, config=self._config),
+                iam=lambda: session.client(
+                    "iam", region_name=self._sts_region, config=self._config
+                ),
+            )
 
 
 def pages(client: EC2Reader, operation: str, **params: Any) -> Iterator[Payload]:
@@ -152,6 +173,16 @@ class AWSProvider:
         self.client_factory = client_factory or AWSClientFactory(discovery_region=discovery_region)
         self.page_size = page_size
         self.discovery_region = discovery_region
+
+    def get_account_alias(self, account: AccountConfig) -> str | None:
+        self._validate(account)
+        aliases = self.client_factory(account, self.discovery_region).call("list_account_aliases")[
+            "AccountAliases"
+        ]
+        alias = aliases[0] if aliases else None
+        if alias is not None and not isinstance(alias, str):
+            raise ValueError("Invalid account alias response")
+        return alias or None
 
     def test_access(self, account: AccountConfig) -> list[str]:
         """Resolve credentials and discover regions even for an explicit region list."""

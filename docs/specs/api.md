@@ -66,6 +66,7 @@ Response:
       "provider": "aws",
       "account_id": "111111111111",
       "account_name": "prod-main",
+      "account_alias": "example-production",
       "region": "eu-central-1",
       "instance_id": "i-0abc",
       "name": "web-1",
@@ -126,7 +127,9 @@ Repeated values within one filter are ORed; different filters and repeated tags
 are ANDed. Free text treats `%` and `_` literally. Facets omit their own dimension
 while retaining every other filter (including tags/search/missing). Account facet
 values are account IDs; accounts with the same ID across providers share a bucket.
-Sorting uses nulls last and a stable instance-ID database tie-breaker. Account
+Account name/alias/ID matching joins the current account row, so renames take
+effect without recollecting instances. List totals and facets use the same search
+conditions. Sorting uses nulls last and a stable instance-ID database tie-breaker. Account
 sorting uses account name. Account counts include present instances only; disabled
 and empty accounts remain listed. Detail lookup also allows missing instances.
 

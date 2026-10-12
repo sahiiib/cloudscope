@@ -43,7 +43,7 @@ A task can start when all its dependencies are `done`.
 | T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | done |
 | T-060 | Accounts in the database: admin API, file + UI sources | codex | T-043 | done |
 | T-061 | UI: Settings → Cloud accounts | codex | T-060 | done |
-| T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | todo |
+| T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | review |
 
 ---
 

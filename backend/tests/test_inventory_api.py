@@ -225,3 +225,64 @@ def test_manual_sync_config_error_is_sanitized(
         assert response.json() == {"detail": "Collection unavailable"}
     finally:
         client.app.state.manual_sync = None
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("ALPHA", 2),
+        ("beta", 1),
+        ("AWS-ALIAS", 2),
+        ("ali-alias", 1),
+        ("111111111111", 2),
+        ("222222222222", 1),
+    ],
+)
+def test_search_account_metadata_and_facets(client, inventory, db_session, query, expected):
+    for provider, id, alias in [
+        ("aws", "111111111111", "aws-alias"),
+        ("alibaba", "222222222222", "ali-alias"),
+    ]:
+        db_session.get_one(Account, (provider, id)).cloud_alias = alias
+    db_session.commit()
+    login(client)
+    response = client.get("/api/instances", params={"q": query, "page_size": 1}).json()
+    assert response["total"] == expected
+    assert len(response["items"]) == 1
+    assert response["items"][0]["account_alias"] in {"aws-alias", "ali-alias"}
+    facets = client.get("/api/instances/facets", params={"q": query}).json()
+    assert sum(entry["count"] for entry in facets["providers"]) == expected
+    assert sum(entry["count"] for entry in facets["accounts"]) == expected
+    detail = client.get("/api/instances/aws/111111111111/eu-central-1/i-test-0").json()
+    assert detail["account_alias"] == "aws-alias"
+    assert [row["cloud_alias"] for row in client.get("/api/accounts").json()] == [
+        "ali-alias",
+        "aws-alias",
+    ]
+
+
+def test_alias_null_literal_wildcards_and_live_renames(client, inventory, db_session):
+    login(client)
+    assert client.get("/api/instances").json()["items"][0]["account_alias"] is None
+    assert (
+        client.get("/api/instances/aws/111111111111/eu-central-1/i-test-0").json()["account_alias"]
+        is None
+    )
+    account = db_session.get_one(Account, ("alibaba", "222222222222"))
+    account.cloud_alias = "alias_100%"
+    db_session.commit()
+    assert client.get("/api/instances", params={"q": "alias_"}).json()["total"] == 1
+    assert client.get("/api/instances", params={"q": "100%"}).json()["total"] == 2
+    account.cloud_alias = "renamed-alias"
+    account.name = "Renamed account"
+    db_session.commit()
+    assert client.get("/api/instances", params={"q": "alias_"}).json()["total"] == 0
+    assert client.get("/api/instances", params={"q": "renamed"}).json()["total"] == 1
+    assert (
+        client.get("/api/instances", params={"q": "renamed", "provider": "aws"}).json()["total"]
+        == 0
+    )
+    assert (
+        client.get("/api/instances", params={"q": "Alpha", "include_missing": True}).json()["total"]
+        == 3
+    )
