@@ -44,7 +44,8 @@ A task can start when all its dependencies are `done`.
 | T-060 | Accounts in the database: admin API, file + UI sources | codex | T-043 | done |
 | T-061 | UI: Settings → Cloud accounts | codex | T-060 | done |
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | done |
-| T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | review |
+| T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
+| T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | todo |
 
 ---
 
@@ -412,3 +413,47 @@ Owner: codex · Assigned by fork contributor · Spec: [CONTRIBUTING.md](../CONTR
 Acceptance: contribution guide links and commands match the repository; templates
 are usable on GitHub; deployment/migration rules preserve data and avoid parallel
 upgrades. Documentation distinguishes proposals from settings actually enabled.
+
+### T-064: Reconcile fork account schema into upstream (issue #38)
+Owner: codex (yerevanstar) · Specs: [accounts](specs/accounts.md),
+[data-model](specs/data-model.md#accounts) · Issue: #38
+
+Some databases ran a fork's `0004` (accounts with `connection_config` jsonb and
+`credentials_encrypted` text) and then upstream `0005` (alias). They report head
+`0005` but lack upstream `0004` columns, so the upstream API cannot read accounts.
+
+Decision (Saheb, 2026-10-12): the upstream model stays. Accounts hold no access
+keys or secrets; base credentials come from the runtime environment and each
+account may name a role to assume. The fork's per-account stored keys and its
+Accounts implementation are not carried over.
+
+- New migration `0006` (revises `0005`, new unique ID; `0004`/`0005` untouched)
+  that inspects the `accounts` table and is a no-op on a normal upstream database:
+  - Adds any missing upstream `0004` column, default and check constraint exactly
+    as `0004_account_sources.py` defines them.
+  - If `connection_config` exists, copies `role_arn`, `external_id` and `regions`
+    from it into the new columns only when the value passes the accounts.md
+    validation for that row's provider and account ID; otherwise keeps null /
+    `"all"`. Logs counts only, never values.
+  - Every reconciled row gets `source = file` (the next collect run disables rows
+    that are not in `accounts.yaml`; admins can re-add them in the UI).
+  - Drops `connection_config` and `credentials_encrypted`. Before dropping, logs
+    `event=reconcile_dropped_credentials count=<n>`, never values or IDs. This
+    drop is intended: stored keys are removed by decision, not by accident.
+  - Fails with a clear message if it finds any other non-upstream column or
+    table instead of guessing.
+  - `downgrade()` is a no-op with a comment: recovery is restoring the backup.
+- Rows, instances, sync history, users, sessions and MFA are preserved.
+
+Acceptance:
+- Tests build a hybrid database (upstream `0003` + fork columns + upstream `0005`
+  columns, stamped `0005`) with placeholder IDs, run `upgrade head`, and check:
+  upstream schema matches a fresh upstream database (compare
+  `pg_dump --schema-only` or the SQLAlchemy inspector), valid config values are
+  copied, invalid ones are not, both fork columns are gone, and instances,
+  sync results and users survive.
+- A fresh upstream database upgrades through `0006` unchanged.
+- The PR describes the rollout: backup, restore into a disposable database and
+  run the migration there first, then upgrade the shared release to the
+  upstream image. An account that used a stored key needs a role ARN (or the
+  base credentials) afterwards; the access test in Settings shows it.
