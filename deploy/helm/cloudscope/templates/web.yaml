@@ -15,6 +15,7 @@ spec:
         app.kubernetes.io/component: web
     spec:
       automountServiceAccountToken: false
+      enableServiceLinks: false
       imagePullSecrets: {{ .Values.imagePullSecrets | toJson }}
       securityContext: {runAsNonRoot: true, runAsUser: 101, runAsGroup: 101, fsGroup: 101, seccompProfile: {type: RuntimeDefault}}
       containers:

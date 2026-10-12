@@ -33,6 +33,9 @@ readOnlyRootFilesystem: true
 capabilities: {drop: [ALL]}
 {{- end -}}
 {{- define "cs.backendPod" -}}
+# Service links would inject e.g. CLOUDSCOPE_API_PORT=tcp://... from the
+# <release>-api Service, which collides with the app's CLOUDSCOPE_* settings.
+enableServiceLinks: false
 serviceAccountName: {{ .Values.serviceAccount.name }}
 securityContext:
   runAsNonRoot: true

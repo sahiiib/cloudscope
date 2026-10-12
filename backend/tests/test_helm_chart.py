@@ -138,3 +138,17 @@ def test_chart_secret_with_external_database_uses_post_install_pre_upgrade() -> 
     )
     job = resource(docs, "Job", "cloudscope-migrate")
     assert job["metadata"]["annotations"]["helm.sh/hook"] == "post-install,pre-upgrade"
+
+
+def test_pods_disable_service_links() -> None:
+    # The <release>-api Service would otherwise inject CLOUDSCOPE_API_PORT=tcp://...
+    docs = render("api.forwardedAllowIPs=10.0.0.0/16")
+    cron = resource(docs, "CronJob", "cloudscope-collector")["spec"]["jobTemplate"]["spec"]
+    pods = [
+        resource(docs, "Deployment", "cloudscope-api")["spec"]["template"]["spec"],
+        resource(docs, "Deployment", "cloudscope-web")["spec"]["template"]["spec"],
+        resource(docs, "StatefulSet", "cloudscope-postgres")["spec"]["template"]["spec"],
+        resource(docs, "Job", "cloudscope-migrate")["spec"]["template"]["spec"],
+        cron["template"]["spec"],
+    ]
+    assert all(pod["enableServiceLinks"] is False for pod in pods)
