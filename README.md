@@ -217,7 +217,8 @@ GHCR tags. CI builds amd64/arm64 images on PRs and publishes them on `main`.
 
 ### Admin-managed cloud accounts
 
-Admins can use `POST /api/accounts` and `PATCH /api/accounts/{provider}/{account_id}`
+Admins can add and edit accounts in **Settings → Cloud accounts**, or use
+`POST /api/accounts` and `PATCH /api/accounts/{provider}/{account_id}`
 to manage account IDs, names, roles and regions in the database. These endpoints
 require a full session and `X-Requested-With: cloudscope`. Base credentials stay
 in the runtime environment; accounts contain no access keys. See

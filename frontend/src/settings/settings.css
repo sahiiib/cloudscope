@@ -16,3 +16,8 @@
 .mfa-enrollment { display: grid; gap: 1rem; margin-bottom: 1rem; }
 .mfa-enrollment img { background: white; max-width: 100%; height: auto; padding: 1rem; }
 .mfa-uri { display: block; overflow-wrap: anywhere; padding: 1rem 0; }
+.cloud-accounts .settings-table-scroll { margin-top: 1rem; }
+.cloud-accounts .account-role { min-width: 10rem; overflow-wrap: anywhere; }
+.cloud-accounts .account-form { margin-top: 1.5rem; }
+.account-form label { display: grid; gap: .4rem; }
+.account-form label.settings-check { display: flex; }

@@ -1,5 +1,5 @@
 export class ApiError extends Error {
-  constructor(public readonly status: number) {
+  constructor(public readonly status: number, public readonly detail?: unknown) {
     super(`API request failed (${status})`);
     this.name = 'ApiError';
   }
@@ -26,7 +26,12 @@ export async function apiFetch(
     window.location.assign('/login');
   }
   if (!response.ok) {
-    throw new ApiError(response.status);
+    let detail: unknown;
+    try {
+      const body: unknown = await response.json();
+      if (body && typeof body === 'object' && 'detail' in body) detail = body.detail;
+    } catch { /* Some proxies return an empty or non-JSON error body. */ }
+    throw new ApiError(response.status, detail);
   }
   return response;
 }

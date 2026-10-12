@@ -128,3 +128,17 @@ also expose policy, priority and source ports. Timestamps include their exact
 UTC offset; a missing instance keeps its last observed data with a clear notice.
 404 and retryable request failures have separate states. Raw JSON is collapsible,
 rendered as text, and copied locally with clipboard success/failure feedback.
+
+## Cloud accounts implementation (T-061)
+
+Settings shows Cloud accounts only for administrators. File-managed rows display
+"Managed by accounts.yaml" and offer only a read-only access test. UI-managed
+accounts have add/edit forms; provider and ID are fixed after creation. Blank
+optional role/external-ID fields clear those values. Validation runs locally
+and server 422/409 errors remain beside the relevant field.
+
+Enable/disable requires inline confirmation and preserves existing inventory.
+Access tests display a region count or the sanitized provider error in the row;
+editing connection settings clears the previous test result. Successful writes
+invalidate account lists, search facets/results, instance details and sync queries,
+so the next view uses updated labels and configuration.
