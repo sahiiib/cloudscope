@@ -36,7 +36,7 @@ A task can start when all its dependencies are `done`.
 | T-040 | Dockerfiles and image build in CI | codex | T-013, T-003 | done |
 | T-041 | Helm chart | codex | T-040 | done |
 | T-042 | Local cluster install guide and values | claude | T-041 | done |
-| T-043 | Deploy to local kubeadm cluster | human + claude | T-042 | todo |
+| T-043 | Deploy to local kubeadm cluster | human + claude | T-042 | done |
 | T-050 | AWS read-only role StackSet + hub role templates | codex | T-010 | done |
 | T-051 | Alibaba RAM role Terraform | codex | T-011 | done |
 | T-052 | Roll out roles in all accounts | human | T-050, T-051 | todo |
@@ -272,6 +272,12 @@ Owner: claude · Specs: [deployment](specs/deployment.md#local-cluster-kubeadm-3
 Owner: human + claude
 
 Acceptance: app reachable on the local network, CronJob runs every 15 min.
+
+Result (2026-10-12): installed with `sha-180c68a…` images. Reachable on the LAN
+through the Istio gateway (NodePort 31008) and, until the EKS move, through a
+Cloudflare tunnel behind Cloudflare Access. Admin has MFA. Manual and scheduled
+collector runs completed with all regions `success`. The first install found
+the service-link env collision fixed in #30; guide fixes in #31.
 
 ## Phase 4: EKS
 

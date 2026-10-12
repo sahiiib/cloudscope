@@ -52,13 +52,15 @@ with an Envoy sidecar next to it. Leave injection off for this namespace.
 
 ## 3. Secrets (typed in your shell, never stored in the repo or pasted in chat)
 
-`read -s` keeps the values out of shell history and off the screen.
+`read -s` keeps the values out of shell history and off the screen. The
+`printf` + `read` form works in both bash and zsh (zsh's `read -p` means
+something else and silently reads nothing).
 
 ```sh
-read -rs -p 'AWS access key id: ' AWS_ID; echo
-read -rs -p 'AWS secret access key: ' AWS_SECRET; echo
-read -rs -p 'Alibaba access key id: ' ALI_ID; echo
-read -rs -p 'Alibaba access key secret: ' ALI_SECRET; echo
+printf 'AWS access key id: '; read -rs AWS_ID; echo
+printf 'AWS secret access key: '; read -rs AWS_SECRET; echo
+printf 'Alibaba access key id: '; read -rs ALI_ID; echo
+printf 'Alibaba access key secret: '; read -rs ALI_SECRET; echo
 PG_PASS="$(openssl rand -hex 24)"
 FERNET="$(python3 -c 'import base64,os;print(base64.urlsafe_b64encode(os.urandom(32)).decode())')"
 
@@ -72,6 +74,7 @@ kubectl -n cloudscope create secret generic cloudscope \
   --from-literal=ALIBABA_CLOUD_ACCESS_KEY_SECRET="$ALI_SECRET"
 
 unset AWS_ID AWS_SECRET ALI_ID ALI_SECRET PG_PASS FERNET
+kubectl -n cloudscope describe secret cloudscope   # sizes only; none may be 0 bytes
 ```
 
 `SECRET_KEY` encrypts TOTP secrets in the database. If it is lost, every user
@@ -81,7 +84,7 @@ The images live in GHCR under a private repository, so the nodes need a pull
 secret. Use a GitHub personal access token with only `read:packages`:
 
 ```sh
-read -rs -p 'GHCR token (read:packages): ' GHCR_TOKEN; echo
+printf 'GHCR token (read:packages): '; read -rs GHCR_TOKEN; echo
 kubectl -n cloudscope create secret docker-registry ghcr-pull \
   --docker-server=ghcr.io --docker-username=sahiiib --docker-password="$GHCR_TOKEN"
 unset GHCR_TOKEN
@@ -98,7 +101,8 @@ Edit `deploy/helm/values.local.yaml`:
 
 - `image.backend.tag` and `image.web.tag`: `sha-<that full sha>`. Check that
   the "images" workflow succeeded for that commit first, since it pushes the tags.
-- `accounts`: your real accounts, same shape as `config/accounts.yaml`.
+- `accounts`: no need to edit. Pass your existing `config/accounts.yaml` as a
+  second values file (step 5); its `accounts:` list replaces the placeholders.
 - `api.forwardedAllowIPs`: already `10.244.0.0/16`, the Calico pool. Change
   it only if step 1 shows a different CIDR.
 - `api.cookieSecure: false` stays only while the app is plain HTTP.
@@ -106,9 +110,9 @@ Edit `deploy/helm/values.local.yaml`:
 ## 5. Install
 
 ```sh
-helm lint deploy/helm/cloudscope -f deploy/helm/values.local.yaml
+helm lint deploy/helm/cloudscope -f deploy/helm/values.local.yaml -f config/accounts.yaml
 helm upgrade --install cloudscope deploy/helm/cloudscope -n cloudscope \
-  -f deploy/helm/values.local.yaml --wait --timeout 10m
+  -f deploy/helm/values.local.yaml -f config/accounts.yaml --wait --timeout 10m
 kubectl -n cloudscope get pods,pvc,ingress,cronjob
 ```
 
@@ -165,9 +169,53 @@ gate. Do these before adding the route:
 2. Put a Cloudflare Access application with an allow policy for your own
    e-mail in front of the hostname. Then strangers never reach the login page.
 
-In the existing cloudflared tunnel, add a public hostname (for example
-`cloudscope.<your-domain>`) whose service points straight at the web Service,
-not at Istio:
+This cluster uses a dedicated tunnel named `cloudscope` (Zero Trust →
+Networks → Tunnels → Create a tunnel → Cloudflared). Skip its "Public
+hostname" step at first and store the connector token without echoing it:
+
+```sh
+printf 'Tunnel token: '; read -rs TUNNEL_TOKEN; echo
+kubectl -n cloudscope create secret generic cloudflared-token --from-literal=token="$TUNNEL_TOKEN"
+unset TUNNEL_TOKEN
+```
+
+Run the connector in the same namespace (pin the image by digest):
+
+```sh
+kubectl apply -f - <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudscope-cloudflared
+  namespace: cloudscope
+  labels: {app.kubernetes.io/name: cloudscope-cloudflared}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app.kubernetes.io/name: cloudscope-cloudflared}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: cloudscope-cloudflared}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared@sha256:<digest>
+          args: [tunnel, --no-autoupdate, --metrics, 0.0.0.0:2000, run]
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom: {secretKeyRef: {name: cloudflared-token, key: token}}
+          readinessProbe: {httpGet: {path: /ready, port: 2000}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /ready, port: 2000}, initialDelaySeconds: 20, periodSeconds: 20}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {memory: 128Mi}}
+YAML
+```
+
+Once the tunnel shows Healthy, add the public hostname. Its service is HTTP
+and points straight at the web Service, not at Istio:
 
 ```
 http://cloudscope-web.cloudscope.svc.cluster.local:8080
@@ -184,7 +232,11 @@ Client IPs work through the tunnel: Cloudflare appends the real client IP to
 `X-Forwarded-For`, the cloudflared pod address is inside `10.244.0.0/16`, so
 the API sees the real IP and a forged header does not dodge the login limit.
 
-Remove the route when the app moves to EKS (internal ALB, see
+Opening the hostname in a private window must show the Cloudflare Access
+login first, then the cloudscope login with MFA.
+
+Remove the route, the `cloudscope-cloudflared` Deployment and the
+`cloudflared-token` Secret when the app moves to EKS (internal ALB, see
 [specs/deployment.md](specs/deployment.md#eks-production)).
 
 ## Client IPs and the login rate limit
