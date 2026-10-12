@@ -41,6 +41,8 @@ A task can start when all its dependencies are `done`.
 | T-051 | Alibaba RAM role Terraform | codex | T-011 | done |
 | T-052 | Roll out roles in all accounts | human | T-050, T-051 | todo |
 | T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | done |
+| T-060 | Accounts in the database: admin API, file + UI sources | codex | T-043 | todo |
+| T-061 | UI: Settings → Cloud accounts | codex | T-060 | todo |
 
 ---
 
@@ -275,7 +277,7 @@ Acceptance: app reachable on the local network, CronJob runs every 15 min.
 
 Result (2026-10-12): installed with `sha-180c68a…` images. Reachable on the LAN
 through the Istio gateway (NodePort 31008) and, until the EKS move, through a
-Cloudflare tunnel behind Cloudflare Access. Admin has MFA. Manual and scheduled
+Cloudflare tunnel (test only, no Cloudflare Access by Saheb's choice). Admin has MFA. Manual and scheduled
 collector runs completed with all regions `success`. The first install found
 the service-link env collision fixed in #30; guide fixes in #31.
 
@@ -305,3 +307,54 @@ Owner: codex · Specs: [deployment](specs/deployment.md#eks-production)
 
 Acceptance: `values.eks.yaml` example with Pod Identity service account,
 External Secrets manifest, RDS `DATABASE_URL`, ALB ingress.
+
+## Phase 5: Admin features
+
+### T-060: Accounts in the database: admin API, file + UI sources
+Owner: codex · Specs: [accounts](specs/accounts.md), [data-model](specs/data-model.md#accounts),
+[api](specs/api.md#accounts), [collector](specs/collector.md#flow)
+
+- Alembic migration adding `source`, `role_arn`, `external_id`, `regions`,
+  `created_at`, `updated_at` to `accounts`. Existing rows become `source = file`,
+  `regions = "all"`; the next collect run fills their file values.
+- File sync touches only `source = file` rows; file/UI conflicts follow
+  accounts.md. The collector (CLI, CronJob and "Sync now") scans every enabled
+  row from the database. A missing accounts file means no file accounts.
+- `POST /api/accounts`, `PATCH /api/accounts/{provider}/{account_id}` and
+  `POST /api/accounts/{provider}/{account_id}/test`, admin full session + CSRF.
+  `GET /api/accounts` gains `source`, `role_arn`, `external_id`, `regions`.
+- Access test: provider methods in `cloudscope/collector/` (assume role if set,
+  then list regions), 30 s timeout, sanitized errors, injected clients.
+- Audit log lines as in accounts.md.
+
+Acceptance:
+- Tests (moto for AWS, fakes for Alibaba) cover: create/patch/validation (each
+  rule in the accounts.md table, including the ARN account ID check), 409 for
+  duplicates and for editing a `file` account, non-admin 403, missing CSRF 403.
+- A collect run with a file account and a UI account scans both; removing the
+  file entry disables only the file account; a file entry that collides with a
+  UI account is skipped and logged.
+- Disabled UI accounts are not scanned; their instances are untouched.
+- The access test reports success and a sanitized `AccessDenied`-style failure
+  without writing inventory.
+- No new cloud API call beyond `AssumeRole` and `DescribeRegions`; nothing writes
+  to a cloud account.
+
+### T-061: UI: Settings → Cloud accounts
+Owner: codex · Specs: [ui](specs/ui.md#settings-settings), [accounts](specs/accounts.md)
+
+- Admin-only "Cloud accounts" section in Settings, built on the T-060 API.
+- Table: provider, name, account ID, regions, role ARN, source, enabled, last
+  success, instance count.
+- Add form and edit form for `ui` accounts (provider and account ID read-only when
+  editing). Client-side checks mirror accounts.md; server 422/409 messages show
+  inline next to the field.
+- `file` accounts are read-only with a "Managed by accounts.yaml" label.
+- Enable/disable with an inline confirmation; "Test access" shows ok + region
+  count, or the sanitized error, inline.
+- After create/edit/enable/disable, the accounts list, the Search account facet
+  and the Sync page data refresh.
+
+Acceptance: colocated tests cover admin vs non-admin visibility, create (success,
+422 field error, 409), edit of a `ui` account, read-only `file` account,
+enable/disable confirmation, and both test-access outcomes.

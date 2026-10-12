@@ -11,15 +11,23 @@ set their PostgreSQL session timezone to UTC.
 
 ## `accounts`
 
-Synced from `accounts.yaml` at the start of every collect run.
+Rows come from `accounts.yaml` (`source = file`, synced at the start of every
+collect run) or from admins in the UI (`source = ui`). See
+[accounts.md](accounts.md).
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `provider` | text | `aws` \| `alibaba` |
 | `account_id` | text | |
-| `name` | text | Friendly name from config |
-| `enabled` | bool | `false` when removed from config |
+| `name` | text | Friendly name from config or UI |
+| `enabled` | bool | `false` when removed from config or disabled by an admin |
 | `last_success_at` | timestamptz null | Last fully successful scan of this account |
+| `source` | text | `file` \| `ui`, check constraint; existing rows migrate as `file` |
+| `role_arn` | text null | Role to assume; null = base credentials |
+| `external_id` | text null | AWS external ID |
+| `regions` | jsonb | `"all"` or a list of region IDs; default `"all"` |
+| `created_at` | timestamptz | default `now()` |
+| `updated_at` | timestamptz | set on every change |
 
 Primary key: `(provider, account_id)`.
 

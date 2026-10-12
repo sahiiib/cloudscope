@@ -57,6 +57,11 @@ shows per account/region results with errors. Admins get a "Sync now" button.
 - Change password.
 - Enable MFA (show QR, confirm code) / disable MFA.
 - Admin only: users list, create user, deactivate, reset MFA.
+- Admin only: **Cloud accounts** ([accounts.md](accounts.md)). Table of all
+  accounts (provider, name, ID, regions, role, source, enabled, last success,
+  instance count). Add and edit forms for `ui` accounts; `file` accounts are
+  read-only with a "Managed by accounts.yaml" label. Enable/disable with an
+  inline confirmation. "Test access" shows the result inline.
 
 ## App shell implementation (T-030)
 

@@ -97,7 +97,17 @@ Distinct values with counts for filters, respecting the other filters:
 
 ## Accounts
 
-`GET /api/accounts` → `[{provider, account_id, name, enabled, last_success_at, instance_count}]`
+`GET /api/accounts` → `[{provider, account_id, name, enabled, last_success_at, instance_count, source, role_arn, external_id, regions}]`
+
+Admin only, full session and CSRF header (rules in [accounts.md](accounts.md)):
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/api/accounts` | Create a `ui` account. Body `{provider, account_id, name, role_arn?, external_id?, regions, enabled?}`. 201 with the account; 409 if it exists; 422 on validation |
+| PATCH | `/api/accounts/{provider}/{account_id}` | Change `name`, `role_arn`, `external_id`, `regions`, `enabled` of a `ui` account. Omitted fields unchanged; explicit null clears the optional ones. 409 for `file` accounts; 404 unknown |
+| POST | `/api/accounts/{provider}/{account_id}/test` | Read-only access test, `200 {ok, regions}` or `200 {ok: false, error}`; 404 unknown |
+
+There is no DELETE; disable instead.
 
 ## Sync
 
