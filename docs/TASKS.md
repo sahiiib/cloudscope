@@ -369,7 +369,8 @@ Owner: codex · Specs: [accounts](specs/accounts.md#cloud-account-alias),
   (`iam:ListAccountAliases`, RAM `GetAccountAlias`), called once per account per
   run; failures keep the old value, are logged with the error code and never fail
   a region scan.
-- Add `iam:ListAccountAliases` to `deploy/aws/readonly-role.yaml` and a custom
+- Add `iam:ListAccountAliases` to `deploy/aws/readonly-role.yaml` and to the
+  read-only policy block in cloud-access.md (a test checks they match), and a custom
   `ram:GetAccountAlias` policy to `deploy/alibaba/readonly-role.tf`. Nothing else
   changes in the roles.
 - API: `account_alias` on instance list items and detail, `cloud_alias` on

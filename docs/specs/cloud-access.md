@@ -44,10 +44,12 @@ For local development and the local cluster we use existing test access keys.
      "ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules",
      "ec2:DescribeVpcs", "ec2:DescribeSubnets",
      "ec2:DescribeNetworkInterfaces", "ec2:DescribeInstanceTypes",
-     "ec2:DescribeImages", "ec2:DescribeKeyPairs",
-     "iam:ListAccountAliases"
+     "ec2:DescribeImages", "ec2:DescribeKeyPairs"
    ]}
    ```
+   T-062 adds `"iam:ListAccountAliases"` to this list (account alias). It
+   changes this block and `deploy/aws/readonly-role.yaml` together, because
+   `backend/tests/test_aws_templates.py` checks that they match.
 3. Add each account to `accounts.yaml` with its `role_arn` and `external_id`.
 
 For local testing before EKS: an IAM user in the hub account whose only
