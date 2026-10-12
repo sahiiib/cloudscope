@@ -41,7 +41,7 @@ A task can start when all its dependencies are `done`.
 | T-051 | Alibaba RAM role Terraform | codex | T-011 | done |
 | T-052 | Roll out roles in all accounts | human | T-050, T-051 | todo |
 | T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | done |
-| T-060 | Accounts in the database: admin API, file + UI sources | codex | T-043 | review |
+| T-060 | Accounts in the database: admin API, file + UI sources | codex | T-043 | done |
 | T-061 | UI: Settings → Cloud accounts | codex | T-060 | todo |
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | todo |
 
@@ -389,3 +389,13 @@ Acceptance:
   and an Alibaba fixture, and "–" when the alias is null.
 - cfn-lint and terraform validate pass; the only role changes are the two new
   read-only permissions.
+
+Also in T-062, small fixes from the T-060/T-061 reviews (#33, #34):
+- Access test: label assume-role failures `Assume role failed: <code>` instead
+  of `Region discovery failed`, so the "<phase>" in accounts.md is correct.
+- Access test clients: short timeouts and few retries (for example connect 5 s,
+  read 10 s, 2 attempts) so a timed-out test does not keep a worker busy.
+- File sync: change `updated_at` only when a file account really changed.
+- Audit/log lines: write `account_id` the same way everywhere (unquoted).
+- Account form: trim before comparing regions with `all` (`" all"` must not
+  become a region named "all").
