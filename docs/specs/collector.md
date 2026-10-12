@@ -57,8 +57,9 @@ present again. Missing rows retain their last actual observation timestamp.
 Removed file accounts are disabled and skipped; restoring them to configuration
 re-enables them. An account's `last_success_at` advances only when all its regions
 succeed. Region discovery errors (including an empty region list) produce an
-error result with region `*`. An empty account configuration is a successful
-scan of enabled UI accounts that disables previously configured file accounts.
+error result with region `*`. An empty file configuration disables previously configured file accounts and
+scans enabled UI accounts. If neither source has enabled accounts, the run is
+a successful no-op.
 A missing file behaves like an empty file account list; invalid YAML still fails. Error records and logs
 include only the SDK error code (AWS/Alibaba) or exception class name, never
 exception messages, arguments or tracebacks. Stored errors include the phase
