@@ -46,6 +46,7 @@ A task can start when all its dependencies are `done`.
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | done |
 | T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | todo |
+| T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | review |
 
 ---
 
@@ -457,3 +458,14 @@ Acceptance:
   run the migration there first, then upgrade the shared release to the
   upstream image. An account that used a stored key needs a role ARN (or the
   base credentials) afterwards; the access test in Settings shows it.
+
+### T-066: Ensure rebuilt backend images contain changed source
+Owner: codex · Assigned by fork contributor · Spec: [deployment](specs/deployment.md)
+
+The final project installation must build the copied Python source rather than
+reuse a cached wheel keyed by unchanged project metadata. Keep dependency-layer
+caching. A container regression check changes source twice with identical
+pyproject.toml and verifies both installed markers; CI publishing waits for it.
+
+Acceptance: the rebuild regression and existing image smoke pass, scripts lint,
+and no application/runtime configuration or database change is introduced.
