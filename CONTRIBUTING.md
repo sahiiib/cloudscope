@@ -22,8 +22,17 @@ git switch -c codex/T-XXX-short-slug upstream/main
 ```
 
 Keep the fork's `main` as an upstream mirror and feature work on task branches.
-Update local `main` with `git merge --ff-only upstream/main`; if it fails, inspect
-the divergence rather than resetting or force-pushing away work.
+To update local `main`, switch to it explicitly, then return to your task branch:
+
+```sh
+git fetch upstream
+git switch main
+git merge --ff-only upstream/main
+git switch codex/T-XXX-short-slug
+```
+
+If the fast-forward fails, stop and inspect the divergence rather than resetting
+or force-pushing away work.
 
 Run `make lint` and `make test`, plus checks appropriate to the change. On Windows,
 use the equivalent backend `uv` and frontend `npm` commands from the Makefile.
@@ -65,6 +74,36 @@ GHCR. A successful build does not itself deploy the application.
    environment. Never deploy an ambiguous `latest` tag.
 5. Record release/revision, image digests, migration head, verification and recovery
    instructions. Check readiness and collection after deployment.
+
+The current chart accepts `repository` and `tag`, without a separate `digest`
+value. Set each tag to `sha-<commit>@sha256:<digest>` so the rendered image uses
+both the commit tag and the immutable digest (the digest determines the image):
+
+```yaml
+# Merge these entries into your environment-specific values file.
+# Replace each placeholder with the reviewed commit and its recorded image digest.
+image:
+  backend:
+    repository: ghcr.io/sahiiib/cloudscope-backend
+    tag: "sha-<full-commit-sha>@sha256:<backend-image-digest>"
+  web:
+    repository: ghcr.io/sahiiib/cloudscope-web
+    tag: "sha-<full-commit-sha>@sha256:<web-image-digest>"
+```
+
+Render before deploying, using the same image entries in staging and production:
+
+```sh
+helm template cloudscope deploy/helm/cloudscope -f values.staging.yaml
+helm upgrade --install cloudscope deploy/helm/cloudscope \
+  --namespace cloudscope-staging --create-namespace \
+  --wait --timeout 10m -f values.staging.yaml
+```
+
+The backend entry also pins the collector and migration Job. Keep each
+environment's database, credentials and other values separate; only promote the
+tested image entries. See the [chart configuration](deploy/helm/cloudscope/README.md)
+for prerequisites and migration ordering.
 
 Until automation exists, use one designated operator and a written release record.
 Two contributors must not independently upgrade the same release. Automated
