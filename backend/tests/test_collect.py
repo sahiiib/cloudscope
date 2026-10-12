@@ -115,7 +115,6 @@ def test_bad_configuration_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None
         ("settings", "Configuration invalid: secret_key"),
         ("accounts", "Configuration invalid: accounts.0.provider"),
         ("yaml", "Configuration invalid: accounts"),
-        ("missing", "Accounts file not found: "),
         ("database", "Database error: OperationalError"),
         ("filter", "Account filter does not match configuration"),
         ("unknown", "Collection failed: RuntimeError"),
@@ -136,7 +135,7 @@ def test_collect_failure_categories_are_safe(
     config = tmp_path / "diagnostic-accounts.yaml"
     if category == "settings":
         monkeypatch.setenv("CLOUDSCOPE_SECRET_KEY", secret)
-    elif category in {"accounts", "yaml", "missing"}:
+    elif category in {"accounts", "yaml"}:
         monkeypatch.setenv("CLOUDSCOPE_ACCOUNTS_FILE", str(config))
         if category == "accounts":
             invalid = ACCOUNT.model_dump()
@@ -144,8 +143,6 @@ def test_collect_failure_categories_are_safe(
             config.write_text(yaml.safe_dump({"accounts": [invalid]}))
         elif category == "yaml":
             config.write_text(f"accounts: [{secret}")
-        else:
-            expected += str(config)
     elif category == "filter":
         args += ["--account", secret]
     else:
@@ -165,3 +162,13 @@ def test_collect_failure_categories_are_safe(
     assert result.exit_code == 1
     assert result.output.strip() == expected
     assert secret not in result.output
+
+
+def test_missing_file_collects_ui_accounts(collect_env, monkeypatch, tmp_path):
+    provider, factory = collect_env
+    with factory.begin() as session:
+        session.add(Account(**ACCOUNT.model_dump(), source="ui"))
+    monkeypatch.setenv("CLOUDSCOPE_ACCOUNTS_FILE", str(tmp_path / "missing.yaml"))
+    result = CliRunner().invoke(app, ["collect"])
+    assert result.exit_code == 0, result.output
+    assert set(provider.calls) == {"us-east-1", "us-west-2"}

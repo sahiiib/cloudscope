@@ -214,3 +214,21 @@ Backend and web Dockerfiles live in their respective directories. See
 [image build and validation](docs/specs/deployment.md#image-build-and-validation-t-040)
 for build commands, the credential-free smoke test, runtime configuration and
 GHCR tags. CI builds amd64/arm64 images on PRs and publishes them on `main`.
+
+### Admin-managed cloud accounts
+
+Admins can use `POST /api/accounts` and `PATCH /api/accounts/{provider}/{account_id}`
+to manage account IDs, names, roles and regions in the database. These endpoints
+require a full session and `X-Requested-With: cloudscope`. Base credentials stay
+in the runtime environment; accounts contain no access keys. See
+[account validation and source rules](docs/specs/accounts.md).
+
+Apply `make migrate` before using this API. Existing accounts become file-managed;
+the next collection fills their stored configuration. Each collection reconciles
+only file-managed rows, then scans all enabled database accounts. Missing files
+are treated as empty; invalid files still fail. UI accounts win file collisions.
+Disable an account to stop scanning without deleting its inventory.
+
+`POST /api/accounts/{provider}/{account_id}/test` checks role access and lists
+regions without collecting inventory. It returns a sanitized result within
+30 seconds; an in-flight SDK operation may finish in the background after timeout.

@@ -90,3 +90,33 @@ def test_migration_schema_and_round_trip(migrated_engine: Engine, alembic_config
             connection.rollback()
             command.upgrade(alembic_config, "head")
             alembic_config.attributes.pop("connection", None)
+
+
+def test_existing_accounts_gain_file_source_and_default_regions(
+    migrated_engine: Engine, alembic_config: Config
+) -> None:
+    with migrated_engine.connect() as connection:
+        alembic_config.attributes["connection"] = connection
+        try:
+            command.downgrade(alembic_config, "0003")
+            connection.execute(
+                text(
+                    "INSERT INTO accounts (provider, account_id, name) "
+                    "VALUES ('aws', '111111111111', 'existing')"
+                )
+            )
+            connection.commit()
+            command.upgrade(alembic_config, "head")
+            row = connection.execute(
+                text(
+                    "SELECT source, regions, role_arn, external_id, created_at, updated_at "
+                    "FROM accounts WHERE account_id = '111111111111'"
+                )
+            ).one()
+            assert row[:4] == ("file", "all", None, None)
+            assert row.created_at is not None and row.updated_at is not None
+            connection.execute(text("DELETE FROM accounts WHERE account_id = '111111111111'"))
+            connection.commit()
+        finally:
+            command.upgrade(alembic_config, "head")
+            alembic_config.attributes.pop("connection", None)

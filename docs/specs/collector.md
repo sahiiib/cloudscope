@@ -6,14 +6,13 @@ Entry point: `cloudscope collect [--account ID] [--region R] [--trigger schedule
 concurrency); it never implicitly loads `.env`. It prints a tab-separated summary
 and exits 0 for success/partial, 1 for failed/configuration/database errors.
 Invalid command-line options return 2. Setup failures print only safe categories:
-configuration field locations (without inputs/messages), the configured path for
-a missing accounts file, database exception class, the fixed unknown-account
+configuration field locations (without inputs/messages), database exception class, the fixed unknown-account
 message, or an unexpected exception class. Invalid YAML reports the `accounts`
 location. Exception payloads are never printed; control characters in field
 locations and file paths are escaped.
 
 `--account` selects an account ID (across providers if shared); an unknown ID is
-an error before reconciliation. `--region` intersects configured/discovered
+an error that rolls back reconciliation. `--region` intersects configured/discovered
 regions, without forcing scans outside that list. No matching region yields a
 failed run and exit 1. The runner always reconciles the complete account file,
 so filtered-out accounts remain enabled. Unscanned inventory is untouched and
@@ -49,17 +48,19 @@ retry with adaptive mode for AWS.
 
 `SyncRunner(session_factory, providers, concurrency=8)` accepts injected provider
 instances and a SQLAlchemy session factory. `run(accounts, trigger="manual")`
-accepts the complete validated account configuration; `run_file(path, ...)` loads
+accepts the complete validated file configuration; `run_file(path, ...)` loads
 it from YAML. Each worker owns its database session. Inventory changes and its
 successful result commit together; failed writes roll back the entire region.
 Existing row IDs and `first_seen` are preserved, and reappearing instances become
 present again. Missing rows retain their last actual observation timestamp.
 
-Removed accounts are disabled and skipped; restoring them to configuration
+Removed file accounts are disabled and skipped; restoring them to configuration
 re-enables them. An account's `last_success_at` advances only when all its regions
 succeed. Region discovery errors (including an empty region list) produce an
-error result with region `*`. An empty account configuration is a successful
-no-op scan that disables previously configured accounts. Error records and logs
+error result with region `*`. An empty file configuration disables previously configured file accounts and
+scans enabled UI accounts. If neither source has enabled accounts, the run is
+a successful no-op.
+A missing file behaves like an empty file account list; invalid YAML still fails. Error records and logs
 include only the SDK error code (AWS/Alibaba) or exception class name, never
 exception messages, arguments or tracebacks. Stored errors include the phase
 prefix and are capped at 200 characters. Logs identify the run, phase, provider,

@@ -98,11 +98,9 @@ class AccountsConfigError(ValueError):
         message: str,
         *,
         locations: list[tuple[str | int, ...]] | None = None,
-        missing_file: bool = False,
     ) -> None:
         super().__init__(message)
         self.locations = locations
-        self.missing_file = missing_file
 
 
 def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[AccountConfig]:
@@ -112,7 +110,7 @@ def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[Accou
         with path.open(encoding="utf-8") as stream:
             data = yaml.safe_load(stream)
     except FileNotFoundError:
-        raise AccountsConfigError(f"Cannot read accounts file {path}", missing_file=True) from None
+        return []
     except (OSError, UnicodeError):
         raise AccountsConfigError(f"Cannot read accounts file {path}") from None
     except yaml.YAMLError:

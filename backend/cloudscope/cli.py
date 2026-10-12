@@ -150,11 +150,6 @@ def collect(
                     include_input=False, include_context=False, include_url=False
                 )
             )
-        elif isinstance(exc, FileNotFoundError) or (
-            isinstance(exc, AccountsConfigError) and exc.missing_file
-        ):
-            path = str(settings.accounts_file) if settings is not None else "config/accounts.yaml"
-            message = "Accounts file not found: " + path.encode("unicode_escape").decode("ascii")
         elif isinstance(exc, AccountsConfigError) and exc.locations is not None:
             message = configuration_failure(exc.locations)
         elif isinstance(exc, SQLAlchemyError):

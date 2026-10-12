@@ -25,6 +25,7 @@ from cloudscope.api.routes.users import router as users_router
 from cloudscope.auth.deps import require_admin
 from cloudscope.auth.sessions import COOKIE_NAME, AuthService, utc_now
 from cloudscope.auth.totp import MFAService
+from cloudscope.collector.access import AccountAccess
 from cloudscope.collector.manual import ManualSync
 from cloudscope.config import Settings
 from cloudscope.db.models import User
@@ -61,6 +62,7 @@ def create_app(
                 runtime_settings = Settings()  # type: ignore[call-arg]
             except ValidationError:
                 runtime_settings = None
+        app.state.account_access = AccountAccess()
         app.state.auth = None
         app.state.mfa = None
         app.state.manual_sync = None
