@@ -169,9 +169,53 @@ gate. Do these before adding the route:
 2. Put a Cloudflare Access application with an allow policy for your own
    e-mail in front of the hostname. Then strangers never reach the login page.
 
-In the existing cloudflared tunnel, add a public hostname (for example
-`cloudscope.<your-domain>`) whose service points straight at the web Service,
-not at Istio:
+This cluster uses a dedicated tunnel named `cloudscope` (Zero Trust →
+Networks → Tunnels → Create a tunnel → Cloudflared). Skip its "Public
+hostname" step at first and store the connector token without echoing it:
+
+```sh
+printf 'Tunnel token: '; read -rs TUNNEL_TOKEN; echo
+kubectl -n cloudscope create secret generic cloudflared-token --from-literal=token="$TUNNEL_TOKEN"
+unset TUNNEL_TOKEN
+```
+
+Run the connector in the same namespace (pin the image by digest):
+
+```sh
+kubectl apply -f - <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudscope-cloudflared
+  namespace: cloudscope
+  labels: {app.kubernetes.io/name: cloudscope-cloudflared}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app.kubernetes.io/name: cloudscope-cloudflared}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: cloudscope-cloudflared}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared@sha256:<digest>
+          args: [tunnel, --no-autoupdate, --metrics, 0.0.0.0:2000, run]
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom: {secretKeyRef: {name: cloudflared-token, key: token}}
+          readinessProbe: {httpGet: {path: /ready, port: 2000}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /ready, port: 2000}, initialDelaySeconds: 20, periodSeconds: 20}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {memory: 128Mi}}
+YAML
+```
+
+Once the tunnel shows Healthy, add the public hostname. Its service is HTTP
+and points straight at the web Service, not at Istio:
 
 ```
 http://cloudscope-web.cloudscope.svc.cluster.local:8080
@@ -188,7 +232,11 @@ Client IPs work through the tunnel: Cloudflare appends the real client IP to
 `X-Forwarded-For`, the cloudflared pod address is inside `10.244.0.0/16`, so
 the API sees the real IP and a forged header does not dodge the login limit.
 
-Remove the route when the app moves to EKS (internal ALB, see
+Opening the hostname in a private window must show the Cloudflare Access
+login first, then the cloudscope login with MFA.
+
+Remove the route, the `cloudscope-cloudflared` Deployment and the
+`cloudflared-token` Secret when the app moves to EKS (internal ALB, see
 [specs/deployment.md](specs/deployment.md#eks-production)).
 
 ## Client IPs and the login rate limit
