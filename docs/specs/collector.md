@@ -26,7 +26,9 @@ callers must use the same database-scoped lock. SDK retries remain provider-owne
 
 ## Flow
 
-1. Load `accounts.yaml`, upsert `accounts` (mark removed ones `enabled = false`).
+1. Load `accounts.yaml`, upsert `accounts` rows with `source = file` (mark
+   removed ones `enabled = false`), then read every enabled row, from either
+   source, as the account list. See [accounts.md](accounts.md).
 2. Insert a `sync_runs` row with `status = running`.
 3. For each enabled account, resolve credentials (see below) and the region list.
 4. Scan each (account, region) in a thread pool (`CLOUDSCOPE_COLLECT_CONCURRENCY`).

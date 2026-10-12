@@ -120,6 +120,9 @@ accounts:
 
 `regions: all` means: ask the provider for enabled regions at sync time.
 
+Admins can also add accounts in the UI; those live only in the database and
+the file never changes them. See [accounts.md](accounts.md).
+
 `load_accounts(path)` returns a list of validated `AccountConfig` models.
 The root must contain `accounts`, which may be an empty list. Providers are
 `aws` or `alibaba`; account IDs must be quoted strings. IDs, names and listed
