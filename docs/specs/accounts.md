@@ -71,3 +71,24 @@ Every create, update, enable/disable and access test is logged as
 `event=account_<action> actor=<user id> provider=… account_id=…`, plus
 `changed=<field names>` for updates. Values of `role_arn` and `external_id` are
 never logged.
+
+## Cloud account alias
+
+Besides the name from the file or the UI, each account shows the name it has
+in the cloud, so a wrong name or ID is easy to spot.
+
+- AWS: the account alias from `iam:ListAccountAliases` (first alias, or none).
+- Alibaba: the account alias from RAM `GetAccountAlias`.
+
+The collector reads it once per account per collect run, with the same
+credentials as the scan, before scanning regions. It is stored in
+`accounts.cloud_alias` with `cloud_alias_checked_at`. If the call fails
+(for example `AccessDenied` because a role lacks the new permission), the old
+value is kept, the error code is logged as
+`event=account_alias_failed provider=… account_id=… error=<code>`, and the
+scan continues; it never makes a region scan fail. An account with no alias
+stores null.
+
+Both calls are read-only. They need one extra permission in the read-only
+roles (`iam:ListAccountAliases`, `ram:GetAccountAlias`); see
+[cloud-access.md](cloud-access.md).

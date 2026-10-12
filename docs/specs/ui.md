@@ -26,7 +26,9 @@ step. Errors are shown inline.
 | Type | `instance_type` |
 | Private IPs | `private_ips` |
 | Public IPs | `public_ips` |
-| Account | `account_name` + `account_id` |
+| Account | `account_name` |
+| Account alias | `account_alias` ("–" if null) |
+| Account ID | `account_id` (copy button) |
 | Region | `region` |
 | Provider | `provider` (icon or label) |
 | Launch time | `launch_time` (relative + exact on hover) |

@@ -43,6 +43,7 @@ A task can start when all its dependencies are `done`.
 | T-053 | EKS values: Pod Identity, external secret, RDS option | codex | T-041, T-050 | done |
 | T-060 | Accounts in the database: admin API, file + UI sources | codex | T-043 | todo |
 | T-061 | UI: Settings → Cloud accounts | codex | T-060 | todo |
+| T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | todo |
 
 ---
 
@@ -358,3 +359,32 @@ Owner: codex · Specs: [ui](specs/ui.md#settings-settings), [accounts](specs/acc
 Acceptance: colocated tests cover admin vs non-admin visibility, create (success,
 422 field error, 409), edit of a `ui` account, read-only `file` account,
 enable/disable confirmation, and both test-access outcomes.
+
+### T-062: Show account name, cloud alias and ID per instance
+Owner: codex · Specs: [accounts](specs/accounts.md#cloud-account-alias),
+[api](specs/api.md#instances), [ui](specs/ui.md#search-), [cloud-access](specs/cloud-access.md)
+
+- Migration adding `accounts.cloud_alias` and `accounts.cloud_alias_checked_at`.
+- Provider methods in `cloudscope/collector/` reading the alias
+  (`iam:ListAccountAliases`, RAM `GetAccountAlias`), called once per account per
+  run; failures keep the old value, are logged with the error code and never fail
+  a region scan.
+- Add `iam:ListAccountAliases` to `deploy/aws/readonly-role.yaml` and a custom
+  `ram:GetAccountAlias` policy to `deploy/alibaba/readonly-role.tf`. Nothing else
+  changes in the roles.
+- API: `account_alias` on instance list items and detail, `cloud_alias` on
+  `/api/accounts`; `q` also matches account name, alias and ID.
+- Search: separate Account, Account alias and Account ID columns (copy button on
+  the ID). Details Summary: separate Account name, Account alias and Account ID
+  rows. T-061's accounts table shows the alias too, if T-061 is merged first;
+  otherwise T-061 adds it.
+
+Acceptance:
+- Tests (moto for AWS, fakes for Alibaba) cover: alias stored; no alias -> null;
+  AccessDenied keeps the old alias, logs the code, and the region scans still
+  succeed.
+- `q` finds instances by account name, alias and ID.
+- UI tests show the three account fields in Search and Details for both an AWS
+  and an Alibaba fixture, and "–" when the alias is null.
+- cfn-lint and terraform validate pass; the only role changes are the two new
+  read-only permissions.

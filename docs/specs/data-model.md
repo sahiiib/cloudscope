@@ -28,6 +28,8 @@ collect run) or from admins in the UI (`source = ui`). See
 | `regions` | jsonb | `"all"` or a list of region IDs; default `"all"` |
 | `created_at` | timestamptz | default `now()` |
 | `updated_at` | timestamptz | set on every change |
+| `cloud_alias` | text null | Account alias read from the cloud ([accounts.md](accounts.md#cloud-account-alias)) |
+| `cloud_alias_checked_at` | timestamptz null | Last successful alias read |
 
 Primary key: `(provider, account_id)`.
 

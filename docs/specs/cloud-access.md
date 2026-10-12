@@ -44,7 +44,8 @@ For local development and the local cluster we use existing test access keys.
      "ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules",
      "ec2:DescribeVpcs", "ec2:DescribeSubnets",
      "ec2:DescribeNetworkInterfaces", "ec2:DescribeInstanceTypes",
-     "ec2:DescribeImages", "ec2:DescribeKeyPairs"
+     "ec2:DescribeImages", "ec2:DescribeKeyPairs",
+     "iam:ListAccountAliases"
    ]}
    ```
 3. Add each account to `accounts.yaml` with its `role_arn` and `external_id`.
@@ -67,7 +68,8 @@ the Kubernetes Secret and is deleted once EKS is live.
    `acs:ram::*:role/cloudscope-readonly`.
 2. **RAM role** `cloudscope-readonly` in each account, trusted by the central
    account (`"RAM": ["acs:ram::<central-account-id>:root"]`), with
-   `AliyunECSReadOnlyAccess` and `AliyunVPCReadOnlyAccess`.
+   `AliyunECSReadOnlyAccess` and `AliyunVPCReadOnlyAccess`, plus a custom
+   policy allowing only `ram:GetAccountAlias` (shows the account alias).
    Template: `deploy/alibaba/readonly-role.tf` (Terraform) or created by hand.
 3. Add each account to `accounts.yaml` with its `role_arn`.
 4. Rotate the RAM user key every 90 days.
