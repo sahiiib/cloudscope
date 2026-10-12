@@ -46,6 +46,7 @@ A task can start when all its dependencies are `done`.
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | done |
 | T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | todo |
+| T-065 | Review per-account key preservation and web adoption | codex | T-062 | review |
 
 ---
 
@@ -457,3 +458,15 @@ Acceptance:
   run the migration there first, then upgrade the shared release to the
   upstream image. An account that used a stored key needs a role ARN (or the
   base credentials) afterwards; the access test in Settings shows it.
+
+### T-065: Review per-account key preservation and web adoption
+Owner: codex · Assigned by fork contributor · Spec: [account-access-keys](specs/account-access-keys.md)
+
+The contributor requested retaining the fork's per-account access keys and editing
+existing accounts through the web after the role-only T-064 plan merged. Review
+this explicit proposal before a shared cutover. It preserves upstream account
+APIs/aliases while defining credential encryption, adoption, concurrency and
+compatibility tests. This task approves no runtime changes or credential deletion.
+
+Acceptance: maintainer resolves the role-only/stored-key decision; the later
+implementation follows the accepted spec and is tested on an isolated DB first.
