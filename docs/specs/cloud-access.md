@@ -12,8 +12,8 @@ For local development and the local cluster we use existing test access keys.
   With one key only one account per provider can be scanned; to scan more,
   add `role_arn` entries the test key can assume.
 - Policies attached to the test identities should be limited to:
-  - AWS: `AmazonEC2ReadOnlyAccess` (or the custom policy below)
-  - Alibaba: `AliyunECSReadOnlyAccess` + `AliyunVPCReadOnlyAccess`
+  - AWS: `AmazonEC2ReadOnlyAccess` plus `iam:ListAccountAliases` (or the custom policy below)
+  - Alibaba: `AliyunECSReadOnlyAccess` + `AliyunVPCReadOnlyAccess` plus `ram:GetAccountAlias`
 
 ## Phase 4: AWS (12 accounts)
 
@@ -44,11 +44,11 @@ For local development and the local cluster we use existing test access keys.
      "ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules",
      "ec2:DescribeVpcs", "ec2:DescribeSubnets",
      "ec2:DescribeNetworkInterfaces", "ec2:DescribeInstanceTypes",
-     "ec2:DescribeImages", "ec2:DescribeKeyPairs"
+     "ec2:DescribeImages", "ec2:DescribeKeyPairs",
+     "iam:ListAccountAliases"
    ]}
    ```
-   T-062 adds `"iam:ListAccountAliases"` to this list (account alias). It
-   changes this block and `deploy/aws/readonly-role.yaml` together, because
+   Keep this block and `deploy/aws/readonly-role.yaml` together, because
    `backend/tests/test_aws_templates.py` checks that they match.
 3. Add each account to `accounts.yaml` with its `role_arn` and `external_id`.
 

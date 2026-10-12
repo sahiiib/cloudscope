@@ -120,3 +120,30 @@ def test_existing_accounts_gain_file_source_and_default_regions(
         finally:
             command.upgrade(alembic_config, "head")
             alembic_config.attributes.pop("connection", None)
+
+
+def test_alias_migration_preserves_existing_accounts(migrated_engine, alembic_config):
+    with migrated_engine.connect() as connection:
+        alembic_config.attributes["connection"] = connection
+        try:
+            command.downgrade(alembic_config, "0004")
+            connection.execute(
+                text(
+                    "INSERT INTO accounts (provider, account_id, name) "
+                    "VALUES ('aws', '111111111111', 'existing')"
+                )
+            )
+            connection.commit()
+            command.upgrade(alembic_config, "head")
+            row = connection.execute(
+                text(
+                    "SELECT name, cloud_alias, cloud_alias_checked_at "
+                    "FROM accounts WHERE account_id = '111111111111'"
+                )
+            ).one()
+            assert row == ("existing", None, None)
+            connection.execute(text("DELETE FROM accounts WHERE account_id = '111111111111'"))
+            connection.commit()
+        finally:
+            command.upgrade(alembic_config, "head")
+            alembic_config.attributes.pop("connection", None)

@@ -2,7 +2,7 @@ import type { InstanceDetail } from '../api/types';
 
 export function instanceFixture(provider: 'aws' | 'alibaba' = 'aws'): InstanceDetail {
   return {
-    provider, account_id: '111111111111', account_name: 'Demo', region: 'eu-central-1',
+    provider, account_id: provider === 'aws' ? '111111111111' : '1111111111111111', account_name: 'Demo', account_alias: 'demo-alias', region: 'eu-central-1',
     instance_id: 'i-0123456789abcdef0', name: `${provider}-web`, state: 'running', provider_state: 'Running',
     instance_type: provider === 'aws' ? 't3.small' : 'ecs.t6-c1m2.large', zone: 'eu-central-1a',
     private_ips: ['10.0.0.1', '10.0.0.2'], public_ips: ['192.0.2.1'], tags: { env: 'test', team: 'infra' },

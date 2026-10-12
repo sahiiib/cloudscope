@@ -5,7 +5,7 @@ import type { AccountSummary } from '../api/types';
 import { fetchApi, renderSettings, response } from '../test/settings';
 import CloudAccounts from './CloudAccounts';
 
-const account: AccountSummary = { provider: 'aws', account_id: '111111111111', name: 'UI test', regions: 'all', role_arn: null, external_id: null, enabled: true, source: 'ui', last_success_at: null, instance_count: 3 };
+const account: AccountSummary = { provider: 'aws', account_id: '111111111111', name: 'UI test', regions: 'all', role_arn: null, external_id: null, enabled: true, source: 'ui', cloud_alias: 'demo-alias', last_success_at: null, instance_count: 3 };
 const refreshKeys = ['accounts', 'instance-facets', 'instances', 'instance', 'sync'];
 
 test('file rows expose their configuration without edit or status controls', async () => {
@@ -82,4 +82,13 @@ test('loading errors can retry and mutation permission failures stay inline', as
   fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('permission');
   expect(client.getQueryData(['accounts'])).toEqual([account]);
+});
+
+test.each(['demo-alias', null])('shows cloud alias %s in its own column', async cloud_alias => {
+  fetchApi.mockResolvedValue(response([{ ...account, cloud_alias }]));
+  renderSettings(<CloudAccounts />);
+  const row = (await screen.findByText('UI test')).closest('tr')!;
+  expect(screen.getByRole('columnheader', { name: 'Account alias' })).toBeInTheDocument();
+  expect(within(row).getByText(cloud_alias ?? '–')).toBeInTheDocument();
+  expect(within(row).getByText(account.account_id)).toBeInTheDocument();
 });

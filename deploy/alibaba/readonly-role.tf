@@ -45,3 +45,21 @@ output "role_arn" {
   description = "Use this ARN as role_arn in the target account's collector configuration."
   value       = alicloud_ram_role.readonly.arn
 }
+
+resource "alicloud_ram_policy" "account_alias" {
+  policy_name = "cloudscope-account-alias"
+  policy_document = jsonencode({
+    Version = "1"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ram:GetAccountAlias"]
+      Resource = "*"
+    }]
+  })
+}
+
+resource "alicloud_ram_role_policy_attachment" "account_alias" {
+  policy_name = alicloud_ram_policy.account_alias.policy_name
+  policy_type = "Custom"
+  role_name   = alicloud_ram_role.readonly.role_name
+}

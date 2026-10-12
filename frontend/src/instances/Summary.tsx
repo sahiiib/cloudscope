@@ -4,7 +4,7 @@ export default function Summary({ instance: i }: { instance: InstanceDetail }) {
   const fields = {
     Name: i.name, 'Instance ID': i.instance_id, State: i.state, 'Provider state': i.provider_state,
     Type: i.instance_type, Provider: i.provider === 'aws' ? 'AWS' : 'Alibaba',
-    Account: `${i.account_name} · ${i.account_id}`, Region: i.region, Zone: i.zone,
+    'Account name': i.account_name, 'Account alias': i.account_alias ?? '–', 'Account ID': i.account_id, Region: i.region, Zone: i.zone,
     Presence: i.present ? 'Present' : 'Missing', Platform: i.platform,
     Image: i.image_id ?? i.details?.image?.id, 'Image name': i.details?.image?.name,
     'Key pair': i.key_name ?? i.details?.key_pair?.name, 'CPU (vCPU)': i.details?.cpu,

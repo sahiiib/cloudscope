@@ -29,7 +29,11 @@ callers must use the same database-scoped lock. SDK retries remain provider-owne
    removed ones `enabled = false`), then read every enabled row, from either
    source, as the account list. See [accounts.md](accounts.md).
 2. Insert a `sync_runs` row with `status = running`.
-3. For each enabled account, resolve credentials (see below) and the region list.
+3. For each selected enabled account, resolve credentials (see below), read the
+   account alias once, and resolve the region list. Alias failures preserve the
+   previous alias/check timestamp and do not fail scans. An empty alias clears
+   the stored value. File configuration updates change `updated_at` only when
+   values change; alias checks and scan success have their own timestamps.
 4. Scan each (account, region) in a thread pool (`CLOUDSCOPE_COLLECT_CONCURRENCY`).
 5. For each scan:
    - Fetch instances and the extra objects needed for `details`.
@@ -64,7 +68,8 @@ A missing file behaves like an empty file account list; invalid YAML still fails
 include only the SDK error code (AWS/Alibaba) or exception class name, never
 exception messages, arguments or tracebacks. Stored errors include the phase
 prefix and are capped at 200 characters. Logs identify the run, phase, provider,
-account and region; account/region values are quoted to prevent log injection.
+account and region; account IDs are unquoted with unsafe characters escaped,
+and regions are quoted to prevent log injection.
 Callers must serialize runs; overlapping collection runs are not supported.
 
 ## Provider interface
@@ -72,6 +77,7 @@ Callers must serialize runs; overlapping collection runs are not supported.
 ```python
 class Provider(Protocol):
     name: Literal["aws", "alibaba"]
+    def get_account_alias(self, account: AccountConfig) -> str | None: ...
     def list_regions(self, account: AccountConfig) -> list[str]: ...
     def scan(self, account: AccountConfig, region: str) -> list[NormalizedInstance]: ...
 ```

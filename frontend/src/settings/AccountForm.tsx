@@ -31,7 +31,7 @@ export default function AccountForm({ account, onSaved, onCancel }: {
   }
   return <form className="account-form" aria-label={account ? 'Edit cloud account' : 'Add cloud account'} noValidate onSubmit={event => {
     event.preventDefault();
-    const input: AccountInput = { ...values, regions: regions === 'all' ? 'all' : regions.split(',').map(region => region.trim()) };
+    const input: AccountInput = { ...values, regions: regions.trim() === 'all' ? 'all' : regions.split(',').map(region => region.trim()) };
     // Only input fields go to the API, never source/count/timestamps from a row.
     const body: AccountInput = { provider: input.provider, account_id: input.account_id, name: input.name, regions: input.regions, role_arn: input.role_arn, external_id: input.external_id, enabled: input.enabled };
     const invalid = validateAccount(body); setErrors(invalid);

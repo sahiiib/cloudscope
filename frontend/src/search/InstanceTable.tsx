@@ -20,7 +20,7 @@ export default function InstanceTable({ items, sort, onSort }: {
   }
   return <><p role="status">{copyStatus}</p><div className="instance-scroll"><table className="instance-table">
     <thead><tr>{heading('Name', 'name')}<th scope="col">Instance ID</th><th scope="col">State</th><th scope="col">Type</th>
-      <th scope="col">Private IPs</th><th scope="col">Public IPs</th>{heading('Account', 'account')}{heading('Region', 'region')}
+      <th scope="col">Private IPs</th><th scope="col">Public IPs</th>{heading('Account', 'account')}<th scope="col">Account alias</th><th scope="col">Account ID</th>{heading('Region', 'region')}
       <th scope="col">Provider</th>{heading('Launch time', 'launch_time')}<th scope="col">Tags</th></tr></thead>
     <tbody>{items.map(item => {
       const path = '/instances/' + [item.provider, item.account_id, item.region, item.instance_id].map(encodeURIComponent).join('/');
@@ -35,7 +35,11 @@ export default function InstanceTable({ items, sort, onSort }: {
         }}>Copy</button></td>
         <td><span className={`state-badge state-${['running', 'stopped', 'terminated'].includes(item.state) ? item.state : 'other'}`}>{item.state}</span></td>
         <td>{item.instance_type}</td><td>{item.private_ips.join(', ') || '—'}</td><td>{item.public_ips.join(', ') || '—'}</td>
-        <td>{item.account_name}<small>{item.account_id}</small></td><td>{item.region}</td><td>{item.provider === 'aws' ? 'AWS' : 'Alibaba'}</td>
+        <td>{item.account_name}</td><td>{item.account_alias ?? '–'}</td>
+        <td><code>{item.account_id}</code> <button className="secondary" aria-label={`Copy account ID ${item.account_id}`} onClick={async () => {
+          try { await navigator.clipboard.writeText(item.account_id); setCopyStatus('Account ID copied.'); }
+          catch { setCopyStatus('Unable to copy. Select and copy the account ID.'); }
+        }}>Copy</button></td><td>{item.region}</td><td>{item.provider === 'aws' ? 'AWS' : 'Alibaba'}</td>
         <td>{item.launch_time ? <time dateTime={item.launch_time} title={new Date(item.launch_time).toISOString()}>{launchAge(item.launch_time)}</time> : '—'}</td>
         <td>{tags.slice(0, 3).map(([key, value]) => <span className="tag-chip" key={key}>{key}={value}</span>)}
           {tags.length > 3 && <span title={tags.slice(3).map(([key, value]) => `${key}=${value}`).join('\n')}>+{tags.length - 3}</span>}

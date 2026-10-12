@@ -8,6 +8,7 @@ from typing import Any, Literal, Protocol
 
 from alibabacloud_ecs20140526 import models as ecs_models  # type: ignore[import-untyped]
 from alibabacloud_ecs20140526.client import Client as ECSClient  # type: ignore[import-untyped]
+from alibabacloud_ram20150501.client import Client as RAMClient  # type: ignore[import-untyped]
 from alibabacloud_sts20150401 import models as sts_models  # type: ignore[import-untyped]
 from alibabacloud_sts20150401.client import Client as STSClient  # type: ignore[import-untyped]
 from alibabacloud_tea_openapi.models import Config  # type: ignore[import-untyped]
@@ -22,6 +23,7 @@ from cloudscope.collector.base import (
     unique,
     utc_datetime,
 )
+from cloudscope.collector.errors import AssumeRoleError
 from cloudscope.config import AccountConfig
 
 
@@ -31,20 +33,38 @@ class AlibabaReader(Protocol):
 
 def sdk_client(service: str, config: Any) -> Any:
     # The generated SDKs have no py.typed marker; keep their dynamic surface here.
-    return {"ecs": ECSClient, "vpc": VPCClient, "sts": STSClient}[service](config)
+    return {"ecs": ECSClient, "vpc": VPCClient, "sts": STSClient, "ram": RAMClient}[service](config)
 
 
-def runtime() -> Any:
+def runtime(access_test: bool = False) -> Any:
+    if access_test:
+        return RuntimeOptions(
+            connect_timeout=5000,
+            read_timeout=10000,
+            autoretry=True,
+            max_attempts=2,
+            backoff_policy="exponential",
+            backoff_period=1,
+        )
     return RuntimeOptions(
         autoretry=True, max_attempts=5, backoff_policy="exponential", backoff_period=1
     )
 
 
 class SDKReader:
-    def __init__(self, ecs: Any, vpc: Any) -> None:
-        self.ecs, self.vpc = ecs, vpc
+    def __init__(
+        self, ecs: Any, vpc: Any, *, ram: Callable[[], Any] | None = None, access_test: bool = False
+    ) -> None:
+        self.ecs, self.vpc, self.ram = ecs, vpc, ram
+        self.access_test = access_test
 
     def call(self, operation: str, **params: Any) -> Payload:
+        if operation == "get_account_alias" and self.ram is not None:
+            response = self.ram().get_account_alias_with_options(runtime(self.access_test))
+            if response.body is None:
+                raise RuntimeError("Alibaba response is missing its body")
+            result: Payload = response.body.to_map()
+            return result
         operations = {
             "describe_instances": (self.ecs, ecs_models.DescribeInstancesRequest),
             "describe_regions": (self.ecs, ecs_models.DescribeRegionsRequest),
@@ -59,10 +79,12 @@ class SDKReader:
         if operation not in operations:
             raise ValueError("Unsupported read operation")
         client, request_type = operations[operation]
-        response = getattr(client, operation + "_with_options")(request_type(**params), runtime())
+        response = getattr(client, operation + "_with_options")(
+            request_type(**params), runtime(self.access_test)
+        )
         if response.body is None:
             raise RuntimeError("Alibaba response is missing its body")
-        result: Payload = response.body.to_map()
+        result = response.body.to_map()
         return result
 
 
@@ -71,7 +93,10 @@ class AlibabaClientFactory:
         self,
         builder: Callable[[str, Any], Any] = sdk_client,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        *,
+        access_test: bool = False,
     ) -> None:
+        self.access_test = access_test
         self.builder = builder
         self.clock = clock
         self._cache: dict[tuple[str, str, str | None], tuple[Payload, datetime]] = {}
@@ -96,16 +121,19 @@ class AlibabaClientFactory:
                             endpoint="sts.aliyuncs.com",
                         ),
                     )
-                    response = sts.assume_role_with_options(
-                        sts_models.AssumeRoleRequest(
-                            role_arn=account.role_arn,
-                            role_session_name="cloudscope-collector",
-                            duration_seconds=3600,
-                            external_id=account.external_id,
-                        ),
-                        runtime(),
-                    )
-                    credentials = response.body.to_map()["Credentials"]
+                    try:
+                        response = sts.assume_role_with_options(
+                            sts_models.AssumeRoleRequest(
+                                role_arn=account.role_arn,
+                                role_session_name="cloudscope-collector",
+                                duration_seconds=3600,
+                                external_id=account.external_id,
+                            ),
+                            runtime(self.access_test),
+                        )
+                        credentials = response.body.to_map()["Credentials"]
+                    except Exception as exc:
+                        raise AssumeRoleError(exc) from None
                     expiration = utc_datetime(credentials.get("Expiration"))
                     if expiration is None:
                         raise ValueError("STS response has no expiration")
@@ -119,10 +147,17 @@ class AlibabaClientFactory:
                     access_key_secret=credentials["AccessKeySecret"],
                     security_token=credentials.get("SecurityToken"),
                     region_id=region,
-                    endpoint=f"{service}.{region}.aliyuncs.com",
+                    endpoint="ram.aliyuncs.com"
+                    if service == "ram"
+                    else f"{service}.{region}.aliyuncs.com",
                 )
 
-            return SDKReader(self.builder("ecs", config("ecs")), self.builder("vpc", config("vpc")))
+            return SDKReader(
+                self.builder("ecs", config("ecs")),
+                self.builder("vpc", config("vpc")),
+                ram=lambda: self.builder("ram", config("ram")),
+                access_test=self.access_test,
+            )
 
 
 def pages(client: AlibabaReader, operation: str, **params: Any) -> Iterator[Payload]:
@@ -231,6 +266,17 @@ class AlibabaProvider:
     def _validate(account: AccountConfig) -> None:
         if account.provider != "alibaba":
             raise ValueError("AlibabaProvider requires an alibaba account")
+
+    def get_account_alias(self, account: AccountConfig) -> str | None:
+        self._validate(account)
+        alias = (
+            self.client_factory(account, self.discovery_region)
+            .call("get_account_alias")
+            .get("AccountAlias")
+        )
+        if alias is not None and not isinstance(alias, str):
+            raise ValueError("Invalid account alias response")
+        return alias or None
 
     def test_access(self, account: AccountConfig) -> list[str]:
         """Resolve credentials and discover regions even for an explicit region list."""

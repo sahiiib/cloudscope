@@ -14,6 +14,7 @@ export interface InstanceSummary {
   provider: 'aws' | 'alibaba';
   account_id: string;
   account_name: string;
+  account_alias: string | null;
   region: string;
   instance_id: string;
   name: string | null;
@@ -51,6 +52,7 @@ export interface AccountInput {
 export type AccountAccessResult = { ok: true; regions: number } | { ok: false; error: string };
 export interface AccountSummary extends AccountInput {
   source: 'file' | 'ui';
+  cloud_alias: string | null;
   last_success_at: string | null;
   instance_count: number;
 }

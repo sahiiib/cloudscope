@@ -11,7 +11,7 @@ export default function SearchInput({ value, revision, onChange }: { value: stri
   useEffect(() => { clearTimeout(timer.current); }, [revision]);
   useEffect(() => () => clearTimeout(timer.current), []);
   return <label>Search instances
-    <input type="search" value={draft} placeholder="Name, instance ID, IP or tag…" onChange={(event) => {
+    <input type="search" value={draft} placeholder="Instance or account name, alias, ID, IP or tag…" onChange={(event) => {
       const next = event.target.value;
       setDraft(next);
       clearTimeout(timer.current);

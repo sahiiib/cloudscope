@@ -48,6 +48,7 @@ Resources:
                   - ec2:DescribeInstanceTypes
                   - ec2:DescribeImages
                   - ec2:DescribeKeyPairs
+                  - iam:ListAccountAliases
 Outputs:
   RoleArn:
     Description: Use as role_arn for this account in accounts.yaml.

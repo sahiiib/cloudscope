@@ -45,6 +45,8 @@ class Account(Base):
     name: Mapped[str] = mapped_column(Text)
     enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cloud_alias: Mapped[str | None] = mapped_column(Text)
+    cloud_alias_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source: Mapped[str] = mapped_column(Text, server_default=text("'file'"))
     role_arn: Mapped[str | None] = mapped_column(Text)
     external_id: Mapped[str | None] = mapped_column(Text)

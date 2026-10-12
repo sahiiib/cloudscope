@@ -1,6 +1,5 @@
 """Configured accounts and present inventory counts."""
 
-import json
 import logging
 from typing import Annotated, cast
 
@@ -14,6 +13,7 @@ from cloudscope.api.account_schema import CreateAccount, PatchAccount
 from cloudscope.api.routes.instances import Auth
 from cloudscope.auth.deps import current_user, require_admin, require_csrf
 from cloudscope.collector.access import AccessResult, AccountAccess
+from cloudscope.collector.errors import log_account_id
 from cloudscope.config import AccountConfig
 from cloudscope.db.models import Account, Instance, User
 
@@ -53,6 +53,7 @@ def response(account: Account, count: int = 0) -> dict[str, object]:
                 "enabled",
                 "last_success_at",
                 "source",
+                "cloud_alias",
                 "role_arn",
                 "external_id",
                 "regions",
@@ -159,6 +160,6 @@ async def test_account(
         "event=account_test actor=%s provider=%s account_id=%s",
         actor.id,
         config.provider,
-        json.dumps(config.account_id),
+        log_account_id(config.account_id),
     )
     return result
