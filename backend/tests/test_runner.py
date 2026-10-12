@@ -239,3 +239,61 @@ def test_error_diagnostics_exclude_messages(
     ):
         assert field in caplog.text
     assert "fake-secret-message" not in caplog.text
+
+
+def test_file_and_ui_accounts_reconcile_without_overwriting_ui(
+    factory: sessionmaker[Session], caplog: pytest.LogCaptureFixture, tmp_path
+) -> None:
+    class MixedProvider:
+        name = "aws"
+
+        def __init__(self):
+            self.scanned = []
+
+        def list_regions(self, account):
+            assert isinstance(account.regions, list)
+            return account.regions
+
+        def scan(self, account, region):
+            self.scanned.append(account)
+            return [replace(instance(region), account_id=account.account_id)]
+
+    provider = MixedProvider()
+    runner = SyncRunner(factory, {"aws": provider})
+    ui = ACCOUNT.model_copy(
+        update={
+            "account_id": "222222222222",
+            "name": "UI account",
+            "role_arn": "arn:aws:iam::222222222222:role/test",
+            "external_id": "test-external",
+            "regions": ["eu-central-1"],
+        }
+    )
+    with factory.begin() as session:
+        session.add(Account(**ui.model_dump(), source="ui"))
+    assert runner.run([ACCOUNT]).instances_seen == 3
+    assert {a.account_id for a in provider.scanned} == {ACCOUNT.account_id, ui.account_id}
+    provider.scanned.clear()
+    collision = ui.model_copy(update={"name": "file overwrite", "regions": ["us-east-1"]})
+    assert runner.run([collision]).instances_seen == 1
+    assert provider.scanned == [ui]
+    assert "event=account_file_conflict" in caplog.text
+    with factory.begin() as session:
+        assert not session.get_one(Account, ("aws", ACCOUNT.account_id)).enabled
+        account = session.get_one(Account, ("aws", ui.account_id))
+        assert account.name == ui.name and account.role_arn == ui.role_arn
+        assert account.last_success_at is not None
+        account.enabled = False
+        snapshot = [(r.id, r.last_observed, r.present) for r in session.scalars(select(Instance))]
+    provider.scanned.clear()
+    assert runner.run_file(tmp_path / "missing.yaml").status == "success"
+    assert provider.scanned == []
+    with factory() as session:
+        assert [
+            (r.id, r.last_observed, r.present) for r in session.scalars(select(Instance))
+        ] == snapshot
+        assert not session.get_one(Account, ("aws", ui.account_id)).enabled
+    with factory.begin() as session:
+        session.get_one(Account, ("aws", ui.account_id)).enabled = True
+    assert runner.run([], account_id=ui.account_id).instances_seen == 1
+    assert provider.scanned == [ui]

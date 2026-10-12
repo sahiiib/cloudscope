@@ -68,30 +68,51 @@ class SyncRunner:
         accounts = AccountsConfig(accounts=list(accounts)).accounts
         if trigger not in ("schedule", "manual"):
             raise ValueError("invalid collection trigger")
-        selected = [
-            account
-            for account in accounts
-            if account_id is None or account.account_id == account_id
-        ]
-        if account_id is not None and not selected:
-            raise AccountFilterError("Account filter does not match configuration")
         if region is not None and not region.strip():
             raise ValueError("Region filter cannot be blank")
         with self.sessions.begin() as session:
-            session.execute(update(Account).values(enabled=False))
+            session.execute(
+                update(Account)
+                .where(Account.source == "file", Account.enabled.is_(True))
+                .values(enabled=False, updated_at=self.clock())
+            )
             for account in accounts:
                 statement = insert(Account).values(
-                    provider=account.provider,
-                    account_id=account.account_id,
-                    name=account.name,
-                    enabled=True,
+                    **account.model_dump(), source="file", enabled=True, updated_at=self.clock()
                 )
-                session.execute(
+                saved = session.scalar(
                     statement.on_conflict_do_update(
                         index_elements=[Account.provider, Account.account_id],
-                        set_={"name": statement.excluded.name, "enabled": True},
-                    )
+                        set_={
+                            **{
+                                key: statement.excluded[key]
+                                for key in ("name", "role_arn", "external_id", "regions")
+                            },
+                            "enabled": True,
+                            "updated_at": self.clock(),
+                        },
+                        where=Account.source == "file",
+                    ).returning(Account.account_id)
                 )
+                if saved is None:
+                    logger.warning(
+                        "event=account_file_conflict provider=%s account_id=%s",
+                        account.provider,
+                        json.dumps(account.account_id),
+                    )
+            accounts = [
+                AccountConfig.model_validate(
+                    {key: getattr(row, key) for key in AccountConfig.model_fields}
+                )
+                for row in session.scalars(select(Account).where(Account.enabled.is_(True)))
+            ]
+            selected = [
+                account
+                for account in accounts
+                if account_id is None or account.account_id == account_id
+            ]
+            if account_id is not None and not selected:
+                raise AccountFilterError("Account filter does not match configuration")
             run = SyncRun(trigger=trigger, status="running", started_at=self.clock())
             session.add(run)
             session.flush()

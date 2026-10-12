@@ -232,6 +232,10 @@ class AlibabaProvider:
         if account.provider != "alibaba":
             raise ValueError("AlibabaProvider requires an alibaba account")
 
+    def test_access(self, account: AccountConfig) -> list[str]:
+        """Resolve credentials and discover regions even for an explicit region list."""
+        return self.list_regions(account.model_copy(update={"regions": "all"}))
+
     def list_regions(self, account: AccountConfig) -> list[str]:
         self._validate(account)
         if isinstance(account.regions, list):

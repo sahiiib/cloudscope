@@ -1,6 +1,6 @@
 """PostgreSQL inventory, collection history, and authentication models."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     BigInteger,
@@ -35,13 +35,26 @@ class Base(DeclarativeBase):
 
 class Account(Base):
     __tablename__ = "accounts"
-    __table_args__ = (CheckConstraint("provider IN ('aws', 'alibaba')", name="provider"),)
+    __table_args__ = (
+        CheckConstraint("provider IN ('aws', 'alibaba')", name="provider"),
+        CheckConstraint("source IN ('file', 'ui')", name="source"),
+    )
 
     provider: Mapped[str] = mapped_column(Text, primary_key=True)
     account_id: Mapped[str] = mapped_column(Text, primary_key=True)
     name: Mapped[str] = mapped_column(Text)
     enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source: Mapped[str] = mapped_column(Text, server_default=text("'file'"))
+    role_arn: Mapped[str | None] = mapped_column(Text)
+    external_id: Mapped[str | None] = mapped_column(Text)
+    regions: Mapped[str | list[str]] = mapped_column(JSONB, server_default=text("'\"all\"'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), onupdate=lambda: datetime.now(UTC)
+    )
 
 
 class Instance(Base):

@@ -200,5 +200,4 @@ def test_invalid_or_unsafe_yaml(tmp_path: Path, content: str) -> None:
 
 
 def test_missing_accounts_file(tmp_path: Path) -> None:
-    with pytest.raises(AccountsConfigError, match="Cannot read accounts file"):
-        load_accounts(tmp_path / "missing.yaml")
+    assert load_accounts(tmp_path / "missing.yaml") == []
