@@ -20,6 +20,7 @@
 main { min-width: 0; max-width: 100%; margin: 0; padding: 2.5rem; }
 button, input, select, textarea { font: inherit; border-radius: .6rem; padding: .65rem .85rem; }
 input, select, textarea { border: 1px solid var(--border); background: var(--panel); color: inherit; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
 button { color: var(--panel); font-weight: 600; transition: filter .15s; }
 button:hover:not(:disabled) { filter: brightness(.93); }
