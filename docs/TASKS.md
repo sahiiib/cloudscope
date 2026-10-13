@@ -48,6 +48,7 @@ A task can start when all its dependencies are `done`.
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | done |
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
 | T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | done |
+| T-069 | Read-only load balancer inventory | codex | T-060, T-062 | review |
 
 ---
 
@@ -488,3 +489,13 @@ instead of assertions so validation still works with Python optimization.
 Acceptance: local two-build Docker regression passes with Python -O, successful
 and failed checks return correct exit codes, both generated image tags are cleaned,
 and explicit-config Ruff lint/format pass. No runtime or database change.
+
+### T-069: Read-only load balancer inventory
+Owner: codex · Assigned by fork contributor · Spec: [load balancers](specs/load-balancers.md)
+
+Acceptance: AWS ELBv2/Classic and Alibaba CLB/ALB/NLB adapters, safe pagination,
+independent atomic snapshots with retained data on failure, authenticated paginated
+search/details/status API, searchable UI with explicit completeness/error states.
+Additive migration matches ORM; fake SDK and Postgres tests cover permissions,
+identity, pagination, missing/reappearance and auth. Lint/tests/build pass.
+Collection is opt-in and no shared deployment/IAM change is made by this PR.
