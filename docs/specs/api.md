@@ -155,3 +155,8 @@ also clears password lockout counters. MFA reset clears enrollment and replay
 state and revokes both full and half sessions. Self changes clear the cookie.
 Removing the last active administrator returns 409; admin mutations serialize
 this check and recheck the actor's authorization inside the transaction.
+
+## Load balancer endpoints (T-069)
+
+See [load-balancers.md](load-balancers.md) for the additive schema, read-only
+operations, per-family failure behavior, API and opt-in rollout.
