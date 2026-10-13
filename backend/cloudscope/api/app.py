@@ -20,6 +20,7 @@ from cloudscope.api.routes.accounts import router as accounts_router
 from cloudscope.api.routes.auth import router as auth_router
 from cloudscope.api.routes.auth import set_session_cookie
 from cloudscope.api.routes.instances import router as instances_router
+from cloudscope.api.routes.load_balancers import router as load_balancers_router
 from cloudscope.api.routes.sync import router as sync_router
 from cloudscope.api.routes.users import router as users_router
 from cloudscope.auth.deps import require_admin
@@ -63,6 +64,9 @@ def create_app(
             except ValidationError:
                 runtime_settings = None
         app.state.account_access = AccountAccess()
+        app.state.load_balancers_enabled = bool(
+            runtime_settings and runtime_settings.load_balancers_enabled
+        )
         app.state.auth = None
         app.state.mfa = None
         app.state.manual_sync = None
@@ -93,6 +97,7 @@ def create_app(
     app.include_router(users_router)
     app.include_router(auth_router)
     app.include_router(instances_router)
+    app.include_router(load_balancers_router)
     app.include_router(accounts_router)
     app.include_router(sync_router)
 
