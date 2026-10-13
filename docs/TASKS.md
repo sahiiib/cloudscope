@@ -49,6 +49,7 @@ A task can start when all its dependencies are `done`.
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
 | T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | done |
 | T-069 | Read-only load balancer inventory | codex | T-060, T-062 | review |
+| T-068 | Modern console and selectable appearance | codex | T-061 | review |
 
 ---
 
@@ -499,3 +500,11 @@ search/details/status API, searchable UI with explicit completeness/error states
 Additive migration matches ORM; fake SDK and Postgres tests cover permissions,
 identity, pagination, missing/reappearance and auth. Lint/tests/build pass.
 Collection is opt-in and no shared deployment/IAM change is made by this PR.
+### T-068: Modern console and selectable appearance
+Owner: codex · Assigned by fork contributor · Spec: [ui](specs/ui.md#modern-console-t-068)
+
+Acceptance: responsive sidebar, dedicated admin Accounts route, consistent visual
+styles for Search, Settings, Sync and details, accessible keyboard navigation,
+light/dark/system selection on login and in the console. Only appearance is
+persisted locally; no inventory or credentials. Existing account behavior and
+authentication remain intact. Tests and frontend lint/build pass.
