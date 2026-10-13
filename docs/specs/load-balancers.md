@@ -20,7 +20,7 @@ Classic ELB does not expose an overall state here, so its state is `unknown`.
   returned tags, raw provider payload, first seen, last observed and present.
   No extra tag or network calls. AWS tags are currently empty.
 - Each family is atomic. Only a complete successful snapshot may mark that
-  family's unseen rows missing. Errors, repeated tokens, duplicate/mismatched
+  family's unseen rows missing. Errors, invalid pagination, duplicate or mismatched
   identities and malformed pages preserve previous data and timestamps.
 - Store sanitized error codes, last attempt and last success per account/region/
   family. One failed family does not discard another family's snapshot or stop
