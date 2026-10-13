@@ -11,14 +11,94 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from cloudscope.db.models import Base
-
 revision = "0006"
 down_revision = "0005"
 branch_labels = None
 depends_on = None
 logger = logging.getLogger(__name__)
 LEGACY = {"connection_config", "credentials_encrypted"}
+# Frozen at revision 0005: application models may gain fields in later revisions.
+SCHEMA_0005 = {
+    "accounts": {
+        "provider",
+        "account_id",
+        "name",
+        "enabled",
+        "last_success_at",
+        "source",
+        "role_arn",
+        "external_id",
+        "regions",
+        "created_at",
+        "updated_at",
+        "cloud_alias",
+        "cloud_alias_checked_at",
+    },
+    "instances": {
+        "id",
+        "provider",
+        "account_id",
+        "region",
+        "zone",
+        "instance_id",
+        "name",
+        "state",
+        "provider_state",
+        "instance_type",
+        "private_ips",
+        "public_ips",
+        "tags",
+        "launch_time",
+        "vpc_id",
+        "subnet_id",
+        "key_name",
+        "image_id",
+        "platform",
+        "details",
+        "raw",
+        "first_seen",
+        "last_observed",
+        "present",
+        "search_text",
+    },
+    "sessions": {
+        "id_hash",
+        "user_id",
+        "mfa_passed",
+        "created_at",
+        "expires_at",
+        "last_seen_at",
+        "ip",
+        "user_agent",
+        "mfa_failures",
+    },
+    "sync_results": {
+        "run_id",
+        "provider",
+        "account_id",
+        "region",
+        "status",
+        "instances_seen",
+        "error",
+        "duration_ms",
+    },
+    "sync_runs": {"id", "started_at", "finished_at", "trigger", "status", "instances_seen"},
+    "users": {
+        "id",
+        "username",
+        "password_hash",
+        "is_admin",
+        "is_active",
+        "totp_secret_enc",
+        "totp_last_used_step",
+        "mfa_enabled",
+        "failed_logins",
+        "locked_until",
+        "created_at",
+        "last_login_at",
+    },
+    "alembic_version": {"version_num"},
+}
 
 
 def validated_config(provider: str, account_id: str, config: object) -> dict:
@@ -57,28 +137,28 @@ def validated_config(provider: str, account_id: str, config: object) -> dict:
 def upgrade() -> None:
     connection = op.get_bind()
     inspector = sa.inspect(connection)
-    expected = set(Base.metadata.tables) | {"alembic_version"}
-    if set(inspector.get_table_names()) != expected:
+    if set(inspector.get_table_names()) != set(SCHEMA_0005):
         raise RuntimeError("Account reconciliation stopped: unexpected database tables")
-    for table in Base.metadata.sorted_tables:
-        actual = {column["name"] for column in inspector.get_columns(table.name)}
-        allowed = set(table.columns.keys()) | (LEGACY if table.name == "accounts" else set())
+    for table, expected_columns in SCHEMA_0005.items():
+        actual = {column["name"] for column in inspector.get_columns(table)}
+        allowed = expected_columns | (LEGACY if table == "accounts" else set())
         if actual - allowed:
             raise RuntimeError("Account reconciliation stopped: unexpected database columns")
-        if table.name != "accounts" and actual != allowed:
+        if table != "accounts" and actual != allowed:
             raise RuntimeError("Account reconciliation stopped: missing database columns")
     columns = {column["name"] for column in inspector.get_columns("accounts")}
     legacy = columns & LEGACY
+    count = 0
     if "credentials_encrypted" in columns:
         count = connection.scalar(
             sa.text("SELECT count(*) FROM accounts WHERE credentials_encrypted IS NOT NULL")
         )
         if count:
-            # A revision string alone does not authorize deleting live credentials.
-            # Resolve the stored-key design with the owner before shared cutover.
+            # Credential removal requires the separate backed-up operator step.
             raise RuntimeError(
                 "Account reconciliation stopped: stored credentials exist; "
-                "resolve the account access-key design before upgrading. No keys were discarded."
+                "follow the verified-backup conversion step in docs/fork-reconciliation.md "
+                "before upgrading. No keys were discarded."
             )
     additions = [
         sa.Column("source", sa.Text(), nullable=False, server_default="file"),
@@ -123,7 +203,7 @@ def upgrade() -> None:
             )
         logger.info("event=reconcile_account_config count=%s", len(rows))
     if legacy:
-        logger.info("event=reconcile_dropped_credentials count=0")
+        logger.info("event=reconcile_dropped_credentials count=%s", count)
         for name in sorted(legacy):
             op.drop_column("accounts", name)
 
