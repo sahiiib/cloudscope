@@ -45,8 +45,8 @@ A task can start when all its dependencies are `done`.
 | T-061 | UI: Settings → Cloud accounts | codex | T-060 | done |
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | done |
 | T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
-| T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | review |
-| T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | review |
+| T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | done |
+| T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
 
 ---
 
