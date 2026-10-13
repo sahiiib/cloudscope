@@ -52,9 +52,9 @@ jobs:
       - if: steps.present.outputs.ok == 'true'
         run: uv sync
       - if: steps.present.outputs.ok == 'true'
-        run: uv run ruff check .
+        run: uv run ruff check --config pyproject.toml . ../scripts/test-backend-rebuild.py
       - if: steps.present.outputs.ok == 'true'
-        run: uv run ruff format --check .
+        run: uv run ruff format --config pyproject.toml --check . ../scripts/test-backend-rebuild.py
       - if: steps.present.outputs.ok == 'true'
         run: uv run mypy cloudscope
       - if: steps.present.outputs.ok == 'true'

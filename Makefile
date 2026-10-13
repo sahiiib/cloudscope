@@ -16,7 +16,7 @@ endif
 
 lint:
 ifneq ($(HAS_BACKEND),)
-	cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy cloudscope
+	cd backend && uv run ruff check --config pyproject.toml . ../scripts/test-backend-rebuild.py && uv run ruff format --config pyproject.toml --check . ../scripts/test-backend-rebuild.py && uv run mypy cloudscope
 endif
 ifneq ($(HAS_FRONTEND),)
 	cd frontend && npm run lint && npx tsc --noEmit
