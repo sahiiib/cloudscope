@@ -8,7 +8,7 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import Connection, Engine, inspect, text
+from sqlalchemy import Column, Connection, Engine, Integer, MetaData, Table, inspect, text
 
 from cloudscope.db.models import Base
 
@@ -19,6 +19,10 @@ def hybrid(migrated_engine: Engine, alembic_config: Config) -> Iterator[Connecti
         transaction = connection.begin()
         alembic_config.attributes["connection"] = connection
         try:
+            connection.info["fresh_account_constraints"] = {
+                constraint["name"]
+                for constraint in inspect(connection).get_check_constraints("accounts")
+            }
             command.downgrade(alembic_config, "0003")
             connection.execute(text("ALTER TABLE accounts ADD connection_config jsonb"))
             connection.execute(text("ALTER TABLE accounts ADD credentials_encrypted text"))
@@ -42,13 +46,20 @@ def test_hybrid_reconciles_and_preserves_history(
                 "role_arn": "arn:aws:iam::111111111111:role/read",
                 "external_id": "test-id",
                 "regions": ["us-east-1"],
+                "credential_mode": "runtime",
             },
         ),
         (
             "alibaba",
             "2222222222222222",
-            {"role_arn": "acs:ram::2222222222222222:role/read", "regions": ["cn-hangzhou"]},
+            {
+                "role_arn": "acs:ram::2222222222222222:role/read",
+                "regions": ["cn-hangzhou"],
+                "external_id": "unsupported-alibaba-external-id",
+                "credential_mode": "runtime",
+            },
         ),
+        ("aws", "444444444444", {"regions": ["us-east-1", "us-east-1"]}),
         (
             "aws",
             "333333333333",
@@ -104,6 +115,9 @@ def test_hybrid_reconciles_and_preserves_history(
         )
         == []
     )
+    assert {
+        constraint["name"] for constraint in inspect(hybrid).get_check_constraints("accounts")
+    } == hybrid.info["fresh_account_constraints"]
     rows = (
         hybrid.execute(
             text(
@@ -122,6 +136,7 @@ def test_hybrid_reconciles_and_preserves_history(
         and rows[2]["external_id"] is None
         and rows[2]["regions"] == "all"
     )
+    assert rows[3]["regions"] == "all"
     for table in ("instances", "users", "sessions", "sync_results", "sync_runs"):
         assert hybrid.scalar(text(f"SELECT count(*) FROM {table}")) == 1
     assert hybrid.scalar(text("SELECT totp_secret_enc FROM users")) == "placeholder-mfa"
@@ -168,6 +183,58 @@ def test_stored_keys_abort_before_schema_or_data_changes(
         == "placeholder-encrypted-key"
     )
     assert hybrid.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+
+
+def test_explicit_operator_clear_allows_reconciliation(
+    hybrid: Connection, alembic_config: Config, caplog: pytest.LogCaptureFixture
+) -> None:
+    hybrid.execute(
+        text(
+            "INSERT INTO accounts(provider,account_id,name,credentials_encrypted) "
+            "VALUES ('aws','111111111111','Test','placeholder-encrypted-key')"
+        )
+    )
+    with pytest.raises(RuntimeError, match="stored credentials exist"):
+        command.upgrade(alembic_config, "head")
+    cleared = hybrid.execute(
+        text(
+            "UPDATE accounts SET credentials_encrypted = NULL "
+            "WHERE credentials_encrypted IS NOT NULL"
+        )
+    )
+    assert cleared.rowcount == 1
+    with caplog.at_level("INFO"):
+        command.upgrade(alembic_config, "head")
+    assert hybrid.scalar(text("SELECT count(*) FROM accounts")) == 1
+    assert hybrid.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
+    assert "credentials_encrypted" not in {
+        column["name"] for column in inspect(hybrid).get_columns("accounts")
+    }
+    assert "event=reconcile_dropped_credentials count=0" in caplog.text
+    assert "placeholder-encrypted-key" not in caplog.text
+
+
+@pytest.mark.parametrize("future_change", ["column", "table"])
+def test_migration_uses_frozen_schema_when_models_advance(
+    hybrid: Connection,
+    alembic_config: Config,
+    monkeypatch: pytest.MonkeyPatch,
+    future_change: str,
+) -> None:
+    future_metadata = MetaData()
+    for table in Base.metadata.sorted_tables:
+        table.to_metadata(future_metadata)
+    if future_change == "column":
+        future_metadata.tables["instances"].append_column(Column("future_field", Integer))
+    else:
+        Table("future_table", future_metadata, Column("id", Integer, primary_key=True))
+    monkeypatch.setattr(Base, "metadata", future_metadata)
+    command.upgrade(alembic_config, "head")
+    assert hybrid.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
+    assert "future_table" not in inspect(hybrid).get_table_names()
+    assert "future_field" not in {
+        column["name"] for column in inspect(hybrid).get_columns("instances")
+    }
 
 
 @pytest.mark.parametrize("unexpected", ["table", "column"])
