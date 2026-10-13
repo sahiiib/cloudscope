@@ -6,7 +6,9 @@ ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
 COPY cloudscope ./cloudscope
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-editable
+# Rebuild the project wheel from COPY cloudscope even when pyproject is unchanged.
+# Dependency caching stays in the preceding layer; stale project wheels must not.
+RUN uv sync --frozen --no-dev --no-editable --no-cache
 
 FROM python:3.12-slim AS runtime
 ENV PATH="/app/.venv/bin:$PATH" \

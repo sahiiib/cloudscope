@@ -30,8 +30,14 @@ jobs:
           cache-to: type=gha,mode=max,scope=web
       - run: scripts/test-images.sh
 
+  source-rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/test-backend-rebuild.py
+
   multiarch:
-    needs: smoke
+    needs: [smoke, source-rebuild]
     runs-on: ubuntu-latest
     permissions:
       contents: read
