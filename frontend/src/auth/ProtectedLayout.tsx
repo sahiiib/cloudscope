@@ -30,7 +30,7 @@ export default function ProtectedLayout() {
     <header className="topbar">
       <NavLink className="brand" to="/">Cloudscope</NavLink>
       <nav aria-label="Main navigation">
-        <NavLink to="/" end>Search</NavLink><NavLink to="/sync">Sync</NavLink><NavLink to="/settings">Settings</NavLink>
+        <NavLink to="/" end>Search</NavLink><NavLink to="/load-balancers">Load balancers</NavLink><NavLink to="/sync">Sync</NavLink><NavLink to="/settings">Settings</NavLink>
       </nav>
       <details className="user-menu"><summary>{me.data.username}</summary>
         <div><span>{me.data.is_admin ? 'Administrator' : 'Member'}</span>
