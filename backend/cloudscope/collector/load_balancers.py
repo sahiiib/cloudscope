@@ -126,9 +126,10 @@ def alibaba_load_balancers(
                     lb.get("DNSName"),
                     lb.get("Address"),
                     *(
-                        address.get("Address")
+                        address.get(key)
                         for zone in lb.get("ZoneMappings", [])
                         for address in zone.get("LoadBalancerAddresses", [])
+                        for key in ("Address", "PublicIPv4Address", "PrivateIPv4Address")
                     ),
                 ]
             )
@@ -143,7 +144,7 @@ def alibaba_load_balancers(
                     kind=family,
                     state=lb.get("LoadBalancerStatus", "unknown"),
                     scheme={"internet": "internet-facing", "intranet": "internal"}.get(
-                        lb.get("AddressType", ""), "unknown"
+                        str(lb.get("AddressType") or "").lower(), "unknown"
                     ),
                     addresses=addresses,
                     vpc_id=lb.get("VpcId"),
@@ -158,7 +159,11 @@ def alibaba_load_balancers(
                         tag.get("Key", tag.get("TagKey", "")): tag.get(
                             "Value", tag.get("TagValue", "")
                         )
-                        for tag in lb.get("Tags", [])
+                        for tag in (
+                            (lb.get("Tags") or {}).get("Tag", [])
+                            if family == "clb"
+                            else (lb.get("Tags") or [])
+                        )
                     },
                     raw=json_payload(lb),
                 )
