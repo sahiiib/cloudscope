@@ -63,3 +63,21 @@ resource "alicloud_ram_role_policy_attachment" "account_alias" {
   policy_type = "Custom"
   role_name   = alicloud_ram_role.readonly.role_name
 }
+
+resource "alicloud_ram_policy" "load_balancers" {
+  policy_name = "cloudscope-load-balancers"
+  policy_document = jsonencode({
+    Version = "1"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["slb:DescribeLoadBalancers", "alb:ListLoadBalancers", "nlb:ListLoadBalancers"]
+      Resource = "*"
+    }]
+  })
+}
+
+resource "alicloud_ram_role_policy_attachment" "load_balancers" {
+  policy_name = alicloud_ram_policy.load_balancers.policy_name
+  policy_type = "Custom"
+  role_name   = alicloud_ram_role.readonly.role_name
+}
