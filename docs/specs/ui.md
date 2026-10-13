@@ -150,3 +150,17 @@ ID copy button reports success or failure without opening the instance. Details
 Summary has separate Account name, Account alias and Account ID rows. Settings
 also shows the cloud alias. Unknown/absent aliases display "–". Free-text search
 includes account names, aliases and IDs as well as the instance fields.
+
+## Modern console (T-068)
+
+The console uses a responsive sidebar and consistent card, table, form and
+status styles. Administrators have a dedicated `/accounts` route; the Settings
+section remains available for compatibility. Members cannot administer accounts
+on either route. Search overview figures distinguish filtered inventory counts
+from the total configured account count.
+
+Appearance can be Light, Dark or System. System follows OS changes through CSS.
+Only the validated preference is stored as `cloudscope.theme`; unavailable
+storage does not block use. Login also offers the picker. Keyboard focus, skip
+navigation, reduced motion and narrow-screen layouts are supported. No external
+fonts, trackers or new dependencies are needed.
