@@ -47,7 +47,7 @@ A task can start when all its dependencies are `done`.
 | T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | done |
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
-| T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | review |
+| T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | done |
 
 ---
 
