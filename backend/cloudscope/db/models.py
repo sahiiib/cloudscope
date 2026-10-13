@@ -118,6 +118,59 @@ class Instance(Base):
     )
 
 
+class LoadBalancer(Base):
+    __tablename__ = "load_balancers"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["provider", "account_id"], ["accounts.provider", "accounts.account_id"]
+        ),
+        UniqueConstraint(
+            "provider",
+            "account_id",
+            "region",
+            "family",
+            "load_balancer_id",
+            name="uq_load_balancers_identity",
+        ),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text)
+    account_id: Mapped[str] = mapped_column(Text)
+    region: Mapped[str] = mapped_column(Text)
+    family: Mapped[str] = mapped_column(Text)
+    load_balancer_id: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(Text)
+    scheme: Mapped[str] = mapped_column(Text)
+    addresses: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    vpc_id: Mapped[str | None] = mapped_column(Text)
+    zones: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    tags: Mapped[dict[str, str]] = mapped_column(JSONB)
+    raw: Mapped[dict[str, object]] = mapped_column(JSONB)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_observed: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    present: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+
+
+class LoadBalancerScan(Base):
+    __tablename__ = "load_balancer_scans"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["provider", "account_id"], ["accounts.provider", "accounts.account_id"]
+        ),
+        CheckConstraint("status IN ('success', 'error')", name="status"),
+    )
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)
+    account_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    region: Mapped[str] = mapped_column(Text, primary_key=True)
+    family: Mapped[str] = mapped_column(Text, primary_key=True)
+    status: Mapped[str] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    last_attempt: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_success: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class SyncRun(Base):
     __tablename__ = "sync_runs"
     __table_args__ = (
