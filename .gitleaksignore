@@ -1,0 +1,3 @@
+# Exact historical false positive: ordinary pagination/identity documentation.
+# The original report points to prose, not a credential. Keep all other checks.
+0cd8928e8eda9a7d211f4a06102b484b8dbcb898:docs/specs/load-balancers.md:generic-api-key:23
