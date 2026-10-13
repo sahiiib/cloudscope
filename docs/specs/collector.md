@@ -175,3 +175,8 @@ null when absent from the instance payload; CPU and memory come from Cpu/Memory.
 - Runner: test that a failing region gives `partial`, that missing instances are
   marked `present = false` only after a successful scan, and that re-runs are
   idempotent.
+
+## Load balancer collection (T-069)
+
+See [load-balancers.md](load-balancers.md) for the additive schema, read-only
+operations, per-family failure behavior, API and opt-in rollout.
