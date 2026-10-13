@@ -45,7 +45,7 @@ A task can start when all its dependencies are `done`.
 | T-061 | UI: Settings → Cloud accounts | codex | T-060 | done |
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | done |
 | T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
-| T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | todo |
+| T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | review |
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | review |
 
 ---
@@ -418,6 +418,12 @@ upgrades. Documentation distinguishes proposals from settings actually enabled.
 ### T-064: Reconcile fork account schema into upstream (issue #38)
 Owner: codex (yerevanstar) · Specs: [accounts](specs/accounts.md),
 [data-model](specs/data-model.md#accounts) · Issue: #38
+
+Implementation: [rollout and stored-key guard](fork-reconciliation.md). Migration
+0006 refuses before mutation while stored keys exist. The operator follows the
+documented transactional clearing step after verifying the backup, then migrates
+and verifies role/base access in Settings. The role-only design remains as decided
+below; this task does not depend on the separate per-account-key proposal.
 
 Some databases ran a fork's `0004` (accounts with `connection_config` jsonb and
 `credentials_encrypted` text) and then upstream `0005` (alias). They report head
