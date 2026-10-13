@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from cloudscope.collector.base import Provider
 from cloudscope.collector.errors import describe_error, log_account_id
+from cloudscope.collector.load_balancers import LoadBalancerCollector
 from cloudscope.config import AccountConfig, AccountsConfig, load_accounts
 from cloudscope.db.models import Account, Instance, SyncResult, SyncRun
 
@@ -44,6 +45,7 @@ class SyncRunner:
         *,
         concurrency: int = 8,
         clock: Callable[[], datetime] = utc_now,
+        load_balancers: LoadBalancerCollector | None = None,
     ) -> None:
         if concurrency < 1:
             raise ValueError("concurrency must be positive")
@@ -51,6 +53,7 @@ class SyncRunner:
         self.providers = dict(providers)
         self.concurrency = concurrency
         self.clock = clock
+        self.load_balancers = load_balancers
 
     def run_file(
         self, path: str | Path, *, trigger: Literal["schedule", "manual"] = "manual"
@@ -244,6 +247,8 @@ class SyncRunner:
             )
 
     def _scan(self, run_id: int, account: AccountConfig, region: str) -> None:
+        if self.load_balancers is not None:
+            self.load_balancers.scan(account, region)
         started = monotonic()
         try:
             instances = self.providers[account.provider].scan(account, region)
