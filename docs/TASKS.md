@@ -47,6 +47,7 @@ A task can start when all its dependencies are `done`.
 | T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | todo |
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | review |
+| T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | review |
 
 ---
 
@@ -469,3 +470,15 @@ pyproject.toml and verifies both installed markers; CI publishing waits for it.
 
 Acceptance: the rebuild regression and existing image smoke pass, scripts lint,
 and no application/runtime configuration or database change is introduced.
+
+### T-067: Harden image rebuild regression and lint coverage
+Owner: codex · Assigned by contributor · Spec: [deployment](specs/deployment.md)
+
+Follow up on the non-blocking review of merged PR #42: format the rebuild script
+with the backend's 100-column Ruff configuration and include it in local/CI lint;
+use a tag per source marker and remove both test images; use explicit exit status
+instead of assertions so validation still works with Python optimization.
+
+Acceptance: local two-build Docker regression passes with Python -O, successful
+and failed checks return correct exit codes, both generated image tags are cleaned,
+and explicit-config Ruff lint/format pass. No runtime or database change.
