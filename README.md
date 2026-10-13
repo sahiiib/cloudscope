@@ -15,17 +15,17 @@ Supported providers:
 ## How it works
 
 ```
- ┌──────────────┐   AssumeRole / STS    ┌───────────────────────────┐
+ ┌──────────────┐   AssumeRole / STS     ┌───────────────────────────┐
  │  collector   │ ────────────────────▶ │ AWS accounts × regions    │
- │ (CronJob,    │                       │ Alibaba accounts × regions│
+ │ (CronJob,    │                        │ Alibaba accounts × regions│
  │  every 15m)  │ ◀──── Describe* ───── └───────────────────────────┘
  └──────┬───────┘
         │ upsert
         ▼
- ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
+ ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
  │  PostgreSQL  │ ◀───── │   API        │ ◀───── │  Web UI      │
- │              │        │  (FastAPI)   │        │  (React)     │
- └──────────────┘        └──────────────┘        └──────────────┘
+ │              │         │  (FastAPI)   │         │  (React)     │
+ └──────────────┘         └──────────────┘         └──────────────┘
 ```
 
 - The **collector** reads every configured account and region with read-only
