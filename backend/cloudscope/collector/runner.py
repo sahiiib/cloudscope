@@ -247,8 +247,6 @@ class SyncRunner:
             )
 
     def _scan(self, run_id: int, account: AccountConfig, region: str) -> None:
-        if self.load_balancers is not None:
-            self.load_balancers.scan(account, region)
         started = monotonic()
         try:
             instances = self.providers[account.provider].scan(account, region)
@@ -304,6 +302,11 @@ class SyncRunner:
                 )
         except Exception as exc:
             self._error(run_id, account, region, "Region scan failed", started, exc)
+        if self.load_balancers is not None:
+            try:
+                self.load_balancers.scan(account, region)
+            except Exception as exc:
+                logger.warning("event=load_balancer_step_failed error=%s", describe_error(exc))
 
     def _error(
         self,
