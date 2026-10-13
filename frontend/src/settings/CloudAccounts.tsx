@@ -44,7 +44,7 @@ export default function CloudAccounts() {
   const [notice, setNotice] = useState('');
   const accounts = useQuery({ queryKey: ['accounts'], queryFn: async ({ signal }): Promise<AccountSummary[]> => (await apiFetch('/api/accounts', { signal })).json() });
   async function refresh() {
-    await Promise.all(['accounts', 'instance-facets', 'instances', 'instance', 'sync'].map(key => client.invalidateQueries({ queryKey: [key] })));
+    await Promise.all(['accounts', 'instance-facets', 'instances', 'instance', 'sync', 'load-balancers', 'load-balancer'].map(key => client.invalidateQueries({ queryKey: [key] })));
   }
   return <section className="settings-card cloud-accounts" aria-labelledby="accounts-title"><h2 id="accounts-title">Cloud accounts</h2>
     <p>Manage accounts and read-only collection. Base credentials are configured on the server.</p>
