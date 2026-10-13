@@ -46,6 +46,7 @@ A task can start when all its dependencies are `done`.
 | T-062 | Show account name, cloud alias and ID per instance | codex | T-060 | done |
 | T-063 | Fork collaboration and coordinated release workflow | codex | T-040, T-041 | done |
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | review |
+| T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | review |
 
 ---
 
@@ -418,12 +419,11 @@ upgrades. Documentation distinguishes proposals from settings actually enabled.
 Owner: codex (yerevanstar) · Specs: [accounts](specs/accounts.md),
 [data-model](specs/data-model.md#accounts) · Issue: #38
 
-Implementation review: [rollout and stored-key guard](fork-reconciliation.md).
-The contributor explicitly requested retaining existing per-account keys after
-PR #39 merged. The implementation therefore stops before mutation if encrypted
-credentials exist, instead of unconditionally discarding them. This deviation
-requires maintainer review and resolution of the account-access design before
-shared cutover. The original decision below remains visible for that review.
+Implementation: [rollout and stored-key guard](fork-reconciliation.md). Migration
+0006 refuses before mutation while stored keys exist. The operator follows the
+documented transactional clearing step after verifying the backup, then migrates
+and verifies role/base access in Settings. The role-only design remains as decided
+below; this task does not depend on the separate per-account-key proposal.
 
 Some databases ran a fork's `0004` (accounts with `connection_config` jsonb and
 `credentials_encrypted` text) and then upstream `0005` (alias). They report head
@@ -464,3 +464,14 @@ Acceptance:
   run the migration there first, then upgrade the shared release to the
   upstream image. An account that used a stored key needs a role ARN (or the
   base credentials) afterwards; the access test in Settings shows it.
+
+### T-066: Ensure rebuilt backend images contain changed source
+Owner: codex · Assigned by fork contributor · Spec: [deployment](specs/deployment.md)
+
+The final project installation must build the copied Python source rather than
+reuse a cached wheel keyed by unchanged project metadata. Keep dependency-layer
+caching. A container regression check changes source twice with identical
+pyproject.toml and verifies both installed markers; CI publishing waits for it.
+
+Acceptance: the rebuild regression and existing image smoke pass, scripts lint,
+and no application/runtime configuration or database change is introduced.
