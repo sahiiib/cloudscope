@@ -27,14 +27,31 @@ Every account is a row in `accounts` with a `source`:
 - File accounts are read-only until explicit **Manage in web** adoption, and labelled "Managed by accounts.yaml".
 - After the file sync, the collector scans every **enabled** row from the
   database, whatever its source.
-- Accounts are never deleted (instances reference them). Disabling an account
-  stops scanning it; its instances keep their last observed data, as for an
-  account removed from the file today.
+- Admins can delete an account from the console after explicit confirmation.
+  Deletion keeps a disabled UI tombstone with saved inventory/history, while hiding
+  the account, its instances and load balancers. File sync cannot recreate it.
+  Re-adding the same provider/account ID restores it with the supplied connection
+  settings. This never deletes cloud resources or credential Secret versions.
+  Disabling alone still retains visible last-observed inventory.
 - A missing accounts file is no longer an error once UI accounts exist: the run
   treats a missing file as an empty list of file accounts. An invalid file still
   fails the run as today.
 
 ## Account fields and validation
+
+### Key-first creation and deletion (T-072)
+
+When dedicated credentials are enabled, Add account starts with Access Key ID
+and Secret Access Key visible for both AWS and Alibaba. Runtime and Assume Role
+remain selectable. Editing retains the current connection method.
+
+`DELETE /api/accounts/{provider}/{account_id}` requires an authenticated admin,
+CSRF and `{confirmed: true, expected_version: <current>}`. Stale edits or active
+collection return 409; missing/deleted accounts return 404. The global collection
+lock serializes deletion with scans and edits. It sets deleted=true, enabled=false,
+source=ui and increments the version. Search/facets/details, LB inventory and scan
+status exclude deleted accounts. Re-adding restores the original row/history.
+Migration 0009 is additive and refuses downgrade while deleted rows remain.
 
 Same rules as `AccountConfig` in [architecture.md](architecture.md#configuration),
 plus provider-specific formats, applied to API input:
