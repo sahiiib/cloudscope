@@ -49,6 +49,7 @@ A task can start when all its dependencies are `done`.
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
 | T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | done |
 | T-070 | Design Secret-backed account connections and adoption | codex | T-064 | review |
+| T-068 | Modern console and selectable appearance | codex | T-061 | review |
 
 ---
 
@@ -498,3 +499,11 @@ Kubernetes Secret storage, explicit adoption without data loss, reader/writer RB
 boundary, rotation/transaction handling, migration/rollback constraints and test
 criteria. Ask the maintainer to approve the design before a separate implementation
 PR; do not change the accepted account spec or shared runtime in this design task.
+### T-068: Modern console and selectable appearance
+Owner: codex · Assigned by fork contributor · Spec: [ui](specs/ui.md#modern-console-t-068)
+
+Acceptance: responsive sidebar, dedicated admin Accounts route, consistent visual
+styles for Search, Settings, Sync and details, accessible keyboard navigation,
+light/dark/system selection on login and in the console. Only appearance is
+persisted locally; no inventory or credentials. Existing account behavior and
+authentication remain intact. Tests and frontend lint/build pass.

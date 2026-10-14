@@ -1,3 +1,4 @@
+import ThemePicker from '../appearance/ThemePicker';
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -49,6 +50,7 @@ export default function Login() {
 
   return (
     <main className="login-page">
+      <div className="login-appearance"><ThemePicker /></div>
       <section className="login-card" aria-labelledby="login-title">
         <p className="brand">Cloudscope</p>
         <h1 id="login-title">{mfa ? 'Verify your sign-in' : 'Sign in'}</h1>

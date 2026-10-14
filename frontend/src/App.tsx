@@ -3,6 +3,7 @@ import InstanceDetails from './instances/InstanceDetails';
 import Search from './search/Search';
 import Sync from './sync/Sync';
 import Settings from './settings/Settings';
+import Accounts from './settings/Accounts';
 import Login from './auth/Login';
 import ProtectedLayout from './auth/ProtectedLayout';
 
@@ -14,6 +15,7 @@ export default function App() {
       <Route path="/instances/:provider/:account/:region/:id" element={<InstanceDetails />} />
       <Route path="/sync" element={<Sync />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/accounts" element={<Accounts />} />
       <Route path="*" element={<h1>Page not found</h1>} />
     </Route>
   </Routes>;
