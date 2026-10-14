@@ -1,6 +1,7 @@
 # Per-account credentials and adopting existing accounts (T-070)
 
-Status: proposed for maintainer review. This document does not change the accepted
+Status: optional Secret mode and explicit adoption approved by Saheb on 2026-10-13
+in PR #48. Implementation and rollout remain separate reviewed work. This document does not change the accepted
 role/base-credentials design, deployed code, RBAC or stored data. It supersedes
 the rejected database-key proposal #41 with a concrete Kubernetes Secret design.
 
@@ -57,6 +58,16 @@ Request explicit approval for independent Secret-backed connections when needed.
   permitted names/labels and denies unrelated objects. Review this access change
   before enabling. Kubernetes Secrets are not encrypted at rest by default;
   operations must configure etcd encryption/access policy and private backups.
+- The approved namespace is `cloudscope-credentials`. Chart configuration defaults
+  the dedicated credential feature to off. Namespace/RBAC objects exist only when
+  explicitly enabled. Use an `accountCredentials` configuration block because
+  `accounts` already holds the account list; do not change that existing value type.
+- Add API-server egress to the API/collector NetworkPolicies, limited to the
+  operator-configured API-server IP and port. Do not allow unrestricted cluster egress.
+- Use small standard-library HTTPS REST requests with the projected service-account
+  token and mounted CA; no new Kubernetes client dependency is required. Identity
+  validation adds AWS `sts:GetCallerIdentity` and Alibaba STS `GetCallerIdentity`
+  read-only calls, documented with the implementation cloud-access changes.
 - EKS workload identity and existing shared runtime credentials remain supported.
   Local development uses an injected private local adapter with equivalent binding
   and permissions, never a hardcoded or publicly readable credential file.
@@ -122,9 +133,11 @@ without checking rotation/expiry and authorization; entering current keys is saf
 3. Choose the dedicated Secret namespace, API writer boundary/admission policy and
    local-development adapter before enabling any new RBAC or shared deployment.
 
-Only after those decisions, register the implementation task/spec changes and
-submit its code PR. T-070 is the reviewable design task, not a claim that the feature
-has been restored on the cluster.
+Those decisions are approved in PR #48. Register the implementation task/spec
+changes and submit its code PR. T-070 remains the design task, not a claim that
+the feature has been restored on the cluster. The feature-flag key above adapts
+the review's suggested `accounts.dedicatedCredentials.enabled` to the existing
+Helm account-list value; ask the maintainer to confirm this naming in review.
 
 References: [Kubernetes Secret guidance](https://kubernetes.io/docs/concepts/security/secrets-good-practices/)
 and [RBAC resource-name restrictions](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources).
