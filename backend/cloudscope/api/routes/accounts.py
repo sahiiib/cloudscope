@@ -1,20 +1,23 @@
 """Configured accounts and present inventory counts."""
 
+import asyncio
 import logging
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from cloudscope.api.account_schema import CreateAccount, PatchAccount
+from cloudscope.api.account_schema import AdoptAccount, CreateAccount, PatchAccount
 from cloudscope.api.routes.instances import Auth
 from cloudscope.auth.deps import current_user, require_admin, require_csrf
 from cloudscope.collector.access import AccessResult, AccountAccess
 from cloudscope.collector.errors import log_account_id
+from cloudscope.collector.manual import COLLECTION_LOCK_KEY
 from cloudscope.config import AccountConfig
+from cloudscope.credentials import CredentialError, Credentials, CredentialStore
 from cloudscope.db.models import Account, Instance, User
 
 logger = logging.getLogger(__name__)
@@ -60,6 +63,9 @@ def response(account: Account, count: int = 0) -> dict[str, object]:
             )
         },
         "instance_count": count,
+        "connection_mode": account.connection_mode,
+        "credentials_configured": account.credential_reference is not None,
+        "configuration_version": account.configuration_version,
     }
 
 
@@ -70,11 +76,77 @@ def target(session: Session, provider: str, account_id: str) -> Account:
     return account
 
 
+def collection_lock(session: Session) -> None:
+    if not session.scalar(
+        text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": COLLECTION_LOCK_KEY}
+    ):
+        raise HTTPException(409, "Collection is running; retry after it finishes")
+
+
+def version_check(account: Account, expected: int | None) -> None:
+    if expected is not None and account.configuration_version != expected:
+        raise HTTPException(409, "Account changed; refresh and retry")
+
+
+@router.get("/capabilities")
+def capabilities(request: Request, actor: Admin) -> dict[str, bool]:
+    return {
+        "dedicated_credentials": bool(
+            getattr(request.app.state, "dedicated_credentials_enabled", False)
+        )
+    }
+
+
+async def prepare_credentials(
+    request: Request,
+    settings: CreateAccount,
+    keys: Credentials | None,
+    current_reference: str | None = None,
+) -> str | None:
+    if settings.connection_mode == "runtime":
+        return None
+    if not getattr(request.app.state, "dedicated_credentials_enabled", False):
+        raise HTTPException(409, "Dedicated credentials are disabled by the operator")
+    if keys is None:
+        if current_reference is None:
+            raise HTTPException(422, "Enter an access key ID and secret access key")
+        return current_reference
+    store = cast(CredentialStore, request.app.state.credential_store)
+    try:
+        reference = await asyncio.to_thread(
+            store.create, settings.provider, settings.account_id, keys
+        )
+    except CredentialError:
+        raise HTTPException(
+            503, "Credential store unavailable; previous connection is unchanged"
+        ) from None
+    config = AccountConfig.model_validate(
+        {
+            **settings.model_dump(exclude={"credentials", "enabled"}),
+            "credential_reference": reference,
+        }
+    )
+    service = cast(AccountAccess, request.app.state.account_access)
+    access = await service.check(config)
+    if not access.get("ok"):
+        # Immutable unreferenced versions are retained for operator cleanup, not deleted.
+        raise HTTPException(422, "Access validation failed: " + access.get("error", "Unavailable"))
+    return reference
+
+
 @router.post("", status_code=201, dependencies=[Depends(require_csrf)])
-def create_account(body: CreateAccount, auth: Auth, actor: Admin) -> dict[str, object]:
+async def create_account(
+    body: CreateAccount, request: Request, auth: Auth, actor: Admin
+) -> dict[str, object]:
+    reference = await prepare_credentials(request, body, body.credentials)
     try:
         with auth.sessions.begin() as session:
-            account = Account(**body.model_dump(), source="ui")
+            collection_lock(session)
+            account = Account(
+                **body.model_dump(exclude={"credentials"}),
+                source="ui",
+                credential_reference=reference,
+            )
             session.add(account)
             session.flush()
             result = response(account)
@@ -90,19 +162,57 @@ def create_account(body: CreateAccount, auth: Auth, actor: Admin) -> dict[str, o
 
 
 @router.patch("/{provider}/{account_id}", dependencies=[Depends(require_csrf)])
-def patch_account(
-    provider: str, account_id: str, body: PatchAccount, auth: Auth, actor: Admin
+async def patch_account(
+    provider: str, account_id: str, body: PatchAccount, request: Request, auth: Auth, actor: Admin
 ) -> dict[str, object]:
+    with auth.sessions() as session:
+        old = target(session, provider, account_id)
+        if old.source != "ui":
+            raise HTTPException(409, "Managed by accounts.yaml; choose Manage in web first")
+        observed_version = old.configuration_version
+        version_check(old, body.expected_version)
+        changes = body.model_dump(exclude_unset=True, exclude={"credentials", "expected_version"})
+        try:
+            config = CreateAccount.model_validate(
+                {
+                    **{
+                        key: getattr(old, key)
+                        for key in CreateAccount.model_fields
+                        if key != "credentials"
+                    },
+                    **changes,
+                    "credentials": body.credentials,
+                }
+            )
+        except ValidationError:
+            raise HTTPException(422, "Check the account connection fields") from None
+        if (
+            body.credentials is not None or "connection_mode" in changes
+        ) and body.expected_version is None:
+            raise HTTPException(422, "Connection changes require the current configuration version")
+        reference = old.credential_reference
+    reference = await prepare_credentials(request, config, body.credentials, reference)
     with auth.sessions.begin() as session:
+        collection_lock(session)
         account = target(session, provider, account_id)
+        version_check(account, observed_version)
         if account.source != "ui":
             raise HTTPException(409, "Managed by accounts.yaml")
-        changes = body.model_dump(exclude_unset=True)
+        changes = body.model_dump(exclude_unset=True, exclude={"credentials", "expected_version"})
+        changes["credential_reference"] = reference
         try:
             CreateAccount.model_validate(
                 {
-                    **{key: getattr(account, key) for key in CreateAccount.model_fields},
-                    **changes,
+                    **{
+                        key: getattr(account, key)
+                        for key in CreateAccount.model_fields
+                        if key != "credentials"
+                    },
+                    **{
+                        key: value
+                        for key, value in changes.items()
+                        if key != "credential_reference"
+                    },
                 }
             )
         except ValidationError as exc:
@@ -117,6 +227,8 @@ def patch_account(
         changed = sorted(key for key, value in changes.items() if getattr(account, key) != value)
         for key in changed:
             setattr(account, key, changes[key])
+        if changed:
+            account.configuration_version += 1
         session.flush()
         count = (
             session.scalar(
@@ -139,6 +251,41 @@ def patch_account(
         account.provider,
         account.account_id,
         ",".join(changed),
+    )
+    return result
+
+
+@router.post("/{provider}/{account_id}/adopt", dependencies=[Depends(require_csrf)])
+def adopt_account(
+    provider: str, account_id: str, body: AdoptAccount, auth: Auth, actor: Admin
+) -> dict[str, object]:
+    with auth.sessions.begin() as session:
+        collection_lock(session)
+        account = target(session, provider, account_id)
+        version_check(account, body.expected_version)
+        if account.source != "file":
+            raise HTTPException(409, "Already managed in web; refresh the account list")
+        account.source = "ui"
+        account.configuration_version += 1
+        session.flush()
+        count = (
+            session.scalar(
+                select(func.count())
+                .select_from(Instance)
+                .where(
+                    Instance.provider == provider,
+                    Instance.account_id == account_id,
+                    Instance.present.is_(True),
+                )
+            )
+            or 0
+        )
+        result = response(account, count)
+    logger.info(
+        "event=account_adopt actor=%s provider=%s account_id=%s",
+        actor.id,
+        provider,
+        log_account_id(account_id),
     )
     return result
 

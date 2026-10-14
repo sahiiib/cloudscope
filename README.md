@@ -253,3 +253,12 @@ is opt-in (`CLOUDSCOPE_LOAD_BALANCERS_ENABLED=true`, or Helm
 `collector.loadBalancersEnabled=true`) after granting read-only permissions.
 Apply migration `0007` before using the updated API. See
 [the LB spec and coordinated rollout](docs/specs/load-balancers.md).
+
+### Optional dedicated account keys
+
+The Accounts console supports Runtime, Assume Role and optional Dedicated Access
+Key connections plus explicit adoption of older file accounts. Keys are write-only
+and stored in immutable Kubernetes Secrets, with only references in the database.
+The feature is off by default. Before enabling accountCredentials.enabled, review
+namespace-scoped permissions, API-server egress, workload identity and private
+backups. See [account connection rollout](docs/specs/account-credentials.md).

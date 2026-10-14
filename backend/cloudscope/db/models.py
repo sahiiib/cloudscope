@@ -38,6 +38,12 @@ class Account(Base):
     __table_args__ = (
         CheckConstraint("provider IN ('aws', 'alibaba')", name="provider"),
         CheckConstraint("source IN ('file', 'ui')", name="source"),
+        CheckConstraint(
+            "(connection_mode = 'runtime' AND credential_reference IS NULL) OR "
+            "(connection_mode = 'dedicated' AND credential_reference IS NOT NULL "
+            "AND source = 'ui' AND role_arn IS NULL AND external_id IS NULL)",
+            name="connection",
+        ),
     )
 
     provider: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -50,6 +56,9 @@ class Account(Base):
     source: Mapped[str] = mapped_column(Text, server_default=text("'file'"))
     role_arn: Mapped[str | None] = mapped_column(Text)
     external_id: Mapped[str | None] = mapped_column(Text)
+    connection_mode: Mapped[str] = mapped_column(Text, server_default=text("'runtime'"))
+    credential_reference: Mapped[str | None] = mapped_column(Text)
+    configuration_version: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     regions: Mapped[str | list[str]] = mapped_column(JSONB, server_default=text("'\"all\"'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")

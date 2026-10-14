@@ -51,6 +51,7 @@ A task can start when all its dependencies are `done`.
 | T-068 | Modern console and selectable appearance | codex | T-061 | done |
 | T-069 | Read-only load balancer inventory | codex | T-060, T-062 | done |
 | T-070 | Design Secret-backed account connections and adoption | codex | T-064 | done |
+| T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | review |
 
 ---
 
@@ -519,3 +520,18 @@ styles for Search, Settings, Sync and details, accessible keyboard navigation,
 light/dark/system selection on login and in the console. Only appearance is
 persisted locally; no inventory or credentials. Existing account behavior and
 authentication remain intact. Tests and frontend lint/build pass.
+
+### T-071: Secret-backed account connections and web adoption
+Owner: codex · Assigned by contributor · Spec: [account credentials](specs/account-credentials.md)
+
+Implement the optional Dedicated keys and explicit adoption approved by Saheb in
+PR #48 on 2026-10-13. This task is assigned directly by the contributor and built
+on the accepted T-069 scope; code promotion follows the separate maintainer reviews.
+Coordinate migration 0008 after LB migration 0007. Reviewer owns done status.
+
+Acceptance: selectable Runtime/Role/Dedicated methods; write-only AWS/Alibaba keys
+stored in bound immutable Kubernetes Secrets; identity validation before use;
+optimistic edits and collection lock; explicit adoption preserving inventory,
+LBs/history/aliases; default-off namespace-scoped RBAC and verified TLS; tests,
+source builds and operator migration/rollback documentation. API get permission
+for existing access tests/manual sync and the Helm flag naming were approved by Saheb in PR #49.

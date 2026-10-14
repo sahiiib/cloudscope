@@ -16,13 +16,18 @@ test('creates a validated account with explicit defaults and selected regions', 
   fireEvent.change(screen.getByLabelText('Regions'), { target: { value: 'eu-central-1, us-east-1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
-  expect(fetchApi).toHaveBeenCalledWith('/api/accounts', expect.objectContaining({ method: 'POST', body: JSON.stringify({ provider: 'aws', account_id: '111111111111', name: 'Test', regions: ['eu-central-1', 'us-east-1'], role_arn: null, external_id: null, enabled: true }) }));
+  expect(fetchApi).toHaveBeenCalledWith('/api/accounts', expect.objectContaining({ method: 'POST', body: JSON.stringify({ provider: 'aws', account_id: '111111111111', name: 'Test', regions: ['eu-central-1', 'us-east-1'], role_arn: null, external_id: null, enabled: true, connection_mode: 'runtime' }) }));
 });
 test.each([422, 409])('shows server %s beside its field, preserving the form', async status => {
   const detail = status === 422 ? [{ loc: ['body', 'role_arn'], msg: 'Role is invalid', type: 'value_error' }] : 'Account already exists';
   fetchApi.mockRejectedValue(new ApiError(status, detail));
   renderSettings(<AccountForm onSaved={vi.fn()} onCancel={vi.fn()} />);
-  fill(); fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
+  fill();
+  if (status === 422) {
+    fireEvent.change(screen.getByLabelText('Connection method'), { target: { value: 'role' } });
+    fireEvent.change(screen.getByLabelText('Role ARN'), { target: { value: 'arn:aws:iam::111111111111:role/test' } });
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent(status === 422 ? 'Role is invalid' : 'Account already exists');
   const field = screen.getByRole('textbox', { name: status === 422 ? /^Role ARN/ : /^Account ID/ });
@@ -38,10 +43,11 @@ test('edits UI fields, clearing optional values without sending immutable or res
   expect(screen.getByLabelText('Account ID')).toHaveAttribute('readonly');
   expect(screen.queryByLabelText('Enabled')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Renamed' } });
-  for (const field of ['Role ARN (optional)', 'External ID (optional)']) fireEvent.change(screen.getByLabelText(field), { target: { value: '' } });
+  for (const field of ['Role ARN', 'External ID (optional)']) fireEvent.change(screen.getByLabelText(field), { target: { value: '' } });
+  fireEvent.change(screen.getByLabelText('Connection method'), { target: { value: 'runtime' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save account' }));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
-  expect(fetchApi).toHaveBeenCalledWith('/api/accounts/aws/111111111111', expect.objectContaining({ method: 'PATCH', body: '{"name":"Renamed","regions":"all","role_arn":null,"external_id":null}' }));
+  expect(fetchApi).toHaveBeenCalledWith('/api/accounts/aws/111111111111', expect.objectContaining({ method: 'PATCH', body: '{"name":"Renamed","regions":"all","role_arn":null,"external_id":null,"connection_mode":"runtime"}' }));
 });
 test('rejects invalid input locally and supports Alibaba IDs without external ID', async () => {
   fetchApi.mockResolvedValue(response({}));

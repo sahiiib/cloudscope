@@ -17,7 +17,7 @@ spec:
             {{- include "cs.labels" . | nindent 12 }}
             app.kubernetes.io/component: collector
         spec:
-          {{- include "cs.backendPod" . | nindent 10 }}
+          {{- include "cs.backendPod" (dict "Values" .Values "Release" .Release "component" "collector") | nindent 10 }}
           restartPolicy: Never
           containers:
             - name: collector

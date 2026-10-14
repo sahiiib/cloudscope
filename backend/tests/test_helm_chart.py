@@ -164,3 +164,38 @@ def test_pods_disable_service_links() -> None:
         cron["template"]["spec"],
     ]
     assert all(pod["enableServiceLinks"] is False for pod in pods)
+
+
+def test_dedicated_credentials_are_off_without_new_rbac() -> None:
+    docs = render()
+    assert not any(doc["kind"] in {"Namespace", "Role", "RoleBinding"} for doc in docs)
+
+
+def test_dedicated_secret_rbac_tokens_and_network_boundary() -> None:
+    docs = render(
+        "accountCredentials.enabled=true", "accountCredentials.apiServerCIDRs[0]=10.0.0.1/32"
+    )
+    writer = resource(docs, "Role", "cloudscope-credential-writer")
+    reader = resource(docs, "Role", "cloudscope-credential-reader")
+    assert writer["metadata"]["namespace"] == "cloudscope-credentials"
+    assert writer["rules"] == [{"apiGroups": [""], "resources": ["secrets"], "verbs": ["create"]}]
+    assert reader["rules"][0]["verbs"] == ["get"]
+    assert not any(doc["kind"] in {"ClusterRole", "ClusterRoleBinding"} for doc in docs)
+    api = resource(docs, "Deployment", "cloudscope-api")["spec"]["template"]["spec"]
+    collector = resource(docs, "CronJob", "cloudscope-collector")["spec"]["jobTemplate"]["spec"][
+        "template"
+    ]["spec"]
+    for pod, name in [(api, "api"), (collector, "collector")]:
+        assert pod["serviceAccountName"] == f"cloudscope-{name}-credentials"
+        assert pod["automountServiceAccountToken"] is False
+        token = next(v for v in pod["volumes"] if v["name"] == "credential-api-token")
+        assert token["projected"]["sources"][0]["serviceAccountToken"]["expirationSeconds"] == 3600
+    policy = resource(docs, "NetworkPolicy", "cloudscope-credential-egress")
+    assert policy["spec"]["egress"][0]["to"] == [{"ipBlock": {"cidr": "10.0.0.1/32"}}]
+
+
+def test_dedicated_credentials_require_explicit_api_server_network() -> None:
+    with pytest.raises(subprocess.CalledProcessError):
+        render("accountCredentials.enabled=true")
+    with pytest.raises(subprocess.CalledProcessError):
+        render("accountCredentials.enabled=true", "accountCredentials.apiServerCIDRs[0]=10.0.0.0/8")

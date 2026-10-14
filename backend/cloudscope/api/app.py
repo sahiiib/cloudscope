@@ -29,6 +29,7 @@ from cloudscope.auth.totp import MFAService
 from cloudscope.collector.access import AccountAccess
 from cloudscope.collector.manual import ManualSync
 from cloudscope.config import Settings
+from cloudscope.credentials import credential_store
 from cloudscope.db.models import User
 from cloudscope.db.session import create_db_engine, create_session_factory
 
@@ -64,6 +65,12 @@ def create_app(
             except ValidationError:
                 runtime_settings = None
         app.state.account_access = AccountAccess()
+        app.state.dedicated_credentials_enabled = bool(
+            runtime_settings and runtime_settings.dedicated_credentials_enabled
+        )
+        app.state.credential_store = (
+            credential_store() if app.state.dedicated_credentials_enabled else None
+        )
         app.state.load_balancers_enabled = bool(
             runtime_settings and runtime_settings.load_balancers_enabled
         )

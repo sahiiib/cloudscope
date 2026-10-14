@@ -83,11 +83,18 @@ class SyncRunner:
                         [(account.provider, account.account_id) for account in accounts]
                     ),
                 )
-                .values(enabled=False, updated_at=self.clock())
+                .values(
+                    enabled=False,
+                    updated_at=self.clock(),
+                    configuration_version=Account.configuration_version + 1,
+                )
             )
             for account in accounts:
                 statement = insert(Account).values(
-                    **account.model_dump(), source="file", enabled=True, updated_at=self.clock()
+                    **account.model_dump(exclude={"connection_mode", "credential_reference"}),
+                    source="file",
+                    enabled=True,
+                    updated_at=self.clock(),
                 )
                 saved = session.scalar(
                     statement.on_conflict_do_update(
@@ -99,6 +106,7 @@ class SyncRunner:
                             },
                             "enabled": True,
                             "updated_at": self.clock(),
+                            "configuration_version": Account.configuration_version + 1,
                         },
                         where=(Account.source == "file")
                         & or_(

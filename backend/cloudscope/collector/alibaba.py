@@ -32,6 +32,7 @@ from cloudscope.collector.base import (
 from cloudscope.collector.errors import AssumeRoleError
 from cloudscope.collector.load_balancers import NormalizedLoadBalancer, alibaba_load_balancers
 from cloudscope.config import AccountConfig
+from cloudscope.credentials import CredentialError, Credentials, account_credentials
 
 
 class AlibabaReader(Protocol):
@@ -145,7 +146,10 @@ class AlibabaClientFactory:
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         *,
         access_test: bool = False,
+        credential_loader: Callable[[AccountConfig], Credentials] = account_credentials,
     ) -> None:
+        self._credential_loader = credential_loader
+        self._dedicated: dict[tuple[str, str], Payload] = {}
         self.access_test = access_test
         self.builder = builder
         self.clock = clock
@@ -154,11 +158,42 @@ class AlibabaClientFactory:
 
     def __call__(self, account: AccountConfig, region: str) -> AlibabaReader:
         with self._lock:
-            key_id = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID")
-            key_secret = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
-            if not key_id or not key_secret:
-                raise ValueError("Alibaba base access key environment variables are required")
-            credentials = {"AccessKeyId": key_id, "AccessKeySecret": key_secret}
+            if account.connection_mode == "dedicated":
+                if account.role_arn or not account.credential_reference:
+                    raise CredentialError("InvalidDedicatedConnection")
+                ref = (account.account_id, account.credential_reference)
+                credentials = self._dedicated.get(ref, {})
+                if not credentials:
+                    keys = self._credential_loader(account)
+                    if keys.session_token:
+                        raise CredentialError("AlibabaSessionTokenUnsupported")
+                    key_id = keys.access_key_id.get_secret_value()
+                    key_secret = keys.secret_access_key.get_secret_value()
+                    sts = self.builder(
+                        "sts",
+                        Config(
+                            access_key_id=key_id,
+                            access_key_secret=key_secret,
+                            endpoint="sts.aliyuncs.com",
+                        ),
+                    )
+                    identity = sts.get_caller_identity_with_options(runtime(True)).body.to_map()
+                    if identity.get("AccountId") != account.account_id:
+                        raise CredentialError("AccountIdentityMismatch")
+                    credentials = {"AccessKeyId": key_id, "AccessKeySecret": key_secret}
+                    self._dedicated = {
+                        key: value
+                        for key, value in self._dedicated.items()
+                        if key[0] != account.account_id
+                    }
+                    self._dedicated[ref] = credentials
+                key_id, key_secret = credentials["AccessKeyId"], credentials["AccessKeySecret"]
+            else:
+                key_id = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID") or ""
+                key_secret = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET") or ""
+                if not key_id or not key_secret:
+                    raise ValueError("Alibaba base access key environment variables are required")
+                credentials = {"AccessKeyId": key_id, "AccessKeySecret": key_secret}
             if account.role_arn:
                 cache_key = (account.account_id, account.role_arn, account.external_id)
                 cached = self._cache.get(cache_key)
