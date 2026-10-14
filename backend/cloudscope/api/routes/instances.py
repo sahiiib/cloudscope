@@ -74,7 +74,7 @@ class Filters:
         }
 
     def conditions(self, omit: str = "") -> list[ColumnElement[bool]]:
-        conditions: list[ColumnElement[bool]] = []
+        conditions: list[ColumnElement[bool]] = [Account.deleted.is_(False)]
         if not self.include_missing:
             conditions.append(Instance.present.is_(True))
         if self.q:
@@ -185,6 +185,7 @@ def instance_detail(
                 Instance.account_id == account_id,
                 Instance.region == region,
                 Instance.instance_id == instance_id,
+                Account.deleted.is_(False),
             )
         ).one_or_none()
         if row is None:
