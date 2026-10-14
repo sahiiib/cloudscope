@@ -81,3 +81,18 @@ the Kubernetes Secret and is deleted once EKS is live.
 
 See [load-balancers.md](load-balancers.md) for the additive schema, read-only
 operations, per-family failure behavior, API and opt-in rollout.
+
+## Dedicated connection identity (T-071)
+
+Dedicated connections add read-only AWS STS GetCallerIdentity and Alibaba STS
+GetCallerIdentity checks before region discovery or inventory. Their Account /
+AccountId must match the configured account. These checks use the supplied key
+pair; collector EC2/ECS/LB and alias calls then use that same validated connection.
+Cloud write operations are never requested. See the official
+[AWS identity API](https://docs.aws.amazon.com/STS/latest/APIReference/API_GetCallerIdentity.html)
+and [Alibaba identity API](https://www.alibabacloud.com/help/en/ram/developer-reference/api-sts-2015-04-01-getcalleridentity).
+AWS documents that GetCallerIdentity does not require permissions; keep the
+existing inventory/alias/LB permissions on each Dedicated account's user. Operators
+must validate Alibaba STS/region permissions for their RAM users as well. No live
+IAM/RAM grants are applied by this change. Kubernetes Secret RBAC is separate and
+is documented in [account-credentials.md](account-credentials.md).
