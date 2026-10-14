@@ -16,6 +16,7 @@ from cloudscope.collector.base import (
     utc_datetime,
 )
 from cloudscope.collector.errors import AssumeRoleError
+from cloudscope.collector.load_balancers import NormalizedLoadBalancer, aws_load_balancers
 from cloudscope.config import AccountConfig
 
 
@@ -24,10 +25,23 @@ class EC2Reader(Protocol):
 
 
 class BotoReader:
-    def __init__(self, client: Any, iam: Callable[[], Any] | None = None) -> None:
+    def __init__(
+        self,
+        client: Any,
+        iam: Callable[[], Any] | None = None,
+        lb: Callable[[str], Any] | None = None,
+    ) -> None:
         self.client, self.iam = client, iam
+        self.lb = lb
 
     def call(self, operation: str, **params: Any) -> Payload:
+        if (
+            operation in {"elbv2_describe_load_balancers", "classic_describe_load_balancers"}
+            and self.lb is not None
+        ):
+            service = "elbv2" if operation.startswith("elbv2_") else "elb"
+            lb_result: Payload = self.lb(service).describe_load_balancers(**params)
+            return lb_result
         if operation == "list_account_aliases" and self.iam is not None:
             result: Payload = self.iam().list_account_aliases(**params)
             return result
@@ -108,6 +122,7 @@ class AWSClientFactory:
                 iam=lambda: session.client(
                     "iam", region_name=self._sts_region, config=self._config
                 ),
+                lb=lambda service: session.client(service, region_name=region, config=self._config),
             )
 
 
@@ -161,6 +176,12 @@ def rules(permissions: list[Payload], direction: str) -> list[Payload]:
 
 class AWSProvider:
     name: Literal["aws"] = "aws"
+
+    def scan_load_balancers(
+        self, account: AccountConfig, region: str, family: str
+    ) -> list[NormalizedLoadBalancer]:
+        self._validate(account)
+        return aws_load_balancers(self.client_factory(account, region), account, region, family)
 
     def __init__(
         self,

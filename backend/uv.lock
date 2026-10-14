@@ -85,6 +85,19 @@ wheels = [
 ]
 
 [[package]]
+name = "alibabacloud-alb20200616"
+version = "1.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alibabacloud-tea-openapi" },
+    { name = "darabonba-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/07/41/d7712c197adbad826634329b34b4a52db4689804efb9e49ea576b91b46b0/alibabacloud_alb20200616-1.3.3.tar.gz", hash = "sha256:509ab9c4644c5b0cdd35030e97ab59e3525c3011a64b8b976c8058357b3902d9", size = 162204, upload-time = "2026-09-04T19:20:03.026Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/28/ef/25127cf6c7a294577aec9c767db451ccf3ea9c99d9df7eb3824e7d982c6c/alibabacloud_alb20200616-1.3.3-py3-none-any.whl", hash = "sha256:d6768c6c630deb17f2c3f80b9baf7d0788a64d4f29db553227528f95fe15fdc7", size = 347951, upload-time = "2026-09-04T19:19:56.967Z" },
+]
+
+[[package]]
 name = "alibabacloud-credentials"
 version = "1.0.12"
 source = { registry = "https://pypi.org/simple" }
@@ -134,6 +147,19 @@ wheels = [
 ]
 
 [[package]]
+name = "alibabacloud-nlb20220430"
+version = "4.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alibabacloud-tea-openapi" },
+    { name = "darabonba-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fb/8e/bbcc85003a4eb210aca8c4b0fd40fad92dd67c47ca4cf698f894a1aa5fd1/alibabacloud_nlb20220430-4.1.3.tar.gz", hash = "sha256:f4e7534768f09218fa356fa69c548bbf3915f39acb36319bec064583f880b862", size = 76015, upload-time = "2026-04-30T08:41:04.306Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/05/2c40855ec8f39b1075ac2bb6e599b0543463c8e00a375d6b54cfac612653/alibabacloud_nlb20220430-4.1.3-py3-none-any.whl", hash = "sha256:f8ee891968aa98599cc76de8f43552751ad45a7b314c38acbebc8bf3f608f3ba", size = 201481, upload-time = "2026-04-30T08:41:02.956Z" },
+]
+
+[[package]]
 name = "alibabacloud-ram20150501"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -144,6 +170,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b2/3f/9aca4a8c9fc07636a14894101a25c7c9d434487472931429fcfb3242fd52/alibabacloud_ram20150501-1.3.0.tar.gz", hash = "sha256:5b0d13415537250c9f95a4d32d9bf18582fb3846d42c79d16a2e5ec021c502ee", size = 57839, upload-time = "2026-08-27T19:16:39.046Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/53/a8/ef4273a93170dcbb282a00977f2a5c1accc1774e16f15d7d71f75e26cf4c/alibabacloud_ram20150501-1.3.0-py3-none-any.whl", hash = "sha256:ec7f7c634aa1e07e296d9f8efe1f73ffb8417226217d627398dc72d89c1ef2a1", size = 191624, upload-time = "2026-08-27T19:16:37.816Z" },
+]
+
+[[package]]
+name = "alibabacloud-slb20140515"
+version = "3.3.31"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alibabacloud-tea-openapi" },
+    { name = "darabonba-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/58/77/d2b7ee6c2eb639ab2500dc856eb949acaf97e9c4770a0b9b391b724c568d/alibabacloud_slb20140515-3.3.31.tar.gz", hash = "sha256:20b59e9b40bb230082d5c0a0a2cd3016ed4e90f43f0d500b6046d805ba7292b2", size = 138821, upload-time = "2026-04-14T18:50:25.014Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/25/4e122891bf524ba33283f8855b14a5b23fdf9de777463c253742c2b6ff67/alibabacloud_slb20140515-3.3.31-py3-none-any.whl", hash = "sha256:e6b96616dece8a599bba0cf2c927522e0d93fd12c906fab08d132104c2593cef", size = 353966, upload-time = "2026-04-14T18:50:23.9Z" },
 ]
 
 [[package]]
@@ -411,8 +450,11 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "alibabacloud-alb20200616" },
     { name = "alibabacloud-ecs20140526" },
+    { name = "alibabacloud-nlb20220430" },
     { name = "alibabacloud-ram20150501" },
+    { name = "alibabacloud-slb20140515" },
     { name = "alibabacloud-sts20150401" },
     { name = "alibabacloud-vpc20160428" },
     { name = "argon2-cffi" },
@@ -443,8 +485,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1,<2" },
+    { name = "alibabacloud-alb20200616", specifier = ">=1.3.3,<2" },
     { name = "alibabacloud-ecs20140526", specifier = ">=4,<8" },
+    { name = "alibabacloud-nlb20220430", specifier = ">=4.1.3,<5" },
     { name = "alibabacloud-ram20150501", specifier = ">=1,<3" },
+    { name = "alibabacloud-slb20140515", specifier = ">=3.3.31,<4" },
     { name = "alibabacloud-sts20150401", specifier = ">=1,<2" },
     { name = "alibabacloud-vpc20160428", specifier = ">=6,<8" },
     { name = "argon2-cffi", specifier = ">=23,<26" },

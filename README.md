@@ -244,3 +244,12 @@ reads each enabled account's alias once; denied reads preserve the previous alia
 and do not fail inventory scans. Update existing read-only policies with
 `iam:ListAccountAliases` (AWS) and `ram:GetAccountAlias` (Alibaba), using the
 [role templates and policy instructions](docs/specs/cloud-access.md).
+
+### Load balancer inventory
+
+The `/load-balancers` page shows AWS ELBv2/Classic and Alibaba CLB/ALB/NLB
+metadata with search, filters, details and per-family collection status. Collection
+is opt-in (`CLOUDSCOPE_LOAD_BALANCERS_ENABLED=true`, or Helm
+`collector.loadBalancersEnabled=true`) after granting read-only permissions.
+Apply migration `0007` before using the updated API. See
+[the LB spec and coordinated rollout](docs/specs/load-balancers.md).

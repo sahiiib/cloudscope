@@ -151,6 +151,10 @@ Summary has separate Account name, Account alias and Account ID rows. Settings
 also shows the cloud alias. Unknown/absent aliases display "–". Free-text search
 includes account names, aliases and IDs as well as the instance fields.
 
+## Load balancer page (T-069)
+
+See [load-balancers.md](load-balancers.md) for the additive schema, read-only
+operations, per-family failure behavior, API and opt-in rollout.
 ## Modern console (T-068)
 
 The console uses a responsive sidebar and consistent card, table, form and

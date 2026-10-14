@@ -8,6 +8,7 @@ from sqlalchemy import Engine, text
 
 from cloudscope.collector.alibaba import AlibabaProvider
 from cloudscope.collector.aws import AWSProvider
+from cloudscope.collector.load_balancers import build_load_balancer_collector
 from cloudscope.collector.runner import SyncRunner
 from cloudscope.config import Settings, load_accounts
 from cloudscope.db.session import create_session_factory
@@ -55,6 +56,10 @@ class ManualSync:
                         create_session_factory(self.engine),
                         {"aws": AWSProvider(), "alibaba": AlibabaProvider()},
                         concurrency=self.settings.collect_concurrency,
+                        load_balancers=build_load_balancer_collector(
+                            create_session_factory(self.engine),
+                            self.settings.load_balancers_enabled,
+                        ),
                     )
                     ready.set_result(None)
                     runner.run(accounts, trigger="manual")
