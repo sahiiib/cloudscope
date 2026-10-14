@@ -48,9 +48,12 @@ export interface AccountInput {
   role_arn: string | null;
   external_id: string | null;
   enabled: boolean;
+  connection_mode?: 'runtime' | 'dedicated';
 }
 export type AccountAccessResult = { ok: true; regions: number } | { ok: false; error: string };
 export interface AccountSummary extends AccountInput {
+  configuration_version?: number;
+  credentials_configured?: boolean;
   source: 'file' | 'ui';
   cloud_alias: string | null;
   last_success_at: string | null;
