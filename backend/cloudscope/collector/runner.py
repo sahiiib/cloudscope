@@ -306,7 +306,12 @@ class SyncRunner:
             try:
                 self.load_balancers.scan(account, region)
             except Exception as exc:
-                logger.warning("event=load_balancer_step_failed error=%s", describe_error(exc))
+                logger.warning(
+                    "event=load_balancer_step_failed account_id=%s region=%s error=%s",
+                    log_account_id(account.account_id),
+                    region,
+                    describe_error(exc),
+                )
 
     def _error(
         self,
