@@ -120,6 +120,9 @@ def test_create_patch_clear_duplicate_and_audit(
         "last_success_at": None,
         "instance_count": 0,
         "cloud_alias": None,
+        "connection_mode": "runtime",
+        "credentials_configured": False,
+        "configuration_version": 1,
     }
     assert admin.post("/api/accounts", json=body, headers=CSRF).status_code == 409
     assert admin.get("/api/accounts").json() == [created.json()]
