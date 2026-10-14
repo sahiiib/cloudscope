@@ -170,6 +170,67 @@ def test_failed_validation_preserves_prior_connection(
     assert row.credential_reference == old and row.configuration_version == 1
 
 
+def test_database_write_failure_preserves_active_reference(
+    admin: TestClient, db_session: Session, tmp_path: Path
+) -> None:
+    from sqlalchemy import event
+    from sqlalchemy.exc import SQLAlchemyError
+
+    configure(admin, tmp_path)
+    assert (
+        admin.post(
+            "/api/accounts",
+            json={**BODY, "connection_mode": "dedicated", "credentials": KEYS},
+            headers=CSRF,
+        ).status_code
+        == 201
+    )
+    old = db_session.get_one(Account, ("aws", BODY["account_id"])).credential_reference
+
+    def fail(mapper: Any, connection: Any, target: Account) -> None:
+        if target.credential_reference != old:
+            raise SQLAlchemyError("private database diagnostic")
+
+    event.listen(Account, "before_update", fail)
+    try:
+        result = admin.patch(URL, json={"credentials": KEYS, "expected_version": 1}, headers=CSRF)
+        assert result.status_code == 503 and "private database diagnostic" not in result.text
+        db_session.expire_all()
+        row = db_session.get_one(Account, ("aws", BODY["account_id"]))
+        assert row.credential_reference == old and row.configuration_version == 1
+    finally:
+        event.remove(Account, "before_update", fail)
+
+
+def test_file_configuration_versions_only_change_on_configuration_edits(
+    db_session: Session,
+) -> None:
+    from sqlalchemy.orm import sessionmaker
+    from test_runner import FakeProvider
+
+    from cloudscope.collector.runner import SyncRunner
+
+    sessions = sessionmaker(
+        bind=db_session.connection(),
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+    runner = SyncRunner(sessions, {"aws": FakeProvider()}, concurrency=1)
+    account = AccountConfig(**BODY)
+    runner.run([account])
+    db_session.expire_all()
+    assert db_session.get_one(Account, ("aws", BODY["account_id"])).configuration_version == 1
+    runner.run([account])
+    db_session.expire_all()
+    assert db_session.get_one(Account, ("aws", BODY["account_id"])).configuration_version == 1
+    runner.run([account.model_copy(update={"name": "Renamed"})])
+    db_session.expire_all()
+    assert db_session.get_one(Account, ("aws", BODY["account_id"])).configuration_version == 2
+    runner.run([])
+    db_session.expire_all()
+    assert db_session.get_one(Account, ("aws", BODY["account_id"])).configuration_version == 3
+
+
 def test_explicit_adoption_preserves_row_and_ui_wins_file_sync(
     admin: TestClient, db_session: Session
 ) -> None:
