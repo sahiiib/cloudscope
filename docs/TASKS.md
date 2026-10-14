@@ -48,9 +48,9 @@ A task can start when all its dependencies are `done`.
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | done |
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
 | T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | done |
-| T-070 | Design Secret-backed account connections and adoption | codex | T-064 | review |
-| T-069 | Read-only load balancer inventory | codex | T-060, T-062 | review |
-| T-068 | Modern console and selectable appearance | codex | T-061 | review |
+| T-068 | Modern console and selectable appearance | codex | T-061 | done |
+| T-069 | Read-only load balancer inventory | codex | T-060, T-062 | done |
+| T-070 | Design Secret-backed account connections and adoption | codex | T-064 | done |
 | T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | review |
 
 ---
@@ -501,7 +501,7 @@ Kubernetes Secret storage, explicit adoption without data loss, reader/writer RB
 boundary, rotation/transaction handling, migration/rollback constraints and test
 criteria. Ask the maintainer to approve the design before a separate implementation
 PR; do not change the accepted account spec or shared runtime in this design task.
-
+                                        
 ### T-069: Read-only load balancer inventory
 Owner: codex · Assigned by fork contributor · Spec: [load balancers](specs/load-balancers.md)
 
