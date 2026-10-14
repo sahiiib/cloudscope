@@ -15,6 +15,7 @@ from cloudscope.auth.passwords import hash_password
 from cloudscope.collector.alibaba import AlibabaProvider
 from cloudscope.collector.aws import AWSProvider
 from cloudscope.collector.base import Provider
+from cloudscope.collector.load_balancers import build_load_balancer_collector
 from cloudscope.collector.manual import COLLECTION_LOCK_KEY
 from cloudscope.collector.runner import AccountFilterError, SyncRunner
 from cloudscope.config import AccountsConfigError, Settings, load_accounts
@@ -121,7 +122,12 @@ def collect(
                 raise typer.Exit(1)
             try:
                 run = SyncRunner(
-                    factory, collect_providers(), concurrency=settings.collect_concurrency
+                    factory,
+                    collect_providers(),
+                    concurrency=settings.collect_concurrency,
+                    load_balancers=build_load_balancer_collector(
+                        factory, settings.load_balancers_enabled
+                    ),
                 ).run(
                     accounts,
                     account_id=account,

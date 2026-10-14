@@ -48,9 +48,12 @@ export interface AccountInput {
   role_arn: string | null;
   external_id: string | null;
   enabled: boolean;
+  connection_mode?: 'runtime' | 'dedicated';
 }
 export type AccountAccessResult = { ok: true; regions: number } | { ok: false; error: string };
 export interface AccountSummary extends AccountInput {
+  configuration_version?: number;
+  credentials_configured?: boolean;
   source: 'file' | 'ui';
   cloud_alias: string | null;
   last_success_at: string | null;
@@ -133,4 +136,17 @@ export interface InstanceDetail extends InstanceSummary {
   first_seen: string;
   details: InstanceExtras | null;
   raw: Record<string, unknown> | null;
+}
+export interface LoadBalancerSummary {
+  provider: 'aws' | 'alibaba'; account_id: string; account_name: string; account_alias: string | null;
+  region: string; family: string; load_balancer_id: string; name: string; kind: string;
+  state: string; scheme: string; addresses: string[]; vpc_id: string | null; zones: string[];
+  tags: Record<string, string>; last_observed: string; present: boolean;
+}
+export interface LoadBalancerDetail extends LoadBalancerSummary { raw: Record<string, unknown>; first_seen: string }
+export interface LoadBalancerPage { items: LoadBalancerSummary[]; total: number; page: number; page_size: number }
+export interface LoadBalancerScans {
+  enabled: boolean;
+  items: { provider: string; account_id: string; region: string; family: string; status: string;
+    error: string | null; last_attempt: string; last_success: string | null }[];
 }

@@ -155,3 +155,22 @@ also clears password lockout counters. MFA reset clears enrollment and replay
 state and revokes both full and half sessions. Self changes clear the cookie.
 Removing the last active administrator returns 409; admin mutations serialize
 this check and recheck the actor's authorization inside the transaction.
+
+## Load balancer endpoints (T-069)
+
+See [load-balancers.md](load-balancers.md) for the additive schema, read-only
+operations, per-family failure behavior, API and opt-in rollout.
+
+## Secret-backed account connections (T-071)
+
+See [account-credentials.md](account-credentials.md) for the reviewed extension.
+Account responses additionally return connection_mode, credentials_configured and
+configuration_version, never keys or Secret references. Admin GET
+/api/accounts/capabilities returns dedicated_credentials. Create/patch accept
+connection_mode and write-only credentials (access_key_id, secret_access_key,
+AWS-only optional session_token). Connection edits require expected_version;
+stale edits or a running collector return 409. POST
+/api/accounts/{provider}/{account_id}/adopt requires confirmed=true and
+expected_version, and preserves existing data while making the UI authoritative.
+All writes require full admin session and CSRF. Failed access validation returns
+sanitized 422; unavailable Secret storage returns 503 without changing the account.

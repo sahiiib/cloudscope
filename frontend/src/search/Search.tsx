@@ -43,7 +43,12 @@ export default function Search() {
   const names = Object.fromEntries((Array.isArray(accounts.data) ? accounts.data : []).map(account => [account.account_id, account.name]));
   const total = instances.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  return <section className="search-page"><h1>Search</h1><p>Find instances across your cloud accounts.</p>
+  return <section className="search-page"><div className="page-heading"><span className="eyebrow">Inventory</span><h1>Search</h1><p>Find instances across your cloud accounts.</p></div>
+    <div className="overview-grid" aria-label="Inventory overview">
+      <div className="overview-card"><span>Matching instances</span><strong>{instances.data ? total : '–'}</strong><small>Current search and filters</small></div>
+      <div className="overview-card"><span>Configured accounts</span><strong>{Array.isArray(accounts.data) ? accounts.data.length : '–'}</strong><small>AWS &amp; Alibaba Cloud</small></div>
+      <div className="overview-card"><span>Inventory mode</span><strong className="overview-label">Read only</strong><small>No changes to cloud resources</small></div>
+    </div>
     <SearchInput revision={location.key} value={params.get('q') || ''} onChange={value => update(next => { if (value) next.set('q', value); else next.delete('q'); })} />
     <div className="search-filters">{dimensions.map(([label, field, facet]) => <FacetFilter key={field} label={label}
       options={facets.data?.[facet] ?? []} selected={params.getAll(field)} names={field === 'account_id' ? names : undefined}

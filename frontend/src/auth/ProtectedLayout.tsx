@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, apiFetch } from '../api/client';
 import type { AuthUser } from '../api/types';
+import ThemePicker from '../appearance/ThemePicker';
 
 export default function ProtectedLayout() {
   const location = useLocation();
@@ -26,19 +27,27 @@ export default function ProtectedLayout() {
     }
     return <main><p role="alert">Unable to check your session.</p><button type="button" onClick={() => void me.refetch()}>Try again</button></main>;
   }
-  return <>
+  return <div className="console-shell">
+    <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="topbar">
-      <NavLink className="brand" to="/">Cloudscope</NavLink>
+      <NavLink className="brand" to="/"><span className="brand-symbol" aria-hidden="true">C</span><span>Cloudscope<small>Cloud inventory</small></span></NavLink>
+      <span className="nav-caption">Workspace</span>
       <nav aria-label="Main navigation">
-        <NavLink to="/" end>Search</NavLink><NavLink to="/sync">Sync</NavLink><NavLink to="/settings">Settings</NavLink>
+        <NavLink to="/" end><span aria-hidden="true">&#9638;</span> Search</NavLink>
+        {me.data.is_admin && <NavLink to="/accounts"><span aria-hidden="true">&#9678;</span> Accounts</NavLink>}
+        <NavLink to="/load-balancers">Load balancers</NavLink>
+        <NavLink to="/sync"><span aria-hidden="true">&#8635;</span> Sync</NavLink>
+        <NavLink to="/settings"><span aria-hidden="true">&#9881;</span> Settings</NavLink>
       </nav>
-      <details className="user-menu"><summary>{me.data.username}</summary>
+      <div className="sidebar-footer"><ThemePicker /><details className="user-menu"><summary>{me.data.username}</summary>
         <div><span>{me.data.is_admin ? 'Administrator' : 'Member'}</span>
           <button type="button" onClick={() => logout.mutate()} disabled={logout.isPending}>{logout.isPending ? 'Signing out…' : 'Log out'}</button>
         </div>
-      </details>
+      </details><p className="read-only-note">Read-only cloud access</p></div>
     </header>
-    {logout.isError && <p role="alert" className="error">Unable to log out. Please try again.</p>}
-    <main><Outlet context={me.data} /></main>
-  </>;
+    <main id="main-content" tabIndex={-1}>
+      {logout.isError && <p role="alert" className="error">Unable to log out. Please try again.</p>}
+      <Outlet context={me.data} />
+    </main>
+  </div>;
 }

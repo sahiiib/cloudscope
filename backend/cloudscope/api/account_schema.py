@@ -2,9 +2,19 @@
 
 import re
 import unicodedata
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, StrictBool, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+
+from cloudscope.credentials import Credentials
 
 
 class CreateAccount(BaseModel):
@@ -17,6 +27,19 @@ class CreateAccount(BaseModel):
     role_arn: str | None = None
     external_id: str | None = None
     enabled: StrictBool = True
+    connection_mode: Literal["runtime", "dedicated"] = "runtime"
+    credentials: Credentials | None = Field(default=None, repr=False)
+
+    @model_validator(mode="after")
+    def valid_connection(self) -> Self:
+        if self.connection_mode == "dedicated":
+            if self.role_arn or self.external_id:
+                raise ValueError("Dedicated credentials cannot be combined with a role")
+            if self.provider == "alibaba" and self.credentials and self.credentials.session_token:
+                raise ValueError("Session token is AWS-only")
+        elif self.credentials is not None:
+            raise ValueError("Keys require Dedicated credentials mode")
+        return self
 
     @field_validator("account_id")
     @classmethod
@@ -79,10 +102,19 @@ class PatchAccount(BaseModel):
     role_arn: str | None = None
     external_id: str | None = None
     enabled: StrictBool | None = None
+    connection_mode: Literal["runtime", "dedicated"] | None = None
+    credentials: Credentials | None = Field(default=None, repr=False)
+    expected_version: int | None = Field(default=None, ge=1)
 
-    @field_validator("name", "regions", "enabled")
+    @field_validator("name", "regions", "enabled", "connection_mode")
     @classmethod
     def not_null(cls, value: object) -> object:
         if value is None:
             raise ValueError("Field cannot be null")
         return value
+
+
+class AdoptAccount(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    confirmed: Literal[True]
+    expected_version: int = Field(ge=1)

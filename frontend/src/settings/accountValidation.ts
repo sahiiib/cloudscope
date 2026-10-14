@@ -37,7 +37,7 @@ export function accountErrors(error: unknown, editing: boolean): AccountErrors {
       }
       if (Object.keys(errors).length) return errors;
     }
-    if (error.status === 422) return { form: 'Check the account fields and try again.' };
+    if (error.status === 422) return { form: typeof error.detail === 'string' && error.detail.startsWith('Access validation failed:') ? error.detail : 'Check the account fields and try again.' };
   }
   return { form: 'Unable to save account. Please try again.' };
 }

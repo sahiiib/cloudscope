@@ -6,9 +6,15 @@ from datetime import UTC, datetime, timedelta
 from threading import Lock
 from typing import Any, Literal, Protocol
 
+from alibabacloud_alb20200616 import models as alb_models  # type: ignore[import-untyped]
+from alibabacloud_alb20200616.client import Client as ALBClient  # type: ignore[import-untyped]
 from alibabacloud_ecs20140526 import models as ecs_models  # type: ignore[import-untyped]
 from alibabacloud_ecs20140526.client import Client as ECSClient  # type: ignore[import-untyped]
+from alibabacloud_nlb20220430 import models as nlb_models  # type: ignore[import-untyped]
+from alibabacloud_nlb20220430.client import Client as NLBClient  # type: ignore[import-untyped]
 from alibabacloud_ram20150501.client import Client as RAMClient  # type: ignore[import-untyped]
+from alibabacloud_slb20140515 import models as slb_models  # type: ignore[import-untyped]
+from alibabacloud_slb20140515.client import Client as SLBClient  # type: ignore[import-untyped]
 from alibabacloud_sts20150401 import models as sts_models  # type: ignore[import-untyped]
 from alibabacloud_sts20150401.client import Client as STSClient  # type: ignore[import-untyped]
 from alibabacloud_tea_openapi.models import Config  # type: ignore[import-untyped]
@@ -24,7 +30,9 @@ from cloudscope.collector.base import (
     utc_datetime,
 )
 from cloudscope.collector.errors import AssumeRoleError
+from cloudscope.collector.load_balancers import NormalizedLoadBalancer, alibaba_load_balancers
 from cloudscope.config import AccountConfig
+from cloudscope.credentials import CredentialError, Credentials, account_credentials
 
 
 class AlibabaReader(Protocol):
@@ -33,7 +41,15 @@ class AlibabaReader(Protocol):
 
 def sdk_client(service: str, config: Any) -> Any:
     # The generated SDKs have no py.typed marker; keep their dynamic surface here.
-    return {"ecs": ECSClient, "vpc": VPCClient, "sts": STSClient, "ram": RAMClient}[service](config)
+    return {
+        "ecs": ECSClient,
+        "vpc": VPCClient,
+        "sts": STSClient,
+        "ram": RAMClient,
+        "slb": SLBClient,
+        "alb": ALBClient,
+        "nlb": NLBClient,
+    }[service](config)
 
 
 def runtime(access_test: bool = False) -> Any:
@@ -53,12 +69,47 @@ def runtime(access_test: bool = False) -> Any:
 
 class SDKReader:
     def __init__(
-        self, ecs: Any, vpc: Any, *, ram: Callable[[], Any] | None = None, access_test: bool = False
+        self,
+        ecs: Any,
+        vpc: Any,
+        *,
+        ram: Callable[[], Any] | None = None,
+        lb: Callable[[str], Any] | None = None,
+        access_test: bool = False,
     ) -> None:
         self.ecs, self.vpc, self.ram = ecs, vpc, ram
         self.access_test = access_test
+        self.lb = lb
 
     def call(self, operation: str, **params: Any) -> Payload:
+        if (
+            operation in {"clb_load_balancers", "alb_load_balancers", "nlb_load_balancers"}
+            and self.lb is not None
+        ):
+            service, method, request_type = {
+                "clb_load_balancers": (
+                    "slb",
+                    "describe_load_balancers",
+                    slb_models.DescribeLoadBalancersRequest,
+                ),
+                "alb_load_balancers": (
+                    "alb",
+                    "list_load_balancers",
+                    alb_models.ListLoadBalancersRequest,
+                ),
+                "nlb_load_balancers": (
+                    "nlb",
+                    "list_load_balancers",
+                    nlb_models.ListLoadBalancersRequest,
+                ),
+            }[operation]
+            response = getattr(self.lb(service), method + "_with_options")(
+                request_type(**params), runtime(self.access_test)
+            )
+            if response.body is None:
+                raise RuntimeError("Alibaba response is missing its body")
+            lb_result: Payload = response.body.to_map()
+            return lb_result
         if operation == "get_account_alias" and self.ram is not None:
             response = self.ram().get_account_alias_with_options(runtime(self.access_test))
             if response.body is None:
@@ -95,7 +146,10 @@ class AlibabaClientFactory:
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         *,
         access_test: bool = False,
+        credential_loader: Callable[[AccountConfig], Credentials] = account_credentials,
     ) -> None:
+        self._credential_loader = credential_loader
+        self._dedicated: dict[tuple[str, str], Payload] = {}
         self.access_test = access_test
         self.builder = builder
         self.clock = clock
@@ -104,11 +158,42 @@ class AlibabaClientFactory:
 
     def __call__(self, account: AccountConfig, region: str) -> AlibabaReader:
         with self._lock:
-            key_id = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID")
-            key_secret = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
-            if not key_id or not key_secret:
-                raise ValueError("Alibaba base access key environment variables are required")
-            credentials = {"AccessKeyId": key_id, "AccessKeySecret": key_secret}
+            if account.connection_mode == "dedicated":
+                if account.role_arn or not account.credential_reference:
+                    raise CredentialError("InvalidDedicatedConnection")
+                ref = (account.account_id, account.credential_reference)
+                credentials = self._dedicated.get(ref, {})
+                if not credentials:
+                    keys = self._credential_loader(account)
+                    if keys.session_token:
+                        raise CredentialError("AlibabaSessionTokenUnsupported")
+                    key_id = keys.access_key_id.get_secret_value()
+                    key_secret = keys.secret_access_key.get_secret_value()
+                    sts = self.builder(
+                        "sts",
+                        Config(
+                            access_key_id=key_id,
+                            access_key_secret=key_secret,
+                            endpoint="sts.aliyuncs.com",
+                        ),
+                    )
+                    identity = sts.get_caller_identity_with_options(runtime(True)).body.to_map()
+                    if identity.get("AccountId") != account.account_id:
+                        raise CredentialError("AccountIdentityMismatch")
+                    credentials = {"AccessKeyId": key_id, "AccessKeySecret": key_secret}
+                    self._dedicated = {
+                        key: value
+                        for key, value in self._dedicated.items()
+                        if key[0] != account.account_id
+                    }
+                    self._dedicated[ref] = credentials
+                key_id, key_secret = credentials["AccessKeyId"], credentials["AccessKeySecret"]
+            else:
+                key_id = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID") or ""
+                key_secret = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET") or ""
+                if not key_id or not key_secret:
+                    raise ValueError("Alibaba base access key environment variables are required")
+                credentials = {"AccessKeyId": key_id, "AccessKeySecret": key_secret}
             if account.role_arn:
                 cache_key = (account.account_id, account.role_arn, account.external_id)
                 cached = self._cache.get(cache_key)
@@ -156,6 +241,7 @@ class AlibabaClientFactory:
                 self.builder("ecs", config("ecs")),
                 self.builder("vpc", config("vpc")),
                 ram=lambda: self.builder("ram", config("ram")),
+                lb=lambda service: self.builder(service, config(service)),
                 access_test=self.access_test,
             )
 
@@ -252,6 +338,12 @@ def security_group(client: AlibabaReader, region: str, group_id: str) -> Payload
 
 
 class AlibabaProvider:
+    def scan_load_balancers(
+        self, account: AccountConfig, region: str, family: str
+    ) -> list[NormalizedLoadBalancer]:
+        self._validate(account)
+        return alibaba_load_balancers(self.client_factory(account, region), account, region, family)
+
     name: Literal["alibaba"] = "alibaba"
 
     def __init__(

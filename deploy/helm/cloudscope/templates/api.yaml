@@ -17,7 +17,7 @@ spec:
       annotations:
         checksum/accounts: {{ .Values.accounts | toJson | sha256sum }}
     spec:
-      {{- include "cs.backendPod" . | nindent 6 }}
+      {{- include "cs.backendPod" (dict "Values" .Values "Release" .Release "component" "api") | nindent 6 }}
       containers:
         - name: api
           image: "{{ .Values.image.backend.repository }}:{{ required "set image.backend.tag to sha-<commit>" .Values.image.backend.tag }}"

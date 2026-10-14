@@ -16,7 +16,9 @@ from cloudscope.collector.base import (
     utc_datetime,
 )
 from cloudscope.collector.errors import AssumeRoleError
+from cloudscope.collector.load_balancers import NormalizedLoadBalancer, aws_load_balancers
 from cloudscope.config import AccountConfig
+from cloudscope.credentials import CredentialError, Credentials, account_credentials
 
 
 class EC2Reader(Protocol):
@@ -24,10 +26,23 @@ class EC2Reader(Protocol):
 
 
 class BotoReader:
-    def __init__(self, client: Any, iam: Callable[[], Any] | None = None) -> None:
+    def __init__(
+        self,
+        client: Any,
+        iam: Callable[[], Any] | None = None,
+        lb: Callable[[str], Any] | None = None,
+    ) -> None:
         self.client, self.iam = client, iam
+        self.lb = lb
 
     def call(self, operation: str, **params: Any) -> Payload:
+        if (
+            operation in {"elbv2_describe_load_balancers", "classic_describe_load_balancers"}
+            and self.lb is not None
+        ):
+            service = "elbv2" if operation.startswith("elbv2_") else "elb"
+            lb_result: Payload = self.lb(service).describe_load_balancers(**params)
+            return lb_result
         if operation == "list_account_aliases" and self.iam is not None:
             result: Payload = self.iam().list_account_aliases(**params)
             return result
@@ -54,7 +69,10 @@ class AWSClientFactory:
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         discovery_region: str = "us-east-1",
         access_test: bool = False,
+        credential_loader: Callable[[AccountConfig], Credentials] = account_credentials,
     ) -> None:
+        self._credential_loader = credential_loader
+        self._dedicated: dict[tuple[str, str], Any] = {}
         self._base = base_session
         self._session_factory = session_factory
         self._clock = clock
@@ -73,41 +91,68 @@ class AWSClientFactory:
 
     def __call__(self, account: AccountConfig, region: str) -> EC2Reader:
         with self._lock:
-            if self._base is None:
-                self._base = self._session_factory()
-            session = self._base
-            if account.role_arn:
-                key = (account.account_id, account.role_arn, account.external_id)
-                cached = self._cache.get(key)
-                if cached is None or cached[1] <= self._clock() + timedelta(minutes=5):
-                    request = {
-                        "RoleArn": account.role_arn,
-                        "RoleSessionName": "cloudscope-collector",
-                    }
-                    if account.external_id:
-                        request["ExternalId"] = account.external_id
-                    try:
-                        credentials = self._base.client(
-                            "sts", region_name=self._sts_region, config=self._config
-                        ).assume_role(**request)["Credentials"]
-                    except Exception as exc:
-                        raise AssumeRoleError(exc) from None
+            if account.connection_mode == "dedicated":
+                if account.role_arn or not account.credential_reference:
+                    raise CredentialError("InvalidDedicatedConnection")
+                ref = (account.account_id, account.credential_reference)
+                session = self._dedicated.get(ref)
+                if session is None:
+                    keys = self._credential_loader(account)
                     session = self._session_factory(
-                        aws_access_key_id=credentials["AccessKeyId"],
-                        aws_secret_access_key=credentials["SecretAccessKey"],
-                        aws_session_token=credentials["SessionToken"],
+                        aws_access_key_id=keys.access_key_id.get_secret_value(),
+                        aws_secret_access_key=keys.secret_access_key.get_secret_value(),
+                        aws_session_token=keys.session_token.get_secret_value()
+                        if keys.session_token
+                        else None,
                     )
-                    expiration = utc_datetime(credentials["Expiration"])
-                    if expiration is None:
-                        raise ValueError("STS response has no expiration")
-                    self._cache[key] = (session, expiration)
-                else:
-                    session = cached[0]
+                    identity = session.client(
+                        "sts", region_name=self._sts_region, config=self._config
+                    ).get_caller_identity()
+                    if identity.get("Account") != account.account_id:
+                        raise CredentialError("AccountIdentityMismatch")
+                    self._dedicated = {
+                        key: value
+                        for key, value in self._dedicated.items()
+                        if key[0] != account.account_id
+                    }
+                    self._dedicated[ref] = session
+            else:
+                if self._base is None:
+                    self._base = self._session_factory()
+                session = self._base
+                if account.role_arn:
+                    key = (account.account_id, account.role_arn, account.external_id)
+                    cached = self._cache.get(key)
+                    if cached is None or cached[1] <= self._clock() + timedelta(minutes=5):
+                        request = {
+                            "RoleArn": account.role_arn,
+                            "RoleSessionName": "cloudscope-collector",
+                        }
+                        if account.external_id:
+                            request["ExternalId"] = account.external_id
+                        try:
+                            credentials = self._base.client(
+                                "sts", region_name=self._sts_region, config=self._config
+                            ).assume_role(**request)["Credentials"]
+                        except Exception as exc:
+                            raise AssumeRoleError(exc) from None
+                        session = self._session_factory(
+                            aws_access_key_id=credentials["AccessKeyId"],
+                            aws_secret_access_key=credentials["SecretAccessKey"],
+                            aws_session_token=credentials["SessionToken"],
+                        )
+                        expiration = utc_datetime(credentials["Expiration"])
+                        if expiration is None:
+                            raise ValueError("STS response has no expiration")
+                        self._cache[key] = (session, expiration)
+                    else:
+                        session = cached[0]
             return BotoReader(
                 session.client("ec2", region_name=region, config=self._config),
                 iam=lambda: session.client(
                     "iam", region_name=self._sts_region, config=self._config
                 ),
+                lb=lambda service: session.client(service, region_name=region, config=self._config),
             )
 
 
@@ -161,6 +206,12 @@ def rules(permissions: list[Payload], direction: str) -> list[Payload]:
 
 class AWSProvider:
     name: Literal["aws"] = "aws"
+
+    def scan_load_balancers(
+        self, account: AccountConfig, region: str, family: str
+    ) -> list[NormalizedLoadBalancer]:
+        self._validate(account)
+        return aws_load_balancers(self.client_factory(account, region), account, region, family)
 
     def __init__(
         self,

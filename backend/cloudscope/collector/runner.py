@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from cloudscope.collector.base import Provider
 from cloudscope.collector.errors import describe_error, log_account_id
+from cloudscope.collector.load_balancers import LoadBalancerCollector
 from cloudscope.config import AccountConfig, AccountsConfig, load_accounts
 from cloudscope.db.models import Account, Instance, SyncResult, SyncRun
 
@@ -44,6 +45,7 @@ class SyncRunner:
         *,
         concurrency: int = 8,
         clock: Callable[[], datetime] = utc_now,
+        load_balancers: LoadBalancerCollector | None = None,
     ) -> None:
         if concurrency < 1:
             raise ValueError("concurrency must be positive")
@@ -51,6 +53,7 @@ class SyncRunner:
         self.providers = dict(providers)
         self.concurrency = concurrency
         self.clock = clock
+        self.load_balancers = load_balancers
 
     def run_file(
         self, path: str | Path, *, trigger: Literal["schedule", "manual"] = "manual"
@@ -80,11 +83,18 @@ class SyncRunner:
                         [(account.provider, account.account_id) for account in accounts]
                     ),
                 )
-                .values(enabled=False, updated_at=self.clock())
+                .values(
+                    enabled=False,
+                    updated_at=self.clock(),
+                    configuration_version=Account.configuration_version + 1,
+                )
             )
             for account in accounts:
                 statement = insert(Account).values(
-                    **account.model_dump(), source="file", enabled=True, updated_at=self.clock()
+                    **account.model_dump(exclude={"connection_mode", "credential_reference"}),
+                    source="file",
+                    enabled=True,
+                    updated_at=self.clock(),
                 )
                 saved = session.scalar(
                     statement.on_conflict_do_update(
@@ -96,6 +106,7 @@ class SyncRunner:
                             },
                             "enabled": True,
                             "updated_at": self.clock(),
+                            "configuration_version": Account.configuration_version + 1,
                         },
                         where=(Account.source == "file")
                         & or_(
@@ -299,6 +310,16 @@ class SyncRunner:
                 )
         except Exception as exc:
             self._error(run_id, account, region, "Region scan failed", started, exc)
+        if self.load_balancers is not None:
+            try:
+                self.load_balancers.scan(account, region)
+            except Exception as exc:
+                logger.warning(
+                    "event=load_balancer_step_failed account_id=%s region=%s error=%s",
+                    log_account_id(account.account_id),
+                    region,
+                    describe_error(exc),
+                )
 
     def _error(
         self,

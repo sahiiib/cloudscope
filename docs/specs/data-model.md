@@ -188,3 +188,18 @@ Migration `0003` adds nullable bigint `users.totp_last_used_step` for the last
 consumed TOTP timestep, and integer `sessions.mfa_failures` (default 0, check
 `>= 0`) for half-session verification attempts. MFA operations lock the user row
 so replay checks and updates commit atomically across simultaneous requests.
+
+## Load balancer tables (T-069)
+
+See [load-balancers.md](load-balancers.md) for the additive schema, read-only
+operations, per-family failure behavior, API and opt-in rollout.
+
+## Account Secret references (T-071)
+
+Migration 0008 follows 0007. Accounts gains connection_mode (runtime by default),
+nullable credential_reference and configuration_version (1 by default). A check
+constraint requires Dedicated accounts to be UI-owned with a reference and no
+role/external ID, and Runtime accounts to have no reference. No key material is
+stored in PostgreSQL. Existing rows and referenced inventory/history stay intact.
+Downgrade refuses while any Dedicated references exist; see
+[account-credentials.md](account-credentials.md) for promotion and rollback gates.

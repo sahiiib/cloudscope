@@ -21,6 +21,14 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
   value: {{ .Values.api.cookieSecure | quote }}
 - name: CLOUDSCOPE_COLLECT_CONCURRENCY
   value: {{ .Values.collector.concurrency | quote }}
+- name: CLOUDSCOPE_LOAD_BALANCERS_ENABLED
+  value: {{ .Values.collector.loadBalancersEnabled | quote }}
+- name: CLOUDSCOPE_DEDICATED_CREDENTIALS_ENABLED
+  value: {{ .Values.accountCredentials.enabled | quote }}
+- name: CLOUDSCOPE_CREDENTIALS_NAMESPACE
+  value: {{ .Values.accountCredentials.namespace | quote }}
+- name: CLOUDSCOPE_CREDENTIALS_OWNER
+  value: {{ .Release.Name | quote }}
 {{- range $key := list "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "AWS_SESSION_TOKEN" "ALIBABA_CLOUD_ACCESS_KEY_ID" "ALIBABA_CLOUD_ACCESS_KEY_SECRET" }}
 - name: {{ $key }}
   valueFrom:
@@ -36,7 +44,8 @@ capabilities: {drop: [ALL]}
 # Service links would inject e.g. CLOUDSCOPE_API_PORT=tcp://... from the
 # <release>-api Service, which collides with the app's CLOUDSCOPE_* settings.
 enableServiceLinks: false
-serviceAccountName: {{ .Values.serviceAccount.name }}
+serviceAccountName: {{ if .Values.accountCredentials.enabled }}{{ include "cs.name" . }}-{{ .component }}-credentials{{ else }}{{ .Values.serviceAccount.name }}{{ end }}
+automountServiceAccountToken: false
 securityContext:
   runAsNonRoot: true
   runAsUser: 10001
@@ -49,8 +58,21 @@ volumes:
     configMap: {name: {{ include "cs.name" . }}-accounts}
   - name: tmp
     emptyDir: {}
+{{- if .Values.accountCredentials.enabled }}
+  - name: credential-api-token
+    projected:
+      defaultMode: 0440
+      sources:
+        - serviceAccountToken: {path: token, expirationSeconds: 3600}
+        - configMap:
+            name: kube-root-ca.crt
+            items: [{key: ca.crt, path: ca.crt}]
+{{- end }}
 {{- end -}}
 {{- define "cs.mounts" -}}
 - {name: accounts, mountPath: /app/config, readOnly: true}
 - {name: tmp, mountPath: /tmp}
+{{- if .Values.accountCredentials.enabled }}
+- {name: credential-api-token, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
+{{- end }}
 {{- end -}}

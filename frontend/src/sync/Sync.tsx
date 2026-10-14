@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { apiFetch, ApiError } from '../api/client';
 import type { AuthUser, SyncRun } from '../api/types';
 import RunResults from './RunResults';
@@ -29,6 +29,7 @@ export default function Sync() {
     <div className="sync-actions"><button className="secondary" disabled={runs.isFetching} onClick={() => void client.invalidateQueries({ queryKey: ['sync'] })}>Refresh</button>
       {user.is_admin && <button disabled={start.isPending || running} onClick={() => start.mutate()}>{start.isPending ? 'Starting…' : running ? 'Sync running' : 'Sync now'}</button>}</div>
     </div>
+    <p>Run counts and statuses describe instance collection. <Link to="/load-balancers">View load balancer collection status</Link> for separate LB results.</p>
     {start.isSuccess && <p role="status">Sync requested. Progress appears below.</p>}
     {start.isError && <p role="alert">{startError}</p>}
     {runs.isError && <p role="alert">Unable to {runs.data ? 'refresh' : 'load'} sync history. {runs.data && 'Showing the last received runs.'} <button onClick={() => void runs.refetch()}>Retry history</button></p>}
