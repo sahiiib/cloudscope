@@ -8,6 +8,7 @@ import { settingsError } from './errors';
 function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean; account: AccountSummary; onEdit: () => void; onChanged: () => Promise<void> }) {
   const [confirm, setConfirm] = useState(false);
   const [adoptConfirm, setAdoptConfirm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const path = `/api/accounts/${account.provider}/${account.account_id}` as const;
   const activity = useMutation({
     mutationFn: async () => { await apiFetch(path, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !account.enabled, expected_version: account.configuration_version }) }); },
@@ -16,6 +17,10 @@ function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean;
   const adopt = useMutation({
     mutationFn: async () => { await apiFetch(`${path}/adopt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmed: true, expected_version: account.configuration_version }) }); },
     onSuccess: async () => { setAdoptConfirm(false); await onChanged(); },
+  });
+  const remove = useMutation({
+    mutationFn: async () => { await apiFetch(path, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmed: true, expected_version: account.configuration_version }) }); },
+    onSuccess: async () => { setDeleteConfirm(false); await onChanged(); },
   });
   const access = useMutation({ mutationFn: async (): Promise<AccountAccessResult> => (await apiFetch(`${path}/test`, { method: 'POST' })).json() });
   const { reset: resetAccess } = access;
@@ -30,7 +35,13 @@ function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean;
       {account.source === 'ui' && <><button className="secondary" disabled={activity.isPending || editing} onClick={onEdit}>Edit {account.name}</button>
         <button className="secondary" disabled={activity.isPending} onClick={() => { activity.reset(); setConfirm(true); }}>{account.enabled ? 'Disable' : 'Enable'} {account.name}</button></>}
       <button className="secondary" disabled={access.isPending} onClick={() => access.mutate()}>{access.isPending ? 'Testing…' : `Test access for ${account.name}`}</button>
+      <button className="secondary" disabled={remove.isPending || editing} onClick={() => { remove.reset(); setDeleteConfirm(true); }}>Delete {account.name}</button>
     </div>
+      {deleteConfirm && <div className="settings-confirm" role="group" aria-label={`Confirm deletion for ${account.name}`}>
+        <p>Delete <strong>{account.name}</strong> from Cloudscope?</p><p>Collection will stop and this account’s inventory will be hidden. Your cloud resources are unchanged. Re-add the same account to restore its saved history.</p>
+        <div className="settings-actions"><button disabled={remove.isPending} onClick={() => remove.mutate()}>Delete account</button><button className="secondary" disabled={remove.isPending} onClick={() => { setDeleteConfirm(false); remove.reset(); }}>Cancel</button></div>
+      </div>}
+      {remove.isError && <p role="alert" className="error">{settingsError(remove.error, 'Unable to delete account. Refresh and retry.')}</p>}
       {adoptConfirm && <div className="settings-confirm" role="group" aria-label={`Confirm web management for ${account.name}`}>
         <p>Manage <strong>{account.name}</strong> in the web console?</p><p>Web settings will take precedence over accounts.yaml. Existing inventory, account identity and history will be kept.</p>
         <div className="settings-actions"><button disabled={adopt.isPending} onClick={() => adopt.mutate()}>Confirm web management</button><button className="secondary" disabled={adopt.isPending} onClick={() => { setAdoptConfirm(false); adopt.reset(); }}>Cancel</button></div>
