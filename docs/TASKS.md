@@ -48,10 +48,9 @@ A task can start when all its dependencies are `done`.
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | done |
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
 | T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | done |
-
-| T-070 | Design Secret-backed account connections and adoption | codex | T-064 | review |
-| T-069 | Read-only load balancer inventory | codex | T-060, T-062 | review |
-| T-068 | Modern console and selectable appearance | codex | T-061 | review |
+| T-068 | Modern console and selectable appearance | codex | T-061 | done |
+| T-069 | Read-only load balancer inventory | codex | T-060, T-062 | done |
+| T-070 | Design Secret-backed account connections and adoption | codex | T-064 | done |
 
 ---
 
