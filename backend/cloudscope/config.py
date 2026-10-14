@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     session_max_age_days: int = Field(default=7, gt=0)
     cookie_secure: bool = True
     collect_concurrency: int = Field(default=8, gt=0)
+    load_balancers_enabled: bool = False
 
     @field_validator("database_url")
     @classmethod

@@ -154,7 +154,7 @@ def test_normal_upstream_schema_is_unchanged(
             command.downgrade(alembic_config, "0005")
             before = inspect(connection).get_columns("accounts")
             constraints = inspect(connection).get_check_constraints("accounts")
-            command.upgrade(alembic_config, "head")
+            command.upgrade(alembic_config, "0006")
             after = inspect(connection).get_columns("accounts")
             assert [(row["name"], str(row["type"]), row["default"]) for row in before] == [
                 (row["name"], str(row["type"]), row["default"]) for row in after
@@ -176,7 +176,7 @@ def test_stored_keys_abort_before_schema_or_data_changes(
     )
     before = {column["name"] for column in inspect(hybrid).get_columns("accounts")}
     with pytest.raises(RuntimeError, match="stored credentials exist"):
-        command.upgrade(alembic_config, "head")
+        command.upgrade(alembic_config, "0006")
     assert {column["name"] for column in inspect(hybrid).get_columns("accounts")} == before
     assert (
         hybrid.scalar(text("SELECT credentials_encrypted FROM accounts"))
@@ -195,7 +195,7 @@ def test_explicit_operator_clear_allows_reconciliation(
         )
     )
     with pytest.raises(RuntimeError, match="stored credentials exist"):
-        command.upgrade(alembic_config, "head")
+        command.upgrade(alembic_config, "0006")
     cleared = hybrid.execute(
         text(
             "UPDATE accounts SET credentials_encrypted = NULL "
@@ -204,7 +204,7 @@ def test_explicit_operator_clear_allows_reconciliation(
     )
     assert cleared.rowcount == 1
     with caplog.at_level("INFO"):
-        command.upgrade(alembic_config, "head")
+        command.upgrade(alembic_config, "0006")
     assert hybrid.scalar(text("SELECT count(*) FROM accounts")) == 1
     assert hybrid.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
     assert "credentials_encrypted" not in {
@@ -229,7 +229,7 @@ def test_migration_uses_frozen_schema_when_models_advance(
     else:
         Table("future_table", future_metadata, Column("id", Integer, primary_key=True))
     monkeypatch.setattr(Base, "metadata", future_metadata)
-    command.upgrade(alembic_config, "head")
+    command.upgrade(alembic_config, "0006")
     assert hybrid.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
     assert "future_table" not in inspect(hybrid).get_table_names()
     assert "future_field" not in {
@@ -246,5 +246,5 @@ def test_unknown_schema_aborts(hybrid: Connection, alembic_config: Config, unexp
     )
     hybrid.execute(text(sql))
     with pytest.raises(RuntimeError, match="unexpected database"):
-        command.upgrade(alembic_config, "head")
+        command.upgrade(alembic_config, "0006")
     assert hybrid.scalar(text("SELECT version_num FROM alembic_version")) == "0005"

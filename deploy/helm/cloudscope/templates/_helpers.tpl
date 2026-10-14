@@ -21,6 +21,8 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
   value: {{ .Values.api.cookieSecure | quote }}
 - name: CLOUDSCOPE_COLLECT_CONCURRENCY
   value: {{ .Values.collector.concurrency | quote }}
+- name: CLOUDSCOPE_LOAD_BALANCERS_ENABLED
+  value: {{ .Values.collector.loadBalancersEnabled | quote }}
 {{- range $key := list "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "AWS_SESSION_TOKEN" "ALIBABA_CLOUD_ACCESS_KEY_ID" "ALIBABA_CLOUD_ACCESS_KEY_SECRET" }}
 - name: {{ $key }}
   valueFrom:

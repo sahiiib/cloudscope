@@ -45,7 +45,8 @@ For local development and the local cluster we use existing test access keys.
      "ec2:DescribeVpcs", "ec2:DescribeSubnets",
      "ec2:DescribeNetworkInterfaces", "ec2:DescribeInstanceTypes",
      "ec2:DescribeImages", "ec2:DescribeKeyPairs",
-     "iam:ListAccountAliases"
+     "iam:ListAccountAliases",
+     "elasticloadbalancing:DescribeLoadBalancers"
    ]}
    ```
    Keep this block and `deploy/aws/readonly-role.yaml` together, because
@@ -75,3 +76,8 @@ the Kubernetes Secret and is deleted once EKS is live.
    Template: `deploy/alibaba/readonly-role.tf` (Terraform) or created by hand.
 3. Add each account to `accounts.yaml` with its `role_arn`.
 4. Rotate the RAM user key every 90 days.
+
+## Load balancer permissions (T-069)
+
+See [load-balancers.md](load-balancers.md) for the additive schema, read-only
+operations, per-family failure behavior, API and opt-in rollout.

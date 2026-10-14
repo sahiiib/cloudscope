@@ -18,6 +18,7 @@ collector:
   schedule: "*/15 * * * *"
   concurrency: 8
   suspend: false
+  loadBalancersEnabled: false
 postgres:
   enabled: true
   image: postgres:16
