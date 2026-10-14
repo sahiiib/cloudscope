@@ -1,5 +1,6 @@
 """Configured accounts and present inventory counts."""
 
+import asyncio
 import logging
 from typing import Annotated, cast
 
@@ -112,7 +113,7 @@ async def prepare_credentials(
         return current_reference
     store = cast(CredentialStore, request.app.state.credential_store)
     try:
-        reference = store.create(settings.provider, settings.account_id, keys)
+        reference = await asyncio.to_thread(store.create, settings.provider, settings.account_id, keys)
     except CredentialError:
         raise HTTPException(
             503, "Credential store unavailable; previous connection is unchanged"
