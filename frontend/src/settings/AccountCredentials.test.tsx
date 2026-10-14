@@ -5,6 +5,34 @@ import { fetchApi, renderSettings, response } from '../test/settings';
 import AccountForm from './AccountForm';
 import CloudAccounts from './CloudAccounts';
 
+test.each(['aws', 'alibaba'])('new %s account opens with the requested key fields', provider => {
+  renderSettings(<AccountForm dedicatedEnabled onSaved={vi.fn()} onCancel={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText('Provider'), { target: { value: provider } });
+  expect(screen.getByLabelText('Connection method')).toHaveValue('dedicated');
+  expect(screen.getByLabelText('Access Key ID')).toBeInTheDocument();
+  expect(screen.getByLabelText('Secret Access Key')).toBeInTheDocument();
+});
+
+test('delete cancellation retains the account; confirmed deletion removes it and refreshes inventory', async () => {
+  const row = { provider: 'aws', account_id: '111111111111', name: 'Delete demo', source: 'file', regions: 'all', configuration_version: 4, enabled: true, instance_count: 3 };
+  let removed = false;
+  fetchApi.mockImplementation(async (path, options) => {
+    if (path.endsWith('/capabilities')) return response({ dedicated_credentials: true });
+    if (options?.method === 'DELETE') { removed = true; return response({}); }
+    return response(removed ? [] : [row]);
+  });
+  const client = renderSettings(<CloudAccounts />);
+  const invalidate = vi.spyOn(client, 'invalidateQueries');
+  fireEvent.click(await screen.findByRole('button', { name: 'Delete Delete demo' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(removed).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete Delete demo' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete account' }));
+  await screen.findByText('No cloud accounts yet.');
+  expect(fetchApi).toHaveBeenCalledWith('/api/accounts/aws/111111111111', expect.objectContaining({ method: 'DELETE', body: '{"confirmed":true,"expected_version":4}' }));
+  for (const key of ['accounts', 'instances', 'load-balancers', 'sync']) expect(invalidate).toHaveBeenCalledWith({ queryKey: [key] });
+});
+
 test.each(['aws', 'alibaba'])('submits write-only %s keys once and clears inputs and mutation variables', async provider => {
   fetchApi.mockRejectedValue(new ApiError(422, 'Account identity mismatch'));
   const client = renderSettings(<AccountForm dedicatedEnabled onSaved={vi.fn()} onCancel={vi.fn()} />);
@@ -12,7 +40,7 @@ test.each(['aws', 'alibaba'])('submits write-only %s keys once and clears inputs
   fireEvent.change(screen.getByLabelText('Account ID'), { target: { value: provider === 'aws' ? '111111111111' : '1111111111111111' } });
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Demo' } });
   fireEvent.change(screen.getByLabelText('Connection method'), { target: { value: 'dedicated' } });
-  const id = screen.getByLabelText('Access Key ID'); const secret = screen.getByLabelText(provider === 'aws' ? 'Secret Access Key' : 'Access Key Secret');
+  const id = screen.getByLabelText('Access Key ID'); const secret = screen.getByLabelText('Secret Access Key');
   expect(id).toHaveAttribute('type', 'password'); expect(secret).toHaveAttribute('type', 'password');
   if (provider === 'alibaba') expect(screen.queryByLabelText('Session Token (optional)')).not.toBeInTheDocument();
   fireEvent.change(id, { target: { value: 'fixture-key' } }); fireEvent.change(secret, { target: { value: 'fixture-secret' } });
