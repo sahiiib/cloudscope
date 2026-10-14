@@ -13,6 +13,9 @@ accountCredentials:
   # Explicit /32 API-server addresses; include Service and endpoint addresses
   # as required by the cluster CNI's DNAT handling. No broad private CIDRs.
   apiServerCIDRs: []
+  # Kubeadm with post-DNAT Calico/Cilium policies: use the control-plane node
+  # endpoint, e.g. apiServerCIDRs: ["10.0.0.1/32"], apiServerPort: 6443.
+  # Port 443 is for CNIs evaluating the Kubernetes Service before DNAT.
   apiServerPort: 443
   # Explicit external/private database CIDRs when postgres.enabled=false.
   databaseCIDRs: []
