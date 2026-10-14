@@ -12,6 +12,7 @@ A task can start when all its dependencies are `done`.
 
 | ID | Title | Owner | Depends on | Status |
 | --- | --- | --- | --- | --- |
+| T-072 | Key-first account form and recoverable deletion | codex | T-071 | review |
 | T-001 | Repo skeleton, Makefile, .gitignore, CI | claude | – | done |
 | T-002 | Backend project scaffold | codex | T-001 | done |
 | T-003 | Frontend project scaffold | codex | T-001 | done |
@@ -535,3 +536,12 @@ optimistic edits and collection lock; explicit adoption preserving inventory,
 LBs/history/aliases; default-off namespace-scoped RBAC and verified TLS; tests,
 source builds and operator migration/rollback documentation. API get permission
 for existing access tests/manual sync and the Helm flag naming were approved by Saheb in PR #49.
+
+### T-072: Key-first account form and recoverable deletion
+Owner: codex · Assigned by contributor · Spec: [accounts](specs/accounts.md#key-first-creation-and-deletion-t-072)
+
+Acceptance: new AWS/Alibaba accounts show Access Key ID and Secret Access Key by
+default when enabled; Delete is available for both web and file accounts with
+explicit confirmation, admin/CSRF/version/collection guards. Removed accounts and
+inventory disappear from API/UI, file sync cannot recreate them, and re-adding
+restores saved history. Additive migration, regression tests and deployment proof.
