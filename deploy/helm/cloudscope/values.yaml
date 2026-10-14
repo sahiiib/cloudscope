@@ -7,6 +7,17 @@ secrets:
   create: false
   data: {}
 accounts: []
+accountCredentials:
+  enabled: false
+  namespace: cloudscope-credentials
+  # Explicit /32 API-server addresses; include Service and endpoint addresses
+  # as required by the cluster CNI's DNAT handling. No broad private CIDRs.
+  apiServerCIDRs: []
+  apiServerPort: 443
+  # Explicit external/private database CIDRs when postgres.enabled=false.
+  databaseCIDRs: []
+  # Additional operator-reviewed egress, e.g. private STS or Pod Identity endpoints.
+  extraEgress: []
 api:
   replicas: 2
   # Replace with the web/ingress pod CIDRs. Never use '*'.
