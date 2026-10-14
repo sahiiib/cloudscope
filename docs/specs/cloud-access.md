@@ -46,7 +46,7 @@ For local development and the local cluster we use existing test access keys.
      "ec2:DescribeNetworkInterfaces", "ec2:DescribeInstanceTypes",
      "ec2:DescribeImages", "ec2:DescribeKeyPairs",
      "iam:ListAccountAliases",
-    "elasticloadbalancing:DescribeLoadBalancers"
+     "elasticloadbalancing:DescribeLoadBalancers"
    ]}
    ```
    Keep this block and `deploy/aws/readonly-role.yaml` together, because
