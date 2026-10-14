@@ -48,9 +48,10 @@ A task can start when all its dependencies are `done`.
 | T-064 | Reconcile fork account schema into upstream (issue #38) | codex | T-062 | done |
 | T-066 | Ensure rebuilt backend images contain changed source | codex | T-040 | done |
 | T-067 | Harden image rebuild regression and lint coverage | codex | T-040 | done |
+| T-070 | Design Secret-backed account connections and adoption | codex | T-064 | review |
 | T-069 | Read-only load balancer inventory | codex | T-060, T-062 | review |
 | T-068 | Modern console and selectable appearance | codex | T-061 | review |
-| T-071 | Secret-backed account connections and web adoption | codex | T-064 | review |
+| T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | review |
 
 ---
 
@@ -492,6 +493,15 @@ Acceptance: local two-build Docker regression passes with Python -O, successful
 and failed checks return correct exit codes, both generated image tags are cleaned,
 and explicit-config Ruff lint/format pass. No runtime or database change.
 
+### T-070: Design Secret-backed account connections and adoption
+Owner: codex · Assigned by fork contributor · Proposal: [account Secret connections](proposals/account-secret-connections.md)
+
+Acceptance: document the independent test-account key requirement, dedicated
+Kubernetes Secret storage, explicit adoption without data loss, reader/writer RBAC
+boundary, rotation/transaction handling, migration/rollback constraints and test
+criteria. Ask the maintainer to approve the design before a separate implementation
+PR; do not change the accepted account spec or shared runtime in this design task.
+
 ### T-069: Read-only load balancer inventory
 Owner: codex · Assigned by fork contributor · Spec: [load balancers](specs/load-balancers.md)
 
@@ -501,6 +511,7 @@ search/details/status API, searchable UI with explicit completeness/error states
 Additive migration matches ORM; fake SDK and Postgres tests cover permissions,
 identity, pagination, missing/reappearance and auth. Lint/tests/build pass.
 Collection is opt-in and no shared deployment/IAM change is made by this PR.
+
 ### T-068: Modern console and selectable appearance
 Owner: codex · Assigned by fork contributor · Spec: [ui](specs/ui.md#modern-console-t-068)
 
@@ -511,7 +522,7 @@ persisted locally; no inventory or credentials. Existing account behavior and
 authentication remain intact. Tests and frontend lint/build pass.
 
 ### T-071: Secret-backed account connections and web adoption
-Owner: codex ? Assigned by contributor ? Spec: [account credentials](specs/account-credentials.md)
+Owner: codex · Assigned by contributor · Spec: [account credentials](specs/account-credentials.md)
 
 Implement the optional Dedicated keys and explicit adoption approved by Saheb in
 PR #48 on 2026-10-13. This task is assigned directly by the contributor and built
@@ -523,4 +534,4 @@ stored in bound immutable Kubernetes Secrets; identity validation before use;
 optimistic edits and collection lock; explicit adoption preserving inventory,
 LBs/history/aliases; default-off namespace-scoped RBAC and verified TLS; tests,
 source builds and operator migration/rollback documentation. API get permission
-for existing access tests/manual sync and the Helm flag naming need explicit review.
+for existing access tests/manual sync and the Helm flag naming were approved by Saheb in PR #49.
