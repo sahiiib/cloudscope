@@ -64,13 +64,14 @@ operator cleanup. No Secret deletion/update/list permissions or automatic cleanu
 bindings, token mounts and egress policy are created only when explicitly enabled.
 The existing `accounts` Helm value is a list, so nesting
 `accounts.dedicatedCredentials.enabled` would change its type and break installs.
-The new key requires maintainer confirmation rather than silently changing the list.
+Saheb confirmed this key in PR #49; the existing list is unchanged.
 
 Writer Role permits create; reader Role permits get. Collector receives reader only.
 The API receives writer **and reader** bindings: it already runs manual collection
 and must test existing connections after restart. This necessary read permission is
-an explicit extension to the initial review's create-only API boundary and requires
-maintainer acceptance before shared deployment. No cluster-wide permissions.
+an explicit extension to the initial review's create-only API boundary, approved
+by Saheb on 2026-10-14 in [PR #49](https://github.com/sahiiib/cloudscope/pull/49#issuecomment-6162205362).
+No cluster-wide permissions.
 
 Require explicit API-server /32 addresses and HTTPS port; account for CNI DNAT to
 the Service/endpoint IPs. Egress also permits DNS, same-release PostgreSQL and
@@ -79,6 +80,32 @@ public cloud HTTPS, excluding private/link-local ranges. Configure reviewed
 endpoints or nonstandard DNS. Confirm the CNI enforces the policy. New service
 accounts need their own EKS Pod Identity associations; preserve existing annotations
 for IRSA. No broad private-network exception is implicit.
+
+For a kubeadm CNI evaluating egress after Service DNAT (for example the applicable
+Calico/Cilium configuration), use the control-plane node IP and port 6443:
+
+```yaml
+accountCredentials:
+  enabled: true
+  namespace: cloudscope-credentials
+  apiServerCIDRs: ["10.0.0.1/32"] # Replace with the control-plane endpoint(s).
+  apiServerPort: 6443
+```
+
+The default Service port 443 does not match the post-DNAT endpoint in that case.
+Verify the cluster CNI's evaluation point and configure only the required endpoints.
+
+Old immutable versions are kept intentionally. For release `cloudscope`, an
+operator can list names only (replace the label value for another release):
+
+```shell
+kubectl -n cloudscope-credentials get secrets -l cloudscope.io/owner=cloudscope -o custom-columns=NAME:.metadata.name --no-headers
+```
+
+Subtract the non-null `SELECT credential_reference FROM accounts` references.
+Review unreferenced names
+against in-flight jobs and backups before manual cleanup; do not grant the app list
+or delete permissions or delete anything automatically.
 
 Configure etcd encryption, dedicated namespace access and private backups before
 entering real keys. Local development can explicitly use a private operator-owned
