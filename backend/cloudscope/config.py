@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     collect_concurrency: int = Field(default=8, gt=0)
     load_balancers_enabled: bool = False
+    dedicated_credentials_enabled: bool = False
 
     @field_validator("database_url")
     @classmethod
@@ -70,6 +71,17 @@ class AccountConfig(BaseModel):
     regions: Literal["all"] | Annotated[list[NonEmptyStr], Field(min_length=1)]
     role_arn: NonEmptyStr | None = None
     external_id: NonEmptyStr | None = None
+    connection_mode: Literal["runtime", "dedicated"] = "runtime"
+    credential_reference: NonEmptyStr | None = None
+
+    @model_validator(mode="after")
+    def connection_binding(self) -> Self:
+        if self.connection_mode == "dedicated":
+            if not self.credential_reference or self.role_arn or self.external_id:
+                raise ValueError("Dedicated connection requires a reference and cannot use a role")
+        elif self.credential_reference is not None:
+            raise ValueError("Runtime connection cannot use a credential reference")
+        return self
 
 
 class AccountsConfig(BaseModel):
@@ -120,7 +132,13 @@ def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[Accou
         ) from None
 
     try:
-        return AccountsConfig.model_validate(data).accounts
+        accounts = AccountsConfig.model_validate(data).accounts
+        if any(
+            account.connection_mode != "runtime" or account.credential_reference
+            for account in accounts
+        ):
+            raise AccountsConfigError("Dedicated credentials must be managed in the web console")
+        return accounts
     except ValidationError as exc:
         messages: list[str] = []
         for error in exc.errors(include_input=False, include_context=False, include_url=False):
