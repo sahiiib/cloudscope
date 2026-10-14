@@ -90,7 +90,7 @@ def test_alibaba_token_pages_and_request_parameters(family: str) -> None:
                         "LoadBalancerId": "lb-demo",
                         "LoadBalancerStatus": "Active",
                         "DNSName": "demo.example.com",
-                        "AddressType": "intranet",
+                        "AddressType": "Intranet",
                     }
                 ],
                 "NextToken": "next",
@@ -336,3 +336,161 @@ def test_lb_access_failure_does_not_stop_instance_collection(db_session: Session
         ).status
         == "success"
     )
+
+
+def test_clb_tags_from_official_sdk_model() -> None:
+    from alibabacloud_slb20140515.models import DescribeLoadBalancersResponseBody
+
+    body = DescribeLoadBalancersResponseBody().from_map(
+        {
+            "LoadBalancers": {
+                "LoadBalancer": [
+                    {
+                        "LoadBalancerId": "lb-demo",
+                        "AddressType": "internet",
+                        "Tags": {"Tag": [{"TagKey": "env", "TagValue": "test"}]},
+                    }
+                ]
+            },
+            "TotalCount": 1,
+        }
+    )
+    row = alibaba_load_balancers(
+        Reader([body.to_map()]),
+        ACCOUNT.model_copy(update={"provider": "alibaba"}),
+        "cn-hangzhou",
+        "clb",
+    )[0]
+    assert row.tags == {"env": "test"} and row.scheme == "internet-facing"
+
+
+@pytest.mark.parametrize("family", ["alb", "nlb"])
+def test_alibaba_public_exposure_and_nlb_addresses(family: str) -> None:
+    from alibabacloud_alb20200616.models import ListLoadBalancersResponseBody as ALBBody
+    from alibabacloud_nlb20220430.models import ListLoadBalancersResponseBody as NLBBody
+
+    model = ALBBody if family == "alb" else NLBBody
+    body = model().from_map(
+        {
+            "LoadBalancers": [
+                {
+                    "LoadBalancerId": "lb-demo",
+                    "AddressType": "Internet",
+                    "DNSName": "demo.example.com",
+                    "ZoneMappings": [
+                        {
+                            "ZoneId": "cn-hangzhou-a",
+                            "LoadBalancerAddresses": [
+                                {
+                                    "PublicIPv4Address": "192.0.2.1",
+                                    "PrivateIPv4Address": "10.0.0.1",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+    row = alibaba_load_balancers(
+        Reader([body.to_map()]),
+        ACCOUNT.model_copy(update={"provider": "alibaba"}),
+        "cn-hangzhou",
+        family,
+    )[0]
+    assert row.scheme == "internet-facing"
+    if family == "nlb":
+        assert row.addresses == ["demo.example.com", "192.0.2.1", "10.0.0.1"]
+    else:
+        assert row.addresses == ["demo.example.com"]
+
+
+def test_real_aws_factory_reader_with_moto() -> None:
+    import boto3
+    from moto import mock_aws
+
+    from cloudscope.collector.aws import AWSClientFactory
+
+    with mock_aws():
+        session = boto3.Session(region_name="us-east-1")
+        ec2 = session.client("ec2")
+        vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")["Vpc"]["VpcId"]
+        subnet = ec2.create_subnet(VpcId=vpc, CidrBlock="10.0.0.0/24")["Subnet"]["SubnetId"]
+        session.client("elbv2").create_load_balancer(
+            Name="demo",
+            Subnets=[subnet],
+            Type="network",
+            Scheme="internal",
+        )
+        session.client("elb").create_load_balancer(
+            LoadBalancerName="classic-demo",
+            AvailabilityZones=["us-east-1a"],
+            Listeners=[{"Protocol": "HTTP", "LoadBalancerPort": 80, "InstancePort": 80}],
+        )
+        reader = AWSClientFactory(base_session=session)(ACCOUNT, "us-east-1")
+        assert aws_load_balancers(reader, ACCOUNT, "us-east-1", "elbv2")[0].kind == "network"
+        assert aws_load_balancers(reader, ACCOUNT, "us-east-1", "classic")[0].name == "classic-demo"
+
+
+@pytest.mark.parametrize("family", ["alb", "nlb"])
+def test_alibaba_tags_and_addresses_in_same_public_snapshot(family: str) -> None:
+    row = alibaba_load_balancers(
+        Reader(
+            [
+                {
+                    "LoadBalancers": [
+                        {
+                            "LoadBalancerId": "lb-demo",
+                            "AddressType": "Internet",
+                            "Tags": [{"Key": "env", "Value": "dev"}],
+                            "ZoneMappings": [
+                                {
+                                    "LoadBalancerAddresses": [
+                                        {
+                                            "PublicIPv4Address": "192.0.2.2",
+                                            "PrivateIPv4Address": "10.0.0.3",
+                                        }
+                                    ]
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ]
+        ),
+        ACCOUNT.model_copy(update={"provider": "alibaba"}),
+        "cn-hangzhou",
+        family,
+    )[0]
+    assert row.tags == {"env": "dev"} and row.scheme == "internet-facing"
+    assert row.addresses == ["192.0.2.2", "10.0.0.3"]
+
+
+def test_lb_status_write_failure_cannot_fail_instance_result(db_session: Session) -> None:
+    from test_runner import FakeProvider
+
+    from cloudscope.collector.runner import SyncRunner
+    from cloudscope.db.models import Instance, SyncResult, SyncRun
+
+    class BrokenCollector(LoadBalancerCollector):
+        def scan(self, account: AccountConfig, region: str) -> None:
+            raise RuntimeError("status store unavailable")
+
+    db_session.add(Account(provider="aws", account_id=ACCOUNT.account_id, name="Demo"))
+    run = SyncRun(trigger="manual")
+    db_session.add(run)
+    db_session.commit()
+    sessions = sessionmaker(
+        bind=db_session.connection(),
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+    runner = SyncRunner(
+        sessions,
+        {"aws": FakeProvider()},
+        clock=lambda: NOW,
+        load_balancers=BrokenCollector(sessions, {}),
+    )
+    runner._scan(run.id, ACCOUNT, "us-east-1")
+    assert db_session.scalar(select(Instance)) is not None
+    assert db_session.scalar(select(SyncResult)).status == "success"
