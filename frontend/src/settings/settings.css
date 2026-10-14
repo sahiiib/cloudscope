@@ -23,3 +23,9 @@
 .account-form label.settings-check { display: flex; }
 .credential-fields { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: .6rem; background: var(--surface); }
 .credential-fields p { margin: 0; color: var(--muted); }
+.cloud-accounts .settings-table td:last-child { min-width: 17rem; }
+.cloud-accounts .settings-table .settings-actions button { white-space: nowrap; }
+@media (min-width: 1000px) {
+  .cloud-accounts .settings-table th:last-child, .cloud-accounts .settings-table td:last-child { position: sticky; right: 0; background: var(--surface); box-shadow: -6px 0 12px -8px var(--border); }
+  .cloud-accounts .settings-table th:last-child { z-index: 1; }
+}
