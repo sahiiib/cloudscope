@@ -2,7 +2,9 @@
 
 Admins can add and edit AWS and Alibaba accounts from the web UI, in addition
 to `accounts.yaml`. Accounts never hold secrets: only IDs, names, an optional
-role to assume and regions. Base credentials stay in the Kubernetes Secret
+role to assume and regions. The optional Secret-backed extension is defined in
+[account-credentials.md](account-credentials.md); the database holds references,
+never keys. Base credentials stay in the Kubernetes Secret
 (test keys) or workload identity (EKS); see [cloud-access.md](cloud-access.md).
 
 ## Two sources, one table
@@ -22,7 +24,7 @@ Every account is a row in `accounts` with a `source`:
   `event=account_file_conflict provider=… account_id=…`. The run continues.
 - An admin cannot create a UI account whose (provider, account_id) already
   exists in either source (409).
-- File accounts are read-only in the UI and labelled "Managed by accounts.yaml".
+- File accounts are read-only until explicit **Manage in web** adoption, and labelled "Managed by accounts.yaml".
 - After the file sync, the collector scans every **enabled** row from the
   database, whatever its source.
 - Accounts are never deleted (instances reference them). Disabling an account
