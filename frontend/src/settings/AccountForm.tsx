@@ -13,7 +13,7 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
   });
   const [regions, setRegions] = useState(account?.regions === 'all' || !account ? 'all' : account.regions.join(', '));
   const [errors, setErrors] = useState<AccountErrors>({});
-  const [method, setMethod] = useState<'runtime' | 'role' | 'dedicated'>(account?.connection_mode === 'dedicated' ? 'dedicated' : account?.role_arn ? 'role' : 'runtime');
+  const [method, setMethod] = useState<'runtime' | 'role' | 'dedicated'>(account?.connection_mode === 'dedicated' ? 'dedicated' : account?.role_arn ? 'role' : !account && dedicatedEnabled ? 'dedicated' : 'runtime');
   const pendingKeys = useRef<Record<string, string> | null>(null);
   useEffect(() => () => { pendingKeys.current = null; }, []);
   const save = useMutation({
@@ -72,7 +72,7 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
       {method === 'dedicated' && <div className="credential-fields" key={values.provider}>
         <p>{account?.credentials_configured ? 'Keys are configured. Leave both fields blank to keep them, or enter a new pair to rotate.' : 'Enter this account’s own read-only key pair.'} Keys are never shown again. Account identity and access are checked before saving.</p>
         <label>Access Key ID<input name="access_key_id" type="password" autoComplete="off" maxLength={256} /></label>
-        <label>{values.provider === 'alibaba' ? 'Access Key Secret' : 'Secret Access Key'}<input name="secret_access_key" type="password" autoComplete="new-password" maxLength={4096} /></label>
+        <label>Secret Access Key<input name="secret_access_key" type="password" autoComplete="new-password" maxLength={4096} /></label>
         {values.provider === 'aws' && <label>Session Token (optional)<input name="session_token" type="password" autoComplete="off" maxLength={8192} /></label>}
       </div>}
       {!account && <label className="settings-check"><input type="checkbox" checked={values.enabled} onChange={event => setValues({ ...values, enabled: event.target.checked })} />Enabled{fieldError('enabled')}</label>}

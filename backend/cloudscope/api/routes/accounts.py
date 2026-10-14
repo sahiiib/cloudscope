@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import ValidationError
 from sqlalchemy import and_, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -40,6 +40,7 @@ def accounts(auth: Auth) -> list[dict[str, object]]:
                 ),
             )
             .group_by(Account.provider, Account.account_id)
+            .where(Account.deleted.is_(False))
             .order_by(Account.provider, Account.account_id)
         )
         return [response(account, count) for account, count in rows]
@@ -71,7 +72,7 @@ def response(account: Account, count: int = 0) -> dict[str, object]:
 
 def target(session: Session, provider: str, account_id: str) -> Account:
     account = session.get(Account, (provider, account_id), with_for_update=True)
-    if account is None:
+    if account is None or account.deleted:
         raise HTTPException(404, "Account not found")
     return account
 
@@ -142,12 +143,23 @@ async def create_account(
     try:
         with auth.sessions.begin() as session:
             collection_lock(session)
-            account = Account(
-                **body.model_dump(exclude={"credentials"}),
-                source="ui",
-                credential_reference=reference,
-            )
-            session.add(account)
+            account = session.get(Account, (body.provider, body.account_id), with_for_update=True)
+            if account is not None:
+                if not account.deleted:
+                    raise HTTPException(409, "Account already exists")
+                for key, value in body.model_dump(exclude={"credentials"}).items():
+                    setattr(account, key, value)
+                account.deleted = False
+                account.source = "ui"
+                account.credential_reference = reference
+                account.configuration_version += 1
+            else:
+                account = Account(
+                    **body.model_dump(exclude={"credentials"}),
+                    source="ui",
+                    credential_reference=reference,
+                )
+                session.add(account)
             session.flush()
             result = response(account)
     except IntegrityError:
@@ -296,7 +308,7 @@ async def test_account(
 ) -> AccessResult:
     with auth.sessions() as session:
         account = session.get(Account, (provider, account_id))
-        if account is None:
+        if account is None or account.deleted:
             raise HTTPException(404, "Account not found")
         config = AccountConfig.model_validate(
             {key: getattr(account, key) for key in AccountConfig.model_fields}
@@ -310,3 +322,25 @@ async def test_account(
         log_account_id(config.account_id),
     )
     return result
+
+
+@router.delete("/{provider}/{account_id}", status_code=204, dependencies=[Depends(require_csrf)])
+def delete_account(
+    provider: str, account_id: str, body: AdoptAccount, auth: Auth, actor: Admin
+) -> Response:
+    with auth.sessions.begin() as session:
+        collection_lock(session)
+        account = target(session, provider, account_id)
+        version_check(account, body.expected_version)
+        # Keep a disabled UI tombstone so accounts.yaml cannot recreate the account.
+        account.source = "ui"
+        account.enabled = False
+        account.deleted = True
+        account.configuration_version += 1
+    logger.info(
+        "event=account_delete actor=%s provider=%s account_id=%s",
+        actor.id,
+        provider,
+        log_account_id(account_id),
+    )
+    return Response(status_code=204)

@@ -38,6 +38,7 @@ class Account(Base):
     __table_args__ = (
         CheckConstraint("provider IN ('aws', 'alibaba')", name="provider"),
         CheckConstraint("source IN ('file', 'ui')", name="source"),
+        CheckConstraint("NOT deleted OR (NOT enabled AND source = 'ui')", name="deleted"),
         CheckConstraint(
             "(connection_mode = 'runtime' AND credential_reference IS NULL) OR "
             "(connection_mode = 'dedicated' AND credential_reference IS NOT NULL "
@@ -50,6 +51,7 @@ class Account(Base):
     account_id: Mapped[str] = mapped_column(Text, primary_key=True)
     name: Mapped[str] = mapped_column(Text)
     enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cloud_alias: Mapped[str | None] = mapped_column(Text)
     cloud_alias_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

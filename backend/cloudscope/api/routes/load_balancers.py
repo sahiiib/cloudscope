@@ -51,7 +51,7 @@ def inventory(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> dict[str, object]:
-    conditions: list[ColumnElement[bool]] = []
+    conditions: list[ColumnElement[bool]] = [Account.deleted.is_(False)]
     if not include_missing:
         conditions.append(LoadBalancer.present.is_(True))
     for field, value in (
@@ -101,7 +101,10 @@ def inventory(
 def scans(auth: Auth, request: Request) -> dict[str, object]:
     with auth.sessions() as session:
         rows = session.scalars(
-            select(LoadBalancerScan).order_by(
+            select(LoadBalancerScan)
+            .join(Account)
+            .where(Account.deleted.is_(False))
+            .order_by(
                 LoadBalancerScan.provider,
                 LoadBalancerScan.account_id,
                 LoadBalancerScan.region,
@@ -148,6 +151,7 @@ def detail(
                 LoadBalancer.region == region,
                 LoadBalancer.family == family,
                 LoadBalancer.load_balancer_id == load_balancer_id,
+                Account.deleted.is_(False),
             )
         ).one_or_none()
         if row is None:
