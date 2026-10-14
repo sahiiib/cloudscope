@@ -51,7 +51,7 @@ A task can start when all its dependencies are `done`.
 | T-068 | Modern console and selectable appearance | codex | T-061 | done |
 | T-069 | Read-only load balancer inventory | codex | T-060, T-062 | done |
 | T-070 | Design Secret-backed account connections and adoption | codex | T-064 | done |
-| T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | review |
+| T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | done |
 
 ---
 
