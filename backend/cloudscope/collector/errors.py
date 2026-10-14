@@ -5,12 +5,16 @@ import re
 from botocore.exceptions import ClientError  # type: ignore[import-untyped]
 from Tea.exceptions import TeaException  # type: ignore[import-untyped]
 
+from cloudscope.credentials import CredentialError
+
 
 def describe_error(exc: Exception) -> str:
     """Return an SDK error code, otherwise the exception class, never its text."""
     if isinstance(exc, AssumeRoleError):
         return exc.code
     code: object = None
+    if isinstance(exc, CredentialError):
+        code = exc.args[0] if exc.args else None
     if isinstance(exc, ClientError):
         error = exc.response.get("Error")
         if isinstance(error, dict):
