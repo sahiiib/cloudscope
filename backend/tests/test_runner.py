@@ -332,3 +332,30 @@ def test_file_timestamp_only_changes_when_configuration_changes(factory):
     with factory() as session:
         row = session.get_one(Account, ("aws", ACCOUNT.account_id))
         assert row.enabled and row.updated_at == NOW + timedelta(hours=3)
+
+
+def test_stale_running_runs_are_failed_by_next_run(factory: sessionmaker[Session]) -> None:
+    # A collector killed mid-run (e.g. OOMKilled) leaves its row "running".
+    with factory.begin() as session:
+        session.add(SyncRun(trigger="schedule", status="running", started_at=NOW))
+    result = SyncRunner(factory, {"aws": FakeProvider()}).run([ACCOUNT])
+    assert result.status == "success"
+    with factory() as session:
+        runs = session.scalars(select(SyncRun).order_by(SyncRun.id)).all()
+        assert [run.status for run in runs] == ["failed", "success"]
+        assert runs[0].finished_at is not None
+
+
+def test_unexpected_failure_after_start_marks_run_failed(
+    factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("database unavailable")
+
+    runner = SyncRunner(factory, {"aws": FakeProvider()})
+    monkeypatch.setattr(runner, "_refresh_alias", broken)
+    with pytest.raises(RuntimeError):
+        runner.run([ACCOUNT])
+    with factory() as session:
+        run = session.scalar(select(SyncRun))
+        assert run is not None and run.status == "failed" and run.finished_at is not None

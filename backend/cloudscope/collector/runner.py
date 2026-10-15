@@ -151,11 +151,40 @@ class SyncRunner:
             ]
             if account_id is not None and not selected:
                 raise AccountFilterError("Account filter does not match configuration")
+            # Callers hold the collection advisory lock, so no other run is live. A
+            # "running" row here was left by a process that was killed mid-run.
+            stale = session.scalars(
+                update(SyncRun)
+                .where(SyncRun.status == "running")
+                .values(status="failed", finished_at=self.clock())
+                .returning(SyncRun.id)
+            ).all()
+            if stale:
+                logger.warning("event=stale_runs_failed count=%s", len(stale))
             run = SyncRun(trigger=trigger, status="running", started_at=self.clock())
             session.add(run)
             session.flush()
             run_id = run.id
 
+        try:
+            return self._collect(run_id, accounts, selected, region)
+        except Exception:
+            # A run must never stay "running" after its process gave up on it.
+            with self.sessions.begin() as session:
+                session.execute(
+                    update(SyncRun)
+                    .where(SyncRun.id == run_id)
+                    .values(status="failed", finished_at=self.clock())
+                )
+            raise
+
+    def _collect(
+        self,
+        run_id: int,
+        accounts: Sequence[AccountConfig],
+        selected: Sequence[AccountConfig],
+        region: str | None,
+    ) -> SyncRun:
         jobs: list[tuple[AccountConfig, str]] = []
         complete_accounts: set[tuple[str, str]] = set()
         for account in selected:
@@ -178,18 +207,9 @@ class SyncRunner:
         with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
             futures = [pool.submit(self._scan, run_id, account, region) for account, region in jobs]
             # Scan failures are recorded by workers. A database outage while recording
-            # a result must propagate: it cannot be reported as a successful run.
-            try:
-                for future in futures:
-                    future.result()
-            except Exception:
-                with self.sessions.begin() as session:
-                    session.execute(
-                        update(SyncRun)
-                        .where(SyncRun.id == run_id)
-                        .values(status="failed", finished_at=self.clock())
-                    )
-                raise
+            # a result must propagate: run() then marks the run failed.
+            for future in futures:
+                future.result()
 
         with self.sessions.begin() as session:
             results = list(session.scalars(select(SyncResult).where(SyncResult.run_id == run_id)))
