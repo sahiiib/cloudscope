@@ -6,6 +6,8 @@ from threading import Lock
 from typing import Any, Literal, Protocol
 
 import boto3  # type: ignore[import-untyped]
+import botocore.loaders  # type: ignore[import-untyped]
+import botocore.session  # type: ignore[import-untyped]
 from botocore.config import Config  # type: ignore[import-untyped]
 
 from cloudscope.collector.base import (
@@ -59,6 +61,19 @@ class BotoReader:
         return result
 
 
+# Every boto3 Session parses its own copy of the service models (about 20 MB per
+# account for EC2 alone) unless they share one loader. Sessions are cached per
+# account, so with tens of accounts the collector would otherwise be OOMKilled.
+SHARED_LOADER = botocore.loaders.create_loader()
+
+
+def share_loader(session: Any) -> Any:
+    core = getattr(session, "_session", None)
+    if isinstance(core, botocore.session.Session):
+        core.register_component("data_loader", SHARED_LOADER)
+    return session
+
+
 class AWSClientFactory:
     """Serialize session creation; cache assumed credentials until five minutes before expiry."""
 
@@ -98,12 +113,14 @@ class AWSClientFactory:
                 session = self._dedicated.get(ref)
                 if session is None:
                     keys = self._credential_loader(account)
-                    session = self._session_factory(
-                        aws_access_key_id=keys.access_key_id.get_secret_value(),
-                        aws_secret_access_key=keys.secret_access_key.get_secret_value(),
-                        aws_session_token=keys.session_token.get_secret_value()
-                        if keys.session_token
-                        else None,
+                    session = share_loader(
+                        self._session_factory(
+                            aws_access_key_id=keys.access_key_id.get_secret_value(),
+                            aws_secret_access_key=keys.secret_access_key.get_secret_value(),
+                            aws_session_token=keys.session_token.get_secret_value()
+                            if keys.session_token
+                            else None,
+                        )
                     )
                     identity = session.client(
                         "sts", region_name=self._sts_region, config=self._config
@@ -118,7 +135,7 @@ class AWSClientFactory:
                     self._dedicated[ref] = session
             else:
                 if self._base is None:
-                    self._base = self._session_factory()
+                    self._base = share_loader(self._session_factory())
                 session = self._base
                 if account.role_arn:
                     key = (account.account_id, account.role_arn, account.external_id)
@@ -136,10 +153,12 @@ class AWSClientFactory:
                             ).assume_role(**request)["Credentials"]
                         except Exception as exc:
                             raise AssumeRoleError(exc) from None
-                        session = self._session_factory(
-                            aws_access_key_id=credentials["AccessKeyId"],
-                            aws_secret_access_key=credentials["SecretAccessKey"],
-                            aws_session_token=credentials["SessionToken"],
+                        session = share_loader(
+                            self._session_factory(
+                                aws_access_key_id=credentials["AccessKeyId"],
+                                aws_secret_access_key=credentials["SecretAccessKey"],
+                                aws_session_token=credentials["SessionToken"],
+                            )
                         )
                         expiration = utc_datetime(credentials["Expiration"])
                         if expiration is None:

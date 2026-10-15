@@ -12,7 +12,6 @@ A task can start when all its dependencies are `done`.
 
 | ID | Title | Owner | Depends on | Status |
 | --- | --- | --- | --- | --- |
-| T-072 | Key-first account form and recoverable deletion | codex | T-071 | review |
 | T-001 | Repo skeleton, Makefile, .gitignore, CI | claude | – | done |
 | T-002 | Backend project scaffold | codex | T-001 | done |
 | T-003 | Frontend project scaffold | codex | T-001 | done |
@@ -53,6 +52,8 @@ A task can start when all its dependencies are `done`.
 | T-069 | Read-only load balancer inventory | codex | T-060, T-062 | done |
 | T-070 | Design Secret-backed account connections and adoption | codex | T-064 | done |
 | T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | done |
+| T-072 | Key-first account form and recoverable deletion | codex | T-071 | done |
+| T-073 | Fix collector OOM and stale collection runs | claude | T-012 | review |
 
 ---
 
@@ -545,3 +546,13 @@ default when enabled; Delete is available for both web and file accounts with
 explicit confirmation, admin/CSRF/version/collection guards. Removed accounts and
 inventory disappear from API/UI, file sync cannot recreate them, and re-adding
 restores saved history. Additive migration, regression tests and deployment proof.
+
+### T-073: Fix collector OOM and stale collection runs
+Owner: claude · Spec: [collector](specs/collector.md#flow)
+
+After 20 AWS accounts were added on the local cluster (2026-10-15) the collector
+was OOMKilled at 1Gi: every per-account boto3 Session parsed its own copy of the
+service models. Killed runs then stayed `running` forever. Acceptance: all AWS
+sessions share one botocore loader; a new run marks leftover `running` rows
+`failed` under the collection lock; any unexpected error after a run starts
+marks it `failed`; tests cover all three.

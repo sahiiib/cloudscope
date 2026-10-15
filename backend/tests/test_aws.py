@@ -8,7 +8,14 @@ import boto3
 import pytest
 from moto import mock_aws
 
-from cloudscope.collector.aws import AWSClientFactory, AWSProvider, BotoReader, pages, rules
+from cloudscope.collector.aws import (
+    SHARED_LOADER,
+    AWSClientFactory,
+    AWSProvider,
+    BotoReader,
+    pages,
+    rules,
+)
 from cloudscope.collector.base import NormalizedInstance, Provider
 from cloudscope.config import AccountConfig
 from cloudscope.db.models import Instance
@@ -169,6 +176,29 @@ def test_scan_assumed_account(aws: Any, account: AccountConfig) -> None:
     assert isinstance(reader, BotoReader)
     instance_id = seed(reader.client)
     assert AWSProvider(factory).scan(role, "us-east-1")[0].instance_id == instance_id
+
+
+def test_assumed_sessions_share_parsed_service_models(aws: Any, account: AccountConfig) -> None:
+    # Each account gets its own session; without a shared loader every one of them
+    # parses the EC2 model again and 20+ accounts OOMKill the collector.
+    factory = AWSClientFactory(aws)
+    readers = [
+        factory(
+            account.model_copy(
+                update={
+                    "account_id": account_id,
+                    "role_arn": f"arn:aws:iam::{account_id}:role/readonly",
+                }
+            ),
+            "us-east-1",
+        )
+        for account_id in ("111111111111", "222222222222")
+    ]
+    sessions = [session for session, _ in factory._cache.values()]
+    assert len(sessions) == 2 and all(isinstance(reader, BotoReader) for reader in readers)
+    assert all(
+        session._session.get_component("data_loader") is SHARED_LOADER for session in sessions
+    )
 
 
 @pytest.mark.parametrize(

@@ -28,7 +28,10 @@ callers must use the same database-scoped lock. SDK retries remain provider-owne
 1. Load `accounts.yaml`, upsert `accounts` rows with `source = file` (mark
    removed ones `enabled = false`), then read every enabled row, from either
    source, as the account list. See [accounts.md](accounts.md).
-2. Insert a `sync_runs` row with `status = running`.
+2. Mark any `sync_runs` row still `running` as `failed` (the caller holds the
+   collection lock, so such a row was left by a killed process, e.g. OOMKilled),
+   then insert a `sync_runs` row with `status = running`. Any unexpected error
+   after this point marks the run `failed` before it propagates.
 3. For each selected enabled account, resolve credentials (see below), read the
    account alias once, and resolve the region list. Alias failures preserve the
    previous alias/check timestamp and do not fail scans. An empty alias clears
