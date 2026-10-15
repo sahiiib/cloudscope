@@ -53,7 +53,7 @@ A task can start when all its dependencies are `done`.
 | T-070 | Design Secret-backed account connections and adoption | codex | T-064 | done |
 | T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | done |
 | T-072 | Key-first account form and recoverable deletion | codex | T-071 | done |
-| T-073 | Fail stale collection runs | claude | T-012 | review |
+| T-073 | Fix collector OOM and stale collection runs | claude | T-012 | review |
 
 ---
 
@@ -547,10 +547,12 @@ explicit confirmation, admin/CSRF/version/collection guards. Removed accounts an
 inventory disappear from API/UI, file sync cannot recreate them, and re-adding
 restores saved history. Additive migration, regression tests and deployment proof.
 
-### T-073: Fail stale collection runs
+### T-073: Fix collector OOM and stale collection runs
 Owner: claude · Spec: [collector](specs/collector.md#flow)
 
-A collector killed mid-run (OOMKilled on the local cluster, 2026-10-15) left
-its `sync_runs` row `running` forever. Acceptance: a new run marks leftover
-`running` rows `failed` under the collection lock; any unexpected error after a
-run starts marks it `failed`; runner tests cover both.
+After 20 AWS accounts were added on the local cluster (2026-10-15) the collector
+was OOMKilled at 1Gi: every per-account boto3 Session parsed its own copy of the
+service models. Killed runs then stayed `running` forever. Acceptance: all AWS
+sessions share one botocore loader; a new run marks leftover `running` rows
+`failed` under the collection lock; any unexpected error after a run starts
+marks it `failed`; tests cover all three.
