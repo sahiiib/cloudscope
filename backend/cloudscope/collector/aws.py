@@ -101,7 +101,13 @@ class AWSClientFactory:
                 retries={"mode": "standard", "total_max_attempts": 2},
             )
             if access_test
-            else Config(retries={"mode": "adaptive", "max_attempts": 5})
+            # An unreachable regional endpoint must fail in about a minute, not tie up a
+            # worker for botocore's default 60s connect timeout times every retry.
+            else Config(
+                connect_timeout=10,
+                read_timeout=60,
+                retries={"mode": "adaptive", "max_attempts": 5},
+            )
         )
 
     def __call__(self, account: AccountConfig, region: str) -> EC2Reader:

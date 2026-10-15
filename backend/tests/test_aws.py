@@ -317,3 +317,11 @@ def test_provider_passes_discovery_region_to_default_factory(discovery_region: s
         provider = AWSProvider(discovery_region=discovery_region)
     factory.assert_called_once_with(discovery_region=discovery_region)
     assert provider.client_factory is factory.return_value
+
+
+def test_collection_clients_bound_connect_timeout(aws: Any) -> None:
+    config = AWSClientFactory(aws)._config
+
+    assert config.connect_timeout == 10
+    assert config.read_timeout == 60
+    assert config.retries == {"mode": "adaptive", "max_attempts": 5}

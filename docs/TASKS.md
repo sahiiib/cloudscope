@@ -53,7 +53,8 @@ A task can start when all its dependencies are `done`.
 | T-070 | Design Secret-backed account connections and adoption | codex | T-064 | done |
 | T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | done |
 | T-072 | Key-first account form and recoverable deletion | codex | T-071 | done |
-| T-073 | Fix collector OOM and stale collection runs | claude | T-012 | review |
+| T-073 | Fix collector OOM and stale collection runs | claude | T-012 | done |
+| T-074 | Bound AWS connect timeout in collection | claude | T-073 | review |
 
 ---
 
@@ -556,3 +557,12 @@ service models. Killed runs then stayed `running` forever. Acceptance: all AWS
 sessions share one botocore loader; a new run marks leftover `running` rows
 `failed` under the collection lock; any unexpected error after a run starts
 marks it `failed`; tests cover all three.
+
+### T-074: Bound AWS connect timeout in collection
+Owner: claude · Spec: [collector](specs/collector.md#flow)
+
+With 20+ AWS accounts, one enabled region whose endpoint the cluster cannot reach
+(`me-south-1`, `ConnectTimeoutError`) held a worker for botocore's default 60s
+connect timeout on every retry, and the run did not finish within 15 minutes.
+Acceptance: collection clients use a 10s connect timeout and 60s read timeout,
+keeping adaptive retries; a test pins the values.
