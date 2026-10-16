@@ -17,8 +17,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from cloudscope.collector.base import Provider
 from cloudscope.collector.errors import describe_error, log_account_id
 from cloudscope.collector.load_balancers import LoadBalancerCollector
-from cloudscope.config import AccountConfig, AccountsConfig, load_accounts
-from cloudscope.db.models import Account, Instance, SyncResult, SyncRun
+from cloudscope.config import (
+    AccountConfig,
+    AccountsConfig,
+    NoRegionsError,
+    included_regions,
+    load_accounts,
+)
+from cloudscope.db.models import Account, Instance, LoadBalancer, SyncResult, SyncRun
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +109,13 @@ class SyncRunner:
                         set_={
                             **{
                                 key: statement.excluded[key]
-                                for key in ("name", "role_arn", "external_id", "regions")
+                                for key in (
+                                    "name",
+                                    "role_arn",
+                                    "external_id",
+                                    "regions",
+                                    "excluded_regions",
+                                )
                             },
                             "enabled": True,
                             "updated_at": self.clock(),
@@ -118,6 +130,7 @@ class SyncRunner:
                                     "role_arn",
                                     "external_id",
                                     "regions",
+                                    "excluded_regions",
                                     "enabled",
                                 )
                             )
@@ -207,7 +220,7 @@ class SyncRunner:
             started = monotonic()
             try:
                 provider = self.providers[account.provider]
-                regions = list(dict.fromkeys(provider.list_regions(account)))
+                regions = included_regions(account, provider.list_regions(account))
                 if not regions or any(not region.strip() or region == "*" for region in regions):
                     raise ValueError("no valid regions")
                 selected_regions = [
@@ -257,6 +270,16 @@ class SyncRunner:
                     and account_results
                     and all(result.status == "success" for result in account_results)
                 ):
+                    for model in (Instance, LoadBalancer):
+                        session.execute(
+                            update(model)
+                            .where(
+                                model.provider == account.provider,
+                                model.account_id == account.account_id,
+                                model.region.in_(account.excluded_regions),
+                            )
+                            .values(present=False)
+                        )
                     session.execute(
                         update(Account)
                         .where(
@@ -380,7 +403,11 @@ class SyncRunner:
     ) -> None:
         # SDK/DB exception text can contain credentials or raw payloads. Persist and
         # log only a diagnostic code/class, without exception tracebacks.
-        code = describe_error(exc)
+        code = (
+            "no regions left after exclusions"
+            if isinstance(exc, NoRegionsError)
+            else describe_error(exc)
+        )
         logger.warning(
             "event=collection_error run_id=%s phase=%s provider=%s "
             "account_id=%s region=%s error=%s",

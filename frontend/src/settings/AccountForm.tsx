@@ -4,10 +4,18 @@ import { apiFetch } from '../api/client';
 import type { AccountInput, AccountSummary } from '../api/types';
 import { accountErrors, validateAccount, type AccountErrors } from './accountValidation';
 
-export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabled = false }: {
-  account?: AccountSummary; onSaved: () => void; onCancel: () => void; dedicatedEnabled?: boolean;
+export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabled = false, onDirty, onBusy }: {
+  account?: AccountSummary; onSaved: () => void; onCancel: () => void; dedicatedEnabled?: boolean; onDirty?: () => void; onBusy?: (busy: boolean) => void;
 }) {
   const id = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [excluded, setExcluded] = useState<string[]>(account?.excluded_regions ?? []);
+  const [discovered, setDiscovered] = useState<string[]>([]);
+  const [testing, setTesting] = useState(false);
+  const [testMessage, setTestMessage] = useState('');
+  const [testError, setTestError] = useState('');
+  const activeTest = useRef<AbortController | null>(null);
+  useEffect(() => () => { activeTest.current?.abort(); }, []);
   const [values, setValues] = useState<AccountInput>(() => account ?? {
     provider: 'aws', account_id: '', name: '', regions: 'all', role_arn: null, external_id: null, enabled: true,
   });
@@ -19,7 +27,7 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
   const save = useMutation({
     mutationFn: async (input: AccountInput) => {
       const keys = pendingKeys.current; pendingKeys.current = null;
-      const body = account ? { name: input.name, regions: input.regions, role_arn: input.role_arn, external_id: input.external_id, connection_mode: input.connection_mode, expected_version: account.configuration_version } : input;
+      const body = account ? { name: input.name, regions: input.regions, excluded_regions: input.excluded_regions, role_arn: input.role_arn, external_id: input.external_id, connection_mode: input.connection_mode, expected_version: account.configuration_version } : input;
       await apiFetch(account ? `/api/accounts/${account.provider}/${account.account_id}` : '/api/accounts', {
         method: account ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, ...(keys ? { credentials: keys } : {}) }),
       });
@@ -27,17 +35,42 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
     onSuccess: onSaved,
     onError: error => setErrors(accountErrors(error, !!account)),
   });
+  useEffect(() => { onBusy?.(save.isPending || testing); }, [save.isPending, testing, onBusy]);
+  async function testConnection() {
+    const form = formRef.current;
+    if (!form) return;
+    const input: AccountInput = { provider: values.provider, account_id: values.account_id, name: values.name, regions: regions.trim() === 'all' ? 'all' : regions.split(',').map(region => region.trim()), excluded_regions: excluded, role_arn: method === 'role' ? values.role_arn : null, external_id: method === 'role' ? values.external_id : null, enabled: values.enabled, connection_mode: method === 'dedicated' ? 'dedicated' : 'runtime' };
+    const invalid = validateAccount(input);
+    if (method === 'role' && !input.role_arn) invalid.role_arn = 'Enter the role ARN.';
+    const read = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
+    const keyId = read('access_key_id'), secret = read('secret_access_key'), token = read('session_token');
+    if (method === 'dedicated' && (!keyId || !secret)) invalid.form = 'Enter the access key ID and secret access key to test these settings.';
+    setErrors(invalid);
+    if (Object.keys(invalid).length) return;
+    const controller = new AbortController(); activeTest.current = controller;
+    setTesting(true); setTestMessage(''); setTestError(''); setDiscovered([]);
+    // Do not put keys in React Query variables, cached responses or persistent storage.
+    const body = JSON.stringify({ ...input, ...(method === 'dedicated' ? { credentials: { access_key_id: keyId, secret_access_key: secret, ...(token ? { session_token: token } : {}) } } : {}) });
+    for (const name of ['access_key_id', 'secret_access_key', 'session_token']) { const field = form.elements.namedItem(name) as HTMLInputElement | null; if (field) field.value = ''; }
+    try {
+      const result: { ok: true; regions: string[] } | { ok: false; error: string } = await (await apiFetch('/api/accounts/test-connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })).json();
+      if (controller.signal.aborted) return;
+      if (result.ok) { setDiscovered(result.regions); setTestMessage('Connection OK. Select regions to exclude.'); }
+      else setTestError(result.error);
+    } catch (error) { if (!controller.signal.aborted) setErrors(accountErrors(error, !!account)); }
+    finally { if (!controller.signal.aborted) { setTesting(false); activeTest.current = null; } }
+  }
   function fieldError(field: keyof AccountInput) {
     return errors[field] && <span id={`${id}-${field}-error`} role="alert" className="error">{errors[field]}</span>;
   }
   function accessibility(field: keyof AccountInput) {
     return { 'aria-invalid': !!errors[field], 'aria-describedby': errors[field] ? `${id}-${field}-error` : undefined };
   }
-  return <form className="account-form" aria-label={account ? 'Edit cloud account' : 'Add cloud account'} noValidate onSubmit={event => {
+  return <form ref={formRef} onChange={event => { onDirty?.(); if (!(event.target as HTMLElement).closest('.region-checklist')) { setTestMessage(''); setTestError(''); setDiscovered([]); } }} className="account-form" aria-label={account ? 'Edit cloud account' : 'Add cloud account'} noValidate onSubmit={event => {
     event.preventDefault();
-    const input: AccountInput = { ...values, regions: regions.trim() === 'all' ? 'all' : regions.split(',').map(region => region.trim()) };
+    const input: AccountInput = { ...values, excluded_regions: excluded, regions: regions.trim() === 'all' ? 'all' : regions.split(',').map(region => region.trim()) };
     // Only input fields go to the API, never source/count/timestamps from a row.
-    const body: AccountInput = { provider: input.provider, account_id: input.account_id, name: input.name, regions: input.regions, role_arn: method === 'role' ? input.role_arn : null, external_id: method === 'role' ? input.external_id : null, enabled: input.enabled, connection_mode: method === 'dedicated' ? 'dedicated' : 'runtime' };
+    const body: AccountInput = { provider: input.provider, account_id: input.account_id, name: input.name, regions: input.regions, excluded_regions: input.excluded_regions, role_arn: method === 'role' ? input.role_arn : null, external_id: method === 'role' ? input.external_id : null, enabled: input.enabled, connection_mode: method === 'dedicated' ? 'dedicated' : 'runtime' };
     const invalid = validateAccount(body); setErrors(invalid);
     if (method === 'role' && !body.role_arn) invalid.role_arn = 'Enter the role ARN.';
     if (method === 'dedicated') {
@@ -52,8 +85,8 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
     setErrors(invalid);
     if (!Object.keys(invalid).length && !save.isPending) save.mutate(body); else pendingKeys.current = null;
   }}><h3>{account ? `Edit ${account.name}` : 'Add cloud account'}</h3>
-    <fieldset disabled={save.isPending}>
-      <label>Provider<select value={values.provider} disabled={!!account} {...accessibility('provider')} onChange={event => setValues({ ...values, provider: event.target.value as AccountInput['provider'], external_id: null })}>
+    <fieldset disabled={save.isPending || testing}>
+      <label>Provider<select value={values.provider} disabled={!!account} {...accessibility('provider')} onChange={event => { setExcluded([]); setValues({ ...values, provider: event.target.value as AccountInput['provider'], external_id: null }); }}>
         <option value="aws">AWS</option><option value="alibaba">Alibaba</option>
       </select>{fieldError('provider')}</label>
       <label>Account ID<input value={values.account_id} readOnly={!!account} inputMode="numeric" {...accessibility('account_id')} onChange={event => setValues({ ...values, account_id: event.target.value })} />{fieldError('account_id')}</label>
@@ -76,6 +109,11 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
         {values.provider === 'aws' && <label>Session Token (optional)<input name="session_token" type="password" autoComplete="off" maxLength={8192} /></label>}
       </div>}
       {!account && <label className="settings-check"><input type="checkbox" checked={values.enabled} onChange={event => setValues({ ...values, enabled: event.target.checked })} />Enabled{fieldError('enabled')}</label>}
+      <button type="button" className="secondary" onClick={() => void testConnection()}>{testing ? 'Testing…' : 'Test connection'}</button>
+      {testMessage && <p role="status">{testMessage}</p>}
+      {testError && <p role="alert">{testError}</p>}
+      {(discovered.length > 0 || excluded.length > 0) && <fieldset><legend>Excluded regions</legend><div className="region-checklist">{[...new Set([...discovered, ...excluded])].sort().map(region => <label className="settings-check" key={region}><input type="checkbox" checked={excluded.includes(region)} onChange={event => setExcluded(previous => event.target.checked ? [...previous, region] : previous.filter(value => value !== region))} />{region}</label>)}</div>{fieldError('excluded_regions')}</fieldset>}
+      {method === 'dedicated' && testMessage && <small>Keys were cleared after the test. Re-enter them to save.</small>}
       <div className="settings-actions"><button type="submit">{save.isPending ? 'Saving…' : account ? 'Save account' : 'Add account'}</button><button type="button" className="secondary" onClick={onCancel}>Cancel</button></div>
     </fieldset>
     {errors.form && <p role="alert" className="error">{errors.form}</p>}

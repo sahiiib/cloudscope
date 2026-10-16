@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from cloudscope.api.account_schema import AdoptAccount, CreateAccount, PatchAccount
 from cloudscope.api.routes.instances import Auth
 from cloudscope.auth.deps import current_user, require_admin, require_csrf
-from cloudscope.collector.access import AccessResult, AccountAccess
+from cloudscope.collector.access import AccessResult, AccountAccess, test_connection
 from cloudscope.collector.errors import log_account_id
 from cloudscope.collector.manual import COLLECTION_LOCK_KEY
 from cloudscope.config import AccountConfig
@@ -61,6 +61,7 @@ def response(account: Account, count: int = 0) -> dict[str, object]:
                 "role_arn",
                 "external_id",
                 "regions",
+                "excluded_regions",
             )
         },
         "instance_count": count,
@@ -133,6 +134,34 @@ async def prepare_credentials(
         # Immutable unreferenced versions are retained for operator cleanup, not deleted.
         raise HTTPException(422, "Access validation failed: " + access.get("error", "Unavailable"))
     return reference
+
+
+@router.post("/test-connection", dependencies=[Depends(require_csrf)])
+async def test_unsaved_account(
+    body: CreateAccount, request: Request, actor: Admin
+) -> dict[str, object]:
+    if body.connection_mode == "dedicated":
+        if not getattr(request.app.state, "dedicated_credentials_enabled", False):
+            raise HTTPException(409, "Dedicated credentials are disabled by the operator")
+        if body.credentials is None:
+            raise HTTPException(422, "Enter an access key ID and secret access key")
+    config = AccountConfig.model_validate(
+        {
+            **body.model_dump(exclude={"credentials", "enabled"}),
+            "credential_reference": "unsaved-test" if body.connection_mode == "dedicated" else None,
+        }
+    )
+    result = await test_connection(config, body.credentials)
+    logger.info(
+        "event=account_test_connection actor=%s provider=%s account_id=%s ok=%s",
+        actor.id,
+        body.provider,
+        body.account_id,
+        result["ok"],
+    )
+    if result["ok"]:
+        return {"ok": True, "regions": result["region_ids"]}
+    return {"ok": False, "error": result["error"]}
 
 
 @router.post("", status_code=201, dependencies=[Depends(require_csrf)])

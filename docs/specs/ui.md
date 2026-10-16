@@ -189,3 +189,13 @@ fonts, trackers or new dependencies are needed.
 - Load balancers page (T-078): same floating scrollbar, State icon, copy icon for
   the account ID and an icon button for View/Hide details.
 
+
+## Account dialog (T-077)
+
+Accounts Add/Edit opens a named modal, traps focus, supports Escape/Cancel with
+an unsaved-change confirmation, and restores focus to the opening button. Test
+connection checks current values before save and shows a region checklist where
+checked means excluded. Keys clear after the test and need re-entry for save;
+they never enter React Query caches or browser storage. Existing row Test access
+continues to check the saved connection. Mutations/tests disable the form while
+pending; changing connection fields clears stale preview results.

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
 import type { AccountAccessResult, AccountSummary, SyncRun } from '../api/types';
-import AccountForm from './AccountForm';
+import AccountDialog from './AccountDialog';
 import { AdoptIcon, DeleteIcon, DisableIcon, EditIcon, EnableIcon, TestIcon, RunningIcon } from '../icons';
 import { settingsError } from './errors';
 
@@ -87,7 +87,7 @@ export default function CloudAccounts() {
       <tbody>{accounts.data.map(account => <AccountRow key={`${account.provider}/${account.account_id}`} account={account} syncBusy={!Array.isArray(runs.data) || runs.data.some(run => run.status === 'running')} editing={editing !== null} onChanged={refresh} onEdit={() => { setNotice(''); setEditing(account); }} />)}</tbody></table>
       {accounts.data.length === 0 && <p>No cloud accounts yet.</p>}
     </div>}
-    {editing && <AccountForm dedicatedEnabled={capabilities.data?.dedicated_credentials ?? false} key={editing === 'new' ? 'new' : `${editing.provider}/${editing.account_id}`} account={editing === 'new' ? undefined : editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); setNotice('Account saved.'); void refresh(); }} />}
+    {editing && <AccountDialog dedicatedEnabled={capabilities.data?.dedicated_credentials ?? false} key={editing === 'new' ? 'new' : `${editing.provider}/${editing.account_id}`} account={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setNotice('Account saved.'); void refresh(); }} />}
     {notice && <p role="status">{notice}</p>}
   </section>;
 }

@@ -12,6 +12,7 @@ export function validateAccount(account: AccountInput): AccountErrors {
   if (!matches(new RegExp(`^[0-9]{${digits}}$`), account.account_id)) errors.account_id = `Use exactly ${digits} digits.`;
   if (![...account.name].length || [...account.name].length > 64 || account.name !== account.name.trim() || /\p{C}/u.test(account.name)) errors.name = 'Use 1–64 characters without surrounding whitespace or controls.';
   if (account.regions !== 'all' && (!account.regions.length || new Set(account.regions).size !== account.regions.length || account.regions.some(region => !matches(/^[a-z0-9-]{2,32}$/, region)))) errors.regions = 'Use all or a comma-separated list of unique region IDs.';
+  if (account.excluded_regions && (account.excluded_regions.length > 64 || new Set(account.excluded_regions).size !== account.excluded_regions.length || account.excluded_regions.some(region => !matches(/^[a-z0-9-]{2,32}$/, region)))) errors.excluded_regions = 'Use up to 64 unique region IDs.';
   if (account.role_arn !== null) {
     const prefix = account.provider === 'aws' ? 'arn:aws:iam::' : 'acs:ram::';
     const expected = `${prefix}${account.account_id}:role/`;
@@ -32,7 +33,7 @@ export function accountErrors(error: unknown, editing: boolean): AccountErrors {
       for (const item of details) {
         if (!item || typeof item !== 'object' || !('loc' in item) || !('msg' in item) || !Array.isArray(item.loc) || typeof item.msg !== 'string') continue;
         const field: unknown = item.loc[1];
-        if (typeof field === 'string' && ['provider', 'account_id', 'name', 'regions', 'role_arn', 'external_id', 'enabled'].includes(field)) errors[field as keyof AccountInput] = item.msg;
+        if (typeof field === 'string' && ['provider', 'account_id', 'name', 'regions', 'excluded_regions', 'role_arn', 'external_id', 'enabled'].includes(field)) errors[field as keyof AccountInput] = item.msg;
         else errors.form = 'Check the account fields and try again.';
       }
       if (Object.keys(errors).length) return errors;

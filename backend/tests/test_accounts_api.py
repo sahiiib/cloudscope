@@ -123,6 +123,7 @@ def test_create_patch_clear_duplicate_and_audit(
         "connection_mode": "runtime",
         "credentials_configured": False,
         "configuration_version": 1,
+        "excluded_regions": [],
     }
     assert admin.post("/api/accounts", json=body, headers=CSRF).status_code == 409
     assert admin.get("/api/accounts").json() == [created.json()]
@@ -186,7 +187,11 @@ def test_access_no_inventory_writes(admin: TestClient, db_session: Session, outc
         response = admin.post(URL + "/test", headers=CSRF)
         assert response.status_code == 200
         if outcome == "success":
-            assert response.json() == {"ok": True, "regions": 2}
+            assert response.json() == {
+                "ok": True,
+                "regions": 2,
+                "region_ids": ["us-east-1", "eu-central-1"],
+            }
         else:
             expected = "AccessDenied" if outcome == "denied" else "TimeoutError"
             assert response.json() == {"ok": False, "error": f"Region discovery failed: {expected}"}

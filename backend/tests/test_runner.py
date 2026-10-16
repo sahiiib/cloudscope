@@ -465,3 +465,69 @@ def test_cancellation_before_next_account_discovery(factory: sessionmaker[Sessio
     )
     assert result.status == "cancelled"
     assert len(calls) == 1 and provider.calls == []
+
+
+def test_excluded_regions_not_scanned_and_retired_only_after_success(
+    factory: sessionmaker[Session],
+) -> None:
+    from cloudscope.db.models import LoadBalancer
+
+    provider = FakeProvider()
+    runner = SyncRunner(factory, {"aws": provider}, clock=lambda: NOW)
+    runner.run([ACCOUNT])
+    with factory.begin() as session:
+        session.add(
+            LoadBalancer(
+                provider="aws",
+                account_id=ACCOUNT.account_id,
+                region="us-west-2",
+                family="elbv2",
+                load_balancer_id="test-lb",
+                name="test",
+                kind="application",
+                state="active",
+                scheme="internal",
+                addresses=[],
+                zones=[],
+                tags={},
+                raw={},
+                first_seen=NOW,
+                last_observed=NOW,
+            )
+        )
+    excluded = ACCOUNT.model_copy(update={"excluded_regions": ["us-west-2"]})
+    try:
+        provider.results["us-east-1"] = RuntimeError("failed")
+        provider.calls.clear()
+        assert runner.run([excluded]).status == "failed"
+        assert provider.calls == ["us-east-1"]
+        with factory() as session:
+            assert session.scalar(select(LoadBalancer.present)) is True
+            assert (
+                session.scalar(select(Instance.present).where(Instance.region == "us-west-2"))
+                is True
+            )
+        provider.results["us-east-1"] = [instance()]
+        result = runner.run([excluded])
+        assert result.status == "success"
+        with factory() as session:
+            assert session.scalar(select(LoadBalancer.present)) is False
+            assert (
+                session.scalar(select(Instance.present).where(Instance.region == "us-west-2"))
+                is False
+            )
+            assert session.get_one(Account, ("aws", ACCOUNT.account_id)).excluded_regions == [
+                "us-west-2"
+            ]
+        provider.calls.clear()
+        empty = runner.run(
+            [ACCOUNT.model_copy(update={"excluded_regions": ["us-east-1", "us-west-2"]})]
+        )
+        assert empty.status == "failed" and provider.calls == []
+        with factory() as session:
+            assert "no regions left after exclusions" in session.scalar(
+                select(SyncResult.error).where(SyncResult.run_id == empty.id)
+            )
+    finally:
+        with factory.begin() as session:
+            session.execute(delete(LoadBalancer))

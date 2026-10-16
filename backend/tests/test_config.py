@@ -201,3 +201,12 @@ def test_invalid_or_unsafe_yaml(tmp_path: Path, content: str) -> None:
 
 def test_missing_accounts_file(tmp_path: Path) -> None:
     assert load_accounts(tmp_path / "missing.yaml") == []
+
+
+def test_file_region_exclusions(tmp_path):
+    path = tmp_path / "accounts.yaml"
+    path.write_text(
+        'accounts:\n- provider: aws\n  account_id: "111111111111"\n  name: test\n  regions: all\n'
+        "  excluded_regions: [us-west-2]\n"
+    )
+    assert load_accounts(path)[0].excluded_regions == ["us-west-2"]

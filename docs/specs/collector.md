@@ -194,3 +194,13 @@ starts a region scan. This works across API and CronJob processes. Already activ
 scans finish atomically; queued scans are skipped. Finalization locks the run row
 against concurrent cancellation and records `cancelled` when requested. Only
 accounts with successful results for every discovered region advance last success.
+
+## Excluded regions (T-077)
+
+After region discovery, the runner removes each account's `excluded_regions`,
+including explicit region lists. The access check uses the same selection. If the
+selection is empty it fails with `no regions left after exclusions`. Only after
+all included regions of a selected account have successful results are instances
+and load balancers in excluded regions marked `present=false`. Failed, partial,
+region-filtered or incompletely cancelled accounts retain excluded inventory.
+Re-enabling a region allows its next successful scan to restore presence.

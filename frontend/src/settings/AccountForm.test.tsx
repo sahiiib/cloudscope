@@ -16,7 +16,7 @@ test('creates a validated account with explicit defaults and selected regions', 
   fireEvent.change(screen.getByLabelText('Regions'), { target: { value: 'eu-central-1, us-east-1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
-  expect(fetchApi).toHaveBeenCalledWith('/api/accounts', expect.objectContaining({ method: 'POST', body: JSON.stringify({ provider: 'aws', account_id: '111111111111', name: 'Test', regions: ['eu-central-1', 'us-east-1'], role_arn: null, external_id: null, enabled: true, connection_mode: 'runtime' }) }));
+  expect(fetchApi).toHaveBeenCalledWith('/api/accounts', expect.objectContaining({ method: 'POST', body: JSON.stringify({ provider: 'aws', account_id: '111111111111', name: 'Test', regions: ['eu-central-1', 'us-east-1'], excluded_regions: [], role_arn: null, external_id: null, enabled: true, connection_mode: 'runtime' }) }));
 });
 test.each([422, 409])('shows server %s beside its field, preserving the form', async status => {
   const detail = status === 422 ? [{ loc: ['body', 'role_arn'], msg: 'Role is invalid', type: 'value_error' }] : 'Account already exists';
@@ -47,7 +47,7 @@ test('edits UI fields, clearing optional values without sending immutable or res
   fireEvent.change(screen.getByLabelText('Connection method'), { target: { value: 'runtime' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save account' }));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
-  expect(fetchApi).toHaveBeenCalledWith('/api/accounts/aws/111111111111', expect.objectContaining({ method: 'PATCH', body: '{"name":"Renamed","regions":"all","role_arn":null,"external_id":null,"connection_mode":"runtime"}' }));
+  expect(fetchApi).toHaveBeenCalledWith('/api/accounts/aws/111111111111', expect.objectContaining({ method: 'PATCH', body: '{"name":"Renamed","regions":"all","excluded_regions":[],"role_arn":null,"external_id":null,"connection_mode":"runtime"}' }));
 });
 test('rejects invalid input locally and supports Alibaba IDs without external ID', async () => {
   fetchApi.mockResolvedValue(response({}));
@@ -70,4 +70,42 @@ test('trims the all-region sentinel before building the API payload', async () =
   fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
   expect(JSON.parse(String(fetchApi.mock.calls[0][1]?.body)).regions).toBe('all');
+});
+
+test('tests unsaved settings and saves region checklist exclusions', async () => {
+  fetchApi.mockImplementation(async path => response(path.endsWith('/test-connection') ? { ok: true, regions: ['us-east-1', 'us-west-2'] } : {}));
+  const saved = vi.fn();
+  renderSettings(<AccountForm onSaved={saved} onCancel={vi.fn()} />);
+  fill(); fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+  expect(await screen.findByText('Connection OK. Select regions to exclude.')).toBeInTheDocument();
+  expect(saved).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'us-west-2' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
+  await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+  expect(JSON.parse(String(fetchApi.mock.calls.find(([path]) => path === '/api/accounts')?.[1]?.body)).excluded_regions).toEqual(['us-west-2']);
+});
+
+test('pre-save dedicated test clears key inputs without putting keys in caches', async () => {
+  fetchApi.mockResolvedValue(response({ ok: true, regions: ['us-east-1'] }));
+  const client = renderSettings(<AccountForm dedicatedEnabled onSaved={vi.fn()} onCancel={vi.fn()} />);
+  fill();
+  fireEvent.change(screen.getByLabelText('Access Key ID'), { target: { value: 'fixture-key' } });
+  fireEvent.change(screen.getByLabelText('Secret Access Key'), { target: { value: 'fixture-secret' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+  await screen.findByText('Connection OK. Select regions to exclude.');
+  expect(screen.getByLabelText('Access Key ID')).toHaveValue('');
+  expect(screen.getByLabelText('Secret Access Key')).toHaveValue('');
+  expect(fetchApi.mock.calls).toHaveLength(1);
+  expect(fetchApi.mock.calls[0][0]).toBe('/api/accounts/test-connection');
+  expect(JSON.parse(String(fetchApi.mock.calls[0][1]?.body)).credentials.secret_access_key).toBe('fixture-secret');
+  expect(JSON.stringify(client.getMutationCache().getAll().map(item => item.state))).not.toContain('fixture-');
+  expect(JSON.stringify(client.getQueryCache().getAll().map(item => item.state))).not.toContain('fixture-');
+});
+
+test('failed pre-save check displays sanitized error and does not save', async () => {
+  fetchApi.mockResolvedValue(response({ ok: false, error: 'Region discovery failed: AccessDenied' }));
+  const saved = vi.fn(); renderSettings(<AccountForm onSaved={saved} onCancel={vi.fn()} />);
+  fill(); fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('AccessDenied');
+  expect(saved).not.toHaveBeenCalled();
 });

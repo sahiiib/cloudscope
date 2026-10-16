@@ -57,7 +57,7 @@ A task can start when all its dependencies are `done`.
 | T-074 | Bound AWS connect timeout in collection | claude | T-073 | done |
 | T-075 | UI polish: Instances page, filters, icons, Settings | claude | T-068 | done |
 | T-076 | Per-account sync and stopping a sync | codex | T-073 | review |
-| T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | todo |
+| T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | review |
 | T-078 | Floating table scrollbar; same polish on Load balancers | claude | T-075 | review |
 
 ---

@@ -205,3 +205,11 @@ role/external ID, and Runtime accounts to have no reference. No key material is
 stored in PostgreSQL. Existing rows and referenced inventory/history stay intact.
 Downgrade refuses while any Dedicated references exist; see
 [account-credentials.md](account-credentials.md) for promotion and rollback gates.
+
+## Sync/account controls (T-076, T-077)
+
+Migration 0010 adds nullable `sync_runs.scope_provider`, `scope_account_id` and
+`cancel_requested_at` (timestamptz), plus terminal status `cancelled`.
+Migration 0011 follows it and adds non-null `accounts.excluded_regions` JSONB,
+default `[]`. These migrations are additive and preserve existing inventory and
+history. No new credential storage is introduced.
