@@ -135,4 +135,7 @@ Test connection validates current unsaved settings without persistence. Dedicate
 keys are cleared from the inputs after the check and must be re-entered to save;
 editing with saved dedicated keys also requires a supplied pair for an unsaved
 preview. Test access on the table remains available for testing the saved keys.
+**Superseded by T-079** (Saheb, 2026-10-16): the Edit dialog tests with the
+account's saved keys and shows a ticked-means-scanned region list with counts; see
+[sync-and-account-controls.md](sync-and-account-controls.md#region-picker-in-the-edit-dialog-t-079).
 No keys enter query/mutation caches, browser storage, database, Secret or logs.
