@@ -6,7 +6,8 @@ from typing import Protocol, TypedDict
 from cloudscope.collector.alibaba import AlibabaClientFactory, AlibabaProvider
 from cloudscope.collector.aws import AWSClientFactory, AWSProvider
 from cloudscope.collector.errors import AssumeRoleError, describe_error
-from cloudscope.config import AccountConfig
+from cloudscope.config import AccountConfig, NoRegionsError, included_regions
+from cloudscope.credentials import Credentials
 
 
 class AccessProvider(Protocol):
@@ -16,6 +17,7 @@ class AccessProvider(Protocol):
 class AccessResult(TypedDict, total=False):
     ok: bool
     regions: int
+    region_ids: list[str]
     error: str
 
 
@@ -37,11 +39,34 @@ class AccountAccess:
                 asyncio.to_thread(self.providers[account.provider].test_access, account),
                 timeout=self.timeout,
             )
-            return {"ok": True, "regions": len(regions)}
+            regions = included_regions(account, regions)
+            return {"ok": True, "regions": len(regions), "region_ids": regions}
         except Exception as exc:
             phase = (
                 "Assume role failed"
                 if isinstance(exc, AssumeRoleError)
                 else "Region discovery failed"
             )
-            return {"ok": False, "error": f"{phase}: {describe_error(exc)}"}
+            code = exc.reason if isinstance(exc, NoRegionsError) else describe_error(exc)
+            return {"ok": False, "error": f"{phase}: {code}"}
+
+
+async def test_connection(
+    account: AccountConfig, keys: Credentials | None, runtime_access: AccountAccess
+) -> AccessResult:
+    """Request-scoped factories: supplied keys never reach a credential store or shared cache."""
+    if keys is None:
+        return await runtime_access.check(account)
+
+    def load_keys(config: AccountConfig) -> Credentials:
+        return keys
+
+    providers: dict[str, AccessProvider] = {
+        "aws": AWSProvider(
+            client_factory=AWSClientFactory(access_test=True, credential_loader=load_keys)
+        ),
+        "alibaba": AlibabaProvider(
+            client_factory=AlibabaClientFactory(access_test=True, credential_loader=load_keys)
+        ),
+    }
+    return await AccountAccess(providers).check(account)

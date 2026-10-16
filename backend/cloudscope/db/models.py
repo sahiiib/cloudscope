@@ -61,6 +61,7 @@ class Account(Base):
     connection_mode: Mapped[str] = mapped_column(Text, server_default=text("'runtime'"))
     credential_reference: Mapped[str | None] = mapped_column(Text)
     configuration_version: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    excluded_regions: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     regions: Mapped[str | list[str]] = mapped_column(JSONB, server_default=text("'\"all\"'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")

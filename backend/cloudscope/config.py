@@ -1,5 +1,6 @@
 """Runtime settings and validated, non-secret account configuration."""
 
+import re
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
@@ -69,6 +70,17 @@ class AccountConfig(BaseModel):
     account_id: NonEmptyStr
     name: NonEmptyStr
     regions: Literal["all"] | Annotated[list[NonEmptyStr], Field(min_length=1)]
+    excluded_regions: list[str] = Field(default_factory=list, max_length=64)
+
+    @field_validator("excluded_regions")
+    @classmethod
+    def validate_exclusions(cls, value: list[str]) -> list[str]:
+        if len(set(value)) != len(value) or any(
+            not re.fullmatch(r"[a-z0-9-]{2,32}", item) for item in value
+        ):
+            raise ValueError("Use unique region IDs")
+        return value
+
     role_arn: NonEmptyStr | None = None
     external_id: NonEmptyStr | None = None
     connection_mode: Literal["runtime", "dedicated"] = "runtime"
@@ -165,3 +177,23 @@ def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[Accou
                 )
             ],
         ) from None
+
+
+class NoRegionsError(ValueError):
+    """A safe, fixed diagnostic for an empty region selection."""
+
+    def __init__(self, *, excluded: bool) -> None:
+        self.reason = "no regions left after exclusions" if excluded else "no valid regions"
+        super().__init__(self.reason)
+
+
+def included_regions(account: AccountConfig, discovered: list[str]) -> list[str]:
+    candidates = list(
+        dict.fromkeys(
+            region for region in discovered if account.regions == "all" or region in account.regions
+        )
+    )
+    regions = [region for region in candidates if region not in account.excluded_regions]
+    if not regions:
+        raise NoRegionsError(excluded=bool(candidates))
+    return regions

@@ -193,3 +193,26 @@ scans finish; pending account discovery and region scans stop. The terminal
 status is `cancelled`, with counts for completed scans and a finish timestamp.
 Unscanned regions retain their inventory; partially scanned accounts do not
 advance `last_success_at`.
+
+### Account dialog and connection preview (T-077)
+
+Account list/create/patch responses include `excluded_regions` (default `[]`).
+Create and patch accept up to 64 unique region IDs matching `[a-z0-9-]{2,32}`.
+Exclusions apply after configured/discovered regions are resolved. If none remain,
+collection and access checks report `no regions left after exclusions`.
+
+`POST /api/accounts/test-connection` requires admin full session and CSRF and
+accepts the create-account body, including write-only `credentials` for Dedicated
+mode. It returns `{ok: true, regions: [<region IDs>]}` or `{ok: false, error}`.
+The 30-second access-check deadline and sanitized error policy apply. It never
+creates an account, inventory or credential Secret. Request-local SDK factories
+use submitted keys only for this check, including the existing account identity
+verification. Dedicated credentials must be enabled; a dedicated preview requires
+a supplied key pair, including when editing. No stored-key reference is accepted
+from clients. An in-flight SDK call may finish after the HTTP deadline.
+
+`POST /api/accounts/{provider}/{account_id}/test` still tests the saved connection
+and now returns `region_ids` alongside the existing `regions` count. Both access
+checks intersect discovery with explicit regions and then remove exclusions.
+Audit preview events contain `event=account_test_connection actor=… provider=…
+account_id=… ok=…`, never keys or error payloads.

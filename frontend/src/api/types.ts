@@ -45,12 +45,14 @@ export interface AccountInput {
   account_id: string;
   name: string;
   regions: 'all' | string[];
+  excluded_regions?: string[];
   role_arn: string | null;
   external_id: string | null;
   enabled: boolean;
   connection_mode?: 'runtime' | 'dedicated';
 }
-export type AccountAccessResult = { ok: true; regions: number } | { ok: false; error: string };
+export type AccountConnectionPreview = { ok: true; regions: string[] } | { ok: false; error: string };
+export type AccountAccessResult = { ok: true; regions: number; region_ids: string[] } | { ok: false; error: string };
 export interface AccountSummary extends AccountInput {
   configuration_version?: number;
   credentials_configured?: boolean;

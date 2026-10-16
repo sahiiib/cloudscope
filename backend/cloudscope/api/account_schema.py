@@ -14,6 +14,7 @@ from pydantic import (
     model_validator,
 )
 
+from cloudscope.config import AccountConfig
 from cloudscope.credentials import Credentials
 
 
@@ -24,6 +25,7 @@ class CreateAccount(BaseModel):
     account_id: str
     name: str
     regions: Literal["all"] | list[str]
+    excluded_regions: list[str] = Field(default_factory=list, max_length=64)
     role_arn: str | None = None
     external_id: str | None = None
     enabled: StrictBool = True
@@ -40,6 +42,11 @@ class CreateAccount(BaseModel):
         elif self.credentials is not None:
             raise ValueError("Keys require Dedicated credentials mode")
         return self
+
+    @field_validator("excluded_regions")
+    @classmethod
+    def valid_exclusions(cls, value: list[str]) -> list[str]:
+        return AccountConfig.validate_exclusions(value)
 
     @field_validator("account_id")
     @classmethod
@@ -99,6 +106,7 @@ class PatchAccount(BaseModel):
 
     name: str | None = None
     regions: Literal["all"] | list[str] | None = None
+    excluded_regions: list[str] = Field(default_factory=list, max_length=64)
     role_arn: str | None = None
     external_id: str | None = None
     enabled: StrictBool | None = None

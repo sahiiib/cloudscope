@@ -31,3 +31,7 @@
 }
 .settings-section-title { margin: 1rem 0 0; font-size: 1rem; color: var(--muted); }
 .cloud-accounts .settings-table td:last-child { min-width: 9rem; }
+
+.account-dialog { color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; width: min(42rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); padding: 1.5rem; overflow-y: auto; }
+.account-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.region-checklist { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem; }

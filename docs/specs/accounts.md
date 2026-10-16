@@ -117,3 +117,21 @@ stores null.
 Both calls are read-only. They need one extra permission in the read-only
 roles (`iam:ListAccountAliases`, `ram:GetAccountAlias`); see
 [cloud-access.md](cloud-access.md).
+
+## Dialog and region exclusions (T-077)
+
+Add/Edit opens an accessible modal over the Accounts page. Escape or Cancel asks
+before discarding edits, keyboard focus stays inside, and closing restores focus
+to the opener. Existing version checks and write-only credential fields remain.
+
+`excluded_regions` is a list of at most 64 unique region IDs, default `[]`, for
+both UI and file accounts. A connection preview shows effective discovered regions
+as a checklist; checked entries are saved as exclusions. Existing exclusions stay
+visible so they can be unchecked. Changing connection settings invalidates the
+preview, except retyping cleared key inputs, which preserves the region checklist. If all regions are excluded, collection/test fails explicitly.
+
+Test connection validates current unsaved settings without persistence. Dedicated
+keys are cleared from the inputs after the check and must be re-entered to save;
+editing with saved dedicated keys also requires a supplied pair for an unsaved
+preview. Test access on the table remains available for testing the saved keys.
+No keys enter query/mutation caches, browser storage, database, Secret or logs.

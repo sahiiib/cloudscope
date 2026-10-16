@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
 import type { AccountAccessResult, AccountSummary, SyncRun } from '../api/types';
-import AccountForm from './AccountForm';
+import AccountDialog from './AccountDialog';
 import { AdoptIcon, DeleteIcon, DisableIcon, EditIcon, EnableIcon, TestIcon, RunningIcon } from '../icons';
 import { settingsError } from './errors';
 
-function AccountRow({ account, onEdit, onChanged, editing, syncBusy }: { syncBusy: boolean; editing: boolean; account: AccountSummary; onEdit: () => void; onChanged: () => Promise<void> }) {
+function AccountRow({ account, onEdit, onChanged, editing, syncBusy }: { syncBusy: boolean; editing: boolean; account: AccountSummary; onEdit: (opener: HTMLButtonElement) => void; onChanged: () => Promise<void> }) {
   const sync = useMutation({
     mutationFn: async () => { await apiFetch('/api/sync/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: account.provider, account_id: account.account_id }) }); },
     onSettled: onChanged,
@@ -38,7 +38,7 @@ function AccountRow({ account, onEdit, onChanged, editing, syncBusy }: { syncBus
     <td><div className="settings-actions">
       <button className="secondary icon-button" aria-label={`Sync ${account.name}`} title="Sync" disabled={!account.enabled || syncBusy || sync.isPending} onClick={() => sync.mutate()}><RunningIcon /></button>
       {account.source === 'file' && <button className="secondary icon-button" aria-label={`Manage ${account.name} in web`} title="Manage in web" disabled={adopt.isPending || editing} onClick={() => { adopt.reset(); setAdoptConfirm(true); }}><AdoptIcon /></button>}
-      {account.source === 'ui' && <><button className="secondary icon-button" aria-label={`Edit ${account.name}`} title="Edit" disabled={activity.isPending || editing} onClick={onEdit}><EditIcon /></button>
+      {account.source === 'ui' && <><button className="secondary icon-button" aria-label={`Edit ${account.name}`} title="Edit" disabled={activity.isPending || editing} onClick={event => onEdit(event.currentTarget)}><EditIcon /></button>
         <button className="secondary icon-button" aria-label={`${account.enabled ? 'Disable' : 'Enable'} ${account.name}`} title={account.enabled ? 'Disable' : 'Enable'} disabled={activity.isPending} onClick={() => { activity.reset(); setConfirm(true); }}>{account.enabled ? <DisableIcon /> : <EnableIcon />}</button></>}
       <button className="secondary icon-button" aria-label={access.isPending ? 'Testing…' : `Test access for ${account.name}`} title="Test access" disabled={access.isPending} onClick={() => access.mutate()}><TestIcon /></button>
       <button className="secondary icon-button danger" aria-label={`Delete ${account.name}`} title="Delete" disabled={remove.isPending || editing} onClick={() => { remove.reset(); setDeleteConfirm(true); }}><DeleteIcon /></button>
@@ -72,6 +72,7 @@ export default function CloudAccounts() {
   const client = useQueryClient();
   const [editing, setEditing] = useState<AccountSummary | 'new' | null>(null);
   const [notice, setNotice] = useState('');
+  const [opener, setOpener] = useState<HTMLButtonElement | null>(null);
   const accounts = useQuery({ queryKey: ['accounts'], queryFn: async ({ signal }): Promise<AccountSummary[]> => (await apiFetch('/api/accounts', { signal })).json() });
   const runs = useQuery({ queryKey: ['sync', 'runs'], queryFn: async ({ signal }): Promise<SyncRun[]> => (await apiFetch('/api/sync/runs?limit=20', { signal })).json(), refetchInterval: q => q.state.data?.some(run => run.status === 'running') ? 5000 : 30000 });
   const capabilities = useQuery({ queryKey: ['account-capabilities'], queryFn: async ({ signal }): Promise<{ dedicated_credentials: boolean }> => (await apiFetch('/api/accounts/capabilities', { signal })).json() });
@@ -80,14 +81,14 @@ export default function CloudAccounts() {
   }
   return <section className="settings-card cloud-accounts" aria-labelledby="accounts-title"><h2 id="accounts-title">Cloud accounts</h2>
     <p>Choose Runtime credentials, Assume Role or an account’s own Access Key. Existing file accounts can be moved to web management without deleting inventory.</p>
-    <div className="settings-actions"><button onClick={() => { setNotice(''); setEditing('new'); }} disabled={editing !== null}>Add cloud account</button><button className="secondary" disabled={accounts.isFetching} onClick={() => void refresh()}>Refresh accounts</button></div>
+    <div className="settings-actions"><button onClick={event => { setOpener(event.currentTarget); setNotice(''); setEditing('new'); }} disabled={editing !== null}>Add cloud account</button><button className="secondary" disabled={accounts.isFetching} onClick={() => void refresh()}>Refresh accounts</button></div>
     {accounts.isPending && <p role="status">Loading accounts…</p>}
     {accounts.isError && <p role="alert" className="error">Unable to {accounts.data ? 'refresh' : 'load'} accounts. <button onClick={() => void accounts.refetch()}>Retry accounts</button></p>}
     {Array.isArray(accounts.data) && <div className="settings-table-scroll"><table className="settings-table"><thead><tr>{['Provider', 'Name', 'Account alias', 'Account ID', 'Regions', 'Connection', 'Source', 'Status', 'Last success', 'Instances', 'Actions'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
-      <tbody>{accounts.data.map(account => <AccountRow key={`${account.provider}/${account.account_id}`} account={account} syncBusy={!Array.isArray(runs.data) || runs.data.some(run => run.status === 'running')} editing={editing !== null} onChanged={refresh} onEdit={() => { setNotice(''); setEditing(account); }} />)}</tbody></table>
+      <tbody>{accounts.data.map(account => <AccountRow key={`${account.provider}/${account.account_id}`} account={account} syncBusy={!Array.isArray(runs.data) || runs.data.some(run => run.status === 'running')} editing={editing !== null} onChanged={refresh} onEdit={button => { setOpener(button); setNotice(''); setEditing(account); }} />)}</tbody></table>
       {accounts.data.length === 0 && <p>No cloud accounts yet.</p>}
     </div>}
-    {editing && <AccountForm dedicatedEnabled={capabilities.data?.dedicated_credentials ?? false} key={editing === 'new' ? 'new' : `${editing.provider}/${editing.account_id}`} account={editing === 'new' ? undefined : editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); setNotice('Account saved.'); void refresh(); }} />}
+    {editing && <AccountDialog opener={opener} dedicatedEnabled={capabilities.data?.dedicated_credentials ?? false} key={editing === 'new' ? 'new' : `${editing.provider}/${editing.account_id}`} account={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setNotice('Account saved.'); void refresh(); }} />}
     {notice && <p role="status">{notice}</p>}
   </section>;
 }

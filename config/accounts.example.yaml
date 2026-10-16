@@ -25,3 +25,6 @@ accounts:
     name: alibaba-prod
     role_arn: acs:ram::2222222222222222:role/cloudscope-readonly
     regions: all
+
+# Optional on any account entry: excluded_regions: [us-west-2]
+# Use at most 64 unique region IDs; the default is [].
