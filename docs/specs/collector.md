@@ -183,3 +183,13 @@ null when absent from the instance payload; CPU and memory come from Cpu/Memory.
 
 See [load-balancers.md](load-balancers.md) for the additive schema, read-only
 operations, per-family failure behavior, API and opt-in rollout.
+
+## Cooperative cancellation and API scope (T-076)
+
+A scoped API run filters by both provider and account ID under the same advisory
+lock. Run scope is stored in `sync_runs`. The runner reads `cancel_requested_at`
+from a fresh database session before account discovery and before each worker
+starts a region scan. This works across API and CronJob processes. Already active
+scans finish atomically; queued scans are skipped. Finalization locks the run row
+against concurrent cancellation and records `cancelled` when requested. Only
+accounts with successful results for every discovered region advance last success.

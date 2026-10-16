@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useOutletContext } from 'react-router-dom';
 import { apiFetch, ApiError } from '../api/client';
-import type { AuthUser, SyncRun } from '../api/types';
+import type { AccountSummary, AuthUser, SyncRun } from '../api/types';
 import RunResults from './RunResults';
 import './sync.css';
 
@@ -14,6 +14,14 @@ export default function Sync() {
     queryKey: ['sync', 'runs'],
     queryFn: async ({ signal }): Promise<SyncRun[]> => (await apiFetch('/api/sync/runs?limit=20', { signal })).json(),
     refetchInterval: q => q.state.data?.some(r => r.status === 'running') ? 5000 : 30000,
+  });
+  const accounts = useQuery({ queryKey: ['accounts'], queryFn: async ({ signal }): Promise<AccountSummary[]> => (await apiFetch('/api/accounts', { signal })).json() });
+  const [confirmStop, setConfirmStop] = useState<number | null>(null);
+  const [stopping, setStopping] = useState<number[]>([]);
+  const stop = useMutation({
+    mutationFn: async (id: number) => { await apiFetch(`/api/sync/runs/${id}/cancel`, { method: 'POST' }); },
+    onSuccess: (_data, id) => { setStopping(previous => [...previous, id]); setConfirmStop(null); },
+    onSettled: () => client.invalidateQueries({ queryKey: ['sync'] }),
   });
   const start = useMutation({
     mutationFn: async () => { await apiFetch('/api/sync/runs', { method: 'POST' }); },
@@ -30,20 +38,22 @@ export default function Sync() {
       {user.is_admin && <button disabled={start.isPending || running} onClick={() => start.mutate()}>{start.isPending ? 'Starting…' : running ? 'Sync running' : 'Sync now'}</button>}</div>
     </div>
     <p>Run counts and statuses describe instance collection. <Link to="/load-balancers">View load balancer collection status</Link> for separate LB results.</p>
+    {stop.isError && <p role="alert">Unable to stop sync. Refresh the history and try again.</p>}
+    {confirmStop !== null && <div role="group" aria-label="Confirm stopping sync"><p>Stop run #{confirmStop}? Scans already in progress will finish.</p><button disabled={stop.isPending} onClick={() => stop.mutate(confirmStop)}>Confirm stop</button><button disabled={stop.isPending} onClick={() => setConfirmStop(null)}>Keep running</button></div>}
     {start.isSuccess && <p role="status">Sync requested. Progress appears below.</p>}
     {start.isError && <p role="alert">{startError}</p>}
     {runs.isError && <p role="alert">Unable to {runs.data ? 'refresh' : 'load'} sync history. {runs.data && 'Showing the last received runs.'} <button onClick={() => void runs.refetch()}>Retry history</button></p>}
     {runs.isPending ? <p role="status">Loading sync history…</p> : items.length === 0 && !runs.isError ? <p>No sync runs yet.</p> : items.length > 0 && <div className="sync-scroll"><table className="sync-table">
-      <thead><tr><th>Run</th><th>Started</th><th>Trigger</th><th>Status</th><th>Instances</th><th>Duration</th></tr></thead>
+      <thead><tr><th>Run</th><th>Started</th><th>Trigger</th><th>Scope</th><th>Status</th><th>Instances</th><th>Duration</th></tr></thead>
       <tbody>{items.map(run => {
         const open = expanded.includes(run.id);
         const seconds = Math.max(0, Math.floor(((run.finished_at ? Date.parse(run.finished_at) : runs.dataUpdatedAt) - Date.parse(run.started_at)) / 1000));
         return <Fragment key={run.id}><tr>
           <td><button className="secondary" aria-expanded={open} aria-controls={`run-${run.id}`} onClick={() => setExpanded(previous => open ? previous.filter(id => id !== run.id) : [...previous, run.id])}>Run #{run.id}</button></td>
           <td><time dateTime={run.started_at} title={run.started_at}>{new Date(run.started_at).toLocaleString()}</time></td>
-          <td>{run.trigger}</td><td><span className={`sync-status sync-${run.status}`}>{run.status}</span></td><td>{run.instances_seen}</td>
-          <td>{Math.floor(seconds / 60)}m {seconds % 60}s{!run.finished_at && ' (ongoing)'}</td>
-        </tr>{open && <tr id={`run-${run.id}`}><td colSpan={6}><RunResults id={run.id} /></td></tr>}</Fragment>;
+          <td>{run.trigger}</td><td>{run.scope ? `${accounts.data?.find(account => account.provider === run.scope?.provider && account.account_id === run.scope?.account_id)?.name ?? run.scope.provider ?? 'Account'} · ${run.scope.account_id}` : 'All accounts'}</td><td><span className={`sync-status sync-${run.status}`}>{run.status}</span></td><td>{run.instances_seen}</td>
+          <td>{Math.floor(seconds / 60)}m {seconds % 60}s{!run.finished_at && ' (ongoing)'}{user.is_admin && run.status === 'running' && <button className="secondary" disabled={!!run.cancel_requested_at || stopping.includes(run.id) || stop.isPending} onClick={() => { stop.reset(); setConfirmStop(run.id); }}>{run.cancel_requested_at || stopping.includes(run.id) ? 'Stopping…' : 'Stop'}</button>}</td>
+        </tr>{open && <tr id={`run-${run.id}`}><td colSpan={7}><RunResults id={run.id} /></td></tr>}</Fragment>;
       })}</tbody>
     </table></div>}
   </section>;

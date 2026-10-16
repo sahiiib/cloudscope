@@ -1,22 +1,53 @@
 """Collection history and administrator-triggered background collection."""
 
-from typing import Annotated, cast
+import logging
+from datetime import UTC, datetime
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from cloudscope.api.routes.instances import Auth
 from cloudscope.auth.deps import current_user, require_admin, require_csrf
-from cloudscope.collector.manual import ManualSync, SyncAlreadyRunning, SyncConfigError
-from cloudscope.db.models import SyncResult, SyncRun
+from cloudscope.collector.manual import (
+    ManualSync,
+    SyncAccountDisabled,
+    SyncAccountNotFound,
+    SyncAlreadyRunning,
+    SyncConfigError,
+)
+from cloudscope.db.models import SyncResult, SyncRun, User
+
+logger = logging.getLogger(__name__)
+
+
+class SyncScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider: Literal["aws", "alibaba"]
+    account_id: str = Field(min_length=1, max_length=64, pattern=r"^[0-9]+$")
+
 
 router = APIRouter(prefix="/api/sync/runs", dependencies=[Depends(current_user)])
 
 
 def summary(run: SyncRun) -> dict[str, object]:
     return {
-        field: getattr(run, field)
-        for field in ("id", "started_at", "finished_at", "trigger", "status", "instances_seen")
+        **{
+            field: getattr(run, field)
+            for field in (
+                "id",
+                "started_at",
+                "finished_at",
+                "trigger",
+                "status",
+                "instances_seen",
+                "cancel_requested_at",
+            )
+        },
+        "scope": {"provider": run.scope_provider, "account_id": run.scope_account_id}
+        if run.scope_account_id is not None
+        else None,
     }
 
 
@@ -63,14 +94,37 @@ def run_detail(id: int, auth: Auth) -> dict[str, object]:
 
 
 @router.post("", status_code=202, dependencies=[Depends(require_admin), Depends(require_csrf)])
-def start_run(request: Request) -> dict[str, str]:
+def start_run(request: Request, scope: SyncScope | None = None) -> dict[str, str]:
     service = cast(ManualSync | None, getattr(request.app.state, "manual_sync", None))
     if service is None:
         raise HTTPException(503, "Collection unavailable")
     try:
-        service.start()
+        if scope is None:
+            service.start()
+        else:
+            service.start(provider=scope.provider, account_id=scope.account_id)
+    except SyncAccountNotFound:
+        raise HTTPException(404, "Account not found") from None
+    except SyncAccountDisabled:
+        raise HTTPException(409, "Account is disabled") from None
     except SyncAlreadyRunning:
         raise HTTPException(409, "Another collection is running") from None
     except SyncConfigError:
         raise HTTPException(503, "Collection unavailable") from None
+    return {"status": "accepted"}
+
+
+@router.post("/{id}/cancel", status_code=202, dependencies=[Depends(require_csrf)])
+def cancel_run(
+    id: int, auth: Auth, actor: Annotated[User, Depends(require_admin)]
+) -> dict[str, str]:
+    with auth.sessions.begin() as session:
+        run = session.get(SyncRun, id, with_for_update=True)
+        if run is None:
+            raise HTTPException(404, "Sync run not found")
+        if run.status != "running":
+            raise HTTPException(409, "Sync run is not running")
+        if run.cancel_requested_at is None:
+            run.cancel_requested_at = datetime.now(UTC)
+    logger.info("event=sync_cancel_requested actor=%s run_id=%s", actor.id, id)
     return {"status": "accepted"}

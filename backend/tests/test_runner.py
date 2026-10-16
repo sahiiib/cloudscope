@@ -359,3 +359,77 @@ def test_unexpected_failure_after_start_marks_run_failed(
     with factory() as session:
         run = session.scalar(select(SyncRun))
         assert run is not None and run.status == "failed" and run.finished_at is not None
+
+
+def test_scoped_run_isolates_provider_and_other_inventory(factory: sessionmaker[Session]) -> None:
+    provider = FakeProvider()
+    runner = SyncRunner(factory, {"aws": provider})
+    first = runner.run([ACCOUNT])
+    with factory.begin() as session:
+        session.add(
+            Account(
+                provider="alibaba",
+                account_id=ACCOUNT.account_id,
+                name="Other",
+                source="ui",
+                last_success_at=NOW,
+            )
+        )
+    provider.calls.clear()
+    scoped = runner.run([ACCOUNT], account_id=ACCOUNT.account_id, scope_provider="aws")
+    assert scoped.scope_provider == "aws" and scoped.scope_account_id == ACCOUNT.account_id
+    assert scoped.status == "success" and first.instances_seen == scoped.instances_seen
+    with factory() as session:
+        assert session.get_one(Account, ("alibaba", ACCOUNT.account_id)).last_success_at == NOW
+        assert {
+            r.provider
+            for r in session.scalars(select(SyncResult).where(SyncResult.run_id == scoped.id))
+        } == {"aws"}
+
+
+def test_cancel_from_separate_connection_preserves_unscanned_region(
+    factory: sessionmaker[Session],
+) -> None:
+    provider = FakeProvider()
+    runner = SyncRunner(factory, {"aws": provider}, concurrency=1, clock=lambda: NOW)
+    runner.run([ACCOUNT])
+    original_scan = provider.scan
+    provider.calls.clear()
+
+    def scan(account: AccountConfig, region: str) -> list[NormalizedInstance]:
+        # A separate session represents an API pod requesting cancellation of a CronJob.
+        with factory.begin() as session:
+            run = session.scalar(select(SyncRun).where(SyncRun.status == "running"))
+            assert run is not None
+            run.cancel_requested_at = NOW
+        return original_scan(account, region)
+
+    provider.scan = scan  # type: ignore[method-assign]
+    runner.clock = lambda: NOW + timedelta(hours=1)
+    result = runner.run([ACCOUNT], trigger="schedule")
+    assert result.status == "cancelled" and result.finished_at is not None
+    assert result.instances_seen == 1 and provider.calls == ["us-east-1"]
+    with factory() as session:
+        assert session.get_one(Account, ("aws", ACCOUNT.account_id)).last_success_at == NOW
+        unscanned = session.scalar(select(Instance).where(Instance.region == "us-west-2"))
+        assert unscanned is not None and unscanned.present and unscanned.last_observed == NOW
+
+
+def test_cancellation_before_next_account_discovery(factory: sessionmaker[Session]) -> None:
+    provider = FakeProvider()
+    calls = []
+
+    def regions(account: AccountConfig) -> list[str]:
+        calls.append(account.account_id)
+        with factory.begin() as session:
+            run = session.scalar(select(SyncRun).where(SyncRun.status == "running"))
+            assert run is not None
+            run.cancel_requested_at = NOW
+        return ["us-east-1"]
+
+    provider.list_regions = regions  # type: ignore[method-assign]
+    result = SyncRunner(factory, {"aws": provider}).run(
+        [ACCOUNT, ACCOUNT.model_copy(update={"account_id": "222222222222"})]
+    )
+    assert result.status == "cancelled"
+    assert len(calls) == 1 and provider.calls == []

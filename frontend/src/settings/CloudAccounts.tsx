@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
-import type { AccountAccessResult, AccountSummary } from '../api/types';
+import type { AccountAccessResult, AccountSummary, SyncRun } from '../api/types';
 import AccountForm from './AccountForm';
-import { AdoptIcon, DeleteIcon, DisableIcon, EditIcon, EnableIcon, TestIcon } from '../icons';
+import { AdoptIcon, DeleteIcon, DisableIcon, EditIcon, EnableIcon, TestIcon, RunningIcon } from '../icons';
 import { settingsError } from './errors';
 
-function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean; account: AccountSummary; onEdit: () => void; onChanged: () => Promise<void> }) {
+function AccountRow({ account, onEdit, onChanged, editing, syncBusy }: { syncBusy: boolean; editing: boolean; account: AccountSummary; onEdit: () => void; onChanged: () => Promise<void> }) {
+  const sync = useMutation({
+    mutationFn: async () => { await apiFetch('/api/sync/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: account.provider, account_id: account.account_id }) }); },
+    onSettled: onChanged,
+  });
   const [confirm, setConfirm] = useState(false);
   const [adoptConfirm, setAdoptConfirm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -32,12 +36,15 @@ function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean;
     <td>{account.source === 'file' ? 'Managed by accounts.yaml' : 'UI'}</td><td>{account.enabled ? 'Enabled' : 'Disabled'}</td>
     <td>{account.last_success_at ? <time dateTime={account.last_success_at}>{new Date(account.last_success_at).toLocaleString()}</time> : 'Never'}</td><td>{account.instance_count}</td>
     <td><div className="settings-actions">
+      <button className="secondary icon-button" aria-label={`Sync ${account.name}`} title="Sync" disabled={!account.enabled || syncBusy || sync.isPending} onClick={() => sync.mutate()}><RunningIcon /></button>
       {account.source === 'file' && <button className="secondary icon-button" aria-label={`Manage ${account.name} in web`} title="Manage in web" disabled={adopt.isPending || editing} onClick={() => { adopt.reset(); setAdoptConfirm(true); }}><AdoptIcon /></button>}
       {account.source === 'ui' && <><button className="secondary icon-button" aria-label={`Edit ${account.name}`} title="Edit" disabled={activity.isPending || editing} onClick={onEdit}><EditIcon /></button>
         <button className="secondary icon-button" aria-label={`${account.enabled ? 'Disable' : 'Enable'} ${account.name}`} title={account.enabled ? 'Disable' : 'Enable'} disabled={activity.isPending} onClick={() => { activity.reset(); setConfirm(true); }}>{account.enabled ? <DisableIcon /> : <EnableIcon />}</button></>}
       <button className="secondary icon-button" aria-label={access.isPending ? 'Testing…' : `Test access for ${account.name}`} title="Test access" disabled={access.isPending} onClick={() => access.mutate()}><TestIcon /></button>
       <button className="secondary icon-button danger" aria-label={`Delete ${account.name}`} title="Delete" disabled={remove.isPending || editing} onClick={() => { remove.reset(); setDeleteConfirm(true); }}><DeleteIcon /></button>
     </div>
+      {sync.isError && <p role="alert">{settingsError(sync.error, 'Unable to start sync. Refresh and retry.')}</p>}
+      {sync.isSuccess && <p role="status">Sync requested for {account.name}.</p>}
       {deleteConfirm && <div className="settings-confirm" role="group" aria-label={`Confirm deletion for ${account.name}`}>
         <p>Delete <strong>{account.name}</strong> from Cloudscope?</p><p>Collection will stop and this account’s inventory will be hidden. Your cloud resources are unchanged. Re-add the same account to restore its saved history.</p>
         <div className="settings-actions"><button disabled={remove.isPending} onClick={() => remove.mutate()}>Delete account</button><button className="secondary" disabled={remove.isPending} onClick={() => { setDeleteConfirm(false); remove.reset(); }}>Cancel</button></div>
@@ -66,6 +73,7 @@ export default function CloudAccounts() {
   const [editing, setEditing] = useState<AccountSummary | 'new' | null>(null);
   const [notice, setNotice] = useState('');
   const accounts = useQuery({ queryKey: ['accounts'], queryFn: async ({ signal }): Promise<AccountSummary[]> => (await apiFetch('/api/accounts', { signal })).json() });
+  const runs = useQuery({ queryKey: ['sync', 'runs'], queryFn: async ({ signal }): Promise<SyncRun[]> => (await apiFetch('/api/sync/runs?limit=20', { signal })).json(), refetchInterval: 5000 });
   const capabilities = useQuery({ queryKey: ['account-capabilities'], queryFn: async ({ signal }): Promise<{ dedicated_credentials: boolean }> => (await apiFetch('/api/accounts/capabilities', { signal })).json() });
   async function refresh() {
     await Promise.all(['accounts', 'instance-facets', 'instances', 'instance', 'sync', 'load-balancers', 'load-balancer'].map(key => client.invalidateQueries({ queryKey: [key] })));
@@ -76,7 +84,7 @@ export default function CloudAccounts() {
     {accounts.isPending && <p role="status">Loading accounts…</p>}
     {accounts.isError && <p role="alert" className="error">Unable to {accounts.data ? 'refresh' : 'load'} accounts. <button onClick={() => void accounts.refetch()}>Retry accounts</button></p>}
     {Array.isArray(accounts.data) && <div className="settings-table-scroll"><table className="settings-table"><thead><tr>{['Provider', 'Name', 'Account alias', 'Account ID', 'Regions', 'Connection', 'Source', 'Status', 'Last success', 'Instances', 'Actions'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
-      <tbody>{accounts.data.map(account => <AccountRow key={`${account.provider}/${account.account_id}`} account={account} editing={editing !== null} onChanged={refresh} onEdit={() => { setNotice(''); setEditing(account); }} />)}</tbody></table>
+      <tbody>{accounts.data.map(account => <AccountRow key={`${account.provider}/${account.account_id}`} account={account} syncBusy={!Array.isArray(runs.data) || runs.data.some(run => run.status === 'running')} editing={editing !== null} onChanged={refresh} onEdit={() => { setNotice(''); setEditing(account); }} />)}</tbody></table>
       {accounts.data.length === 0 && <p>No cloud accounts yet.</p>}
     </div>}
     {editing && <AccountForm dedicatedEnabled={capabilities.data?.dedicated_credentials ?? false} key={editing === 'new' ? 'new' : `${editing.provider}/${editing.account_id}`} account={editing === 'new' ? undefined : editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); setNotice('Account saved.'); void refresh(); }} />}
