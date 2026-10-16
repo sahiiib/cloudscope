@@ -11,9 +11,12 @@ function setup() {
 test('add opens a named modal, traps keyboard focus, closes on Escape and restores opener', async () => {
   setup();
   const opener = await screen.findByRole('button', { name: 'Add cloud account' });
-  opener.focus(); fireEvent.click(opener);
+  // Safari mouse clicks can leave focus on body; restore the explicit opener.
+  expect(document.activeElement).toBe(document.body);
+  fireEvent.click(opener);
   const dialog = screen.getByRole('dialog', { name: 'Add cloud account' });
   expect(dialog).toHaveAttribute('open');
+  expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)).toHaveTextContent('Add cloud account');
   const first = screen.getByLabelText('Provider');
   const last = screen.getByRole('button', { name: 'Cancel' });
   first.focus(); fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
@@ -27,10 +30,12 @@ test('add opens a named modal, traps keyboard focus, closes on Escape and restor
 test('dirty modal asks before discarding and Keep editing retains the inputs', async () => {
   setup();
   const opener = await screen.findByRole('button', { name: 'Add cloud account' });
-  opener.focus(); fireEvent.click(opener);
+  // Safari mouse clicks can leave focus on body; restore the explicit opener.
+  expect(document.activeElement).toBe(document.body);
+  fireEvent.click(opener);
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Unsaved' } });
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.getByRole('group', { name: 'Discard unsaved changes' })).toBeInTheDocument();
+  expect(screen.getByRole('group', { name: 'Discard unsaved changes' })).toHaveFocus();
   fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
   expect(screen.getByLabelText('Name')).toHaveValue('Unsaved');
   fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));

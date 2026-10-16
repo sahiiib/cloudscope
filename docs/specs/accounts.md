@@ -128,7 +128,7 @@ to the opener. Existing version checks and write-only credential fields remain.
 both UI and file accounts. A connection preview shows effective discovered regions
 as a checklist; checked entries are saved as exclusions. Existing exclusions stay
 visible so they can be unchecked. Changing connection settings invalidates the
-preview. If all regions are excluded, collection/test fails explicitly.
+preview, except retyping cleared key inputs, which preserves the region checklist. If all regions are excluded, collection/test fails explicitly.
 
 Test connection validates current unsaved settings without persistence. Dedicated
 keys are cleared from the inputs after the check and must be re-entered to save;

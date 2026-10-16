@@ -153,3 +153,70 @@ def test_access_excludes_and_times_out_without_leaking_errors() -> None:
         "ok": False,
         "error": "Region discovery failed: RuntimeError",
     }
+
+
+def test_runtime_preview_uses_injected_access_service(client: TestClient, admin: User) -> None:
+    provider = Mock()
+    provider.test_access.return_value = ["us-east-1", "us-west-2"]
+    client.app.state.account_access = AccountAccess({"aws": provider})
+    login(client)
+    result = client.post(
+        "/api/accounts/test-connection",
+        headers=CSRF,
+        json={**BODY, "excluded_regions": ["us-west-2"]},
+    )
+    assert result.status_code == 200 and result.json() == {"ok": True, "regions": ["us-east-1"]}
+    provider.test_access.assert_called_once()
+    assert provider.test_access.call_args.args[0].account_id == BODY["account_id"]
+
+
+def test_unsaved_dedicated_identity_mismatch_never_reads_inventory(
+    client: TestClient, admin: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cloudscope.collector import access
+    from cloudscope.collector.aws import AWSClientFactory
+
+    sdk = Mock()
+    sdk.client.return_value.get_caller_identity.return_value = {"Account": "222222222222"}
+    monkeypatch.setattr(
+        access,
+        "AWSClientFactory",
+        lambda **kwargs: AWSClientFactory(session_factory=Mock(return_value=sdk), **kwargs),
+    )
+    client.app.state.dedicated_credentials_enabled = True
+    login(client)
+    result = client.post(
+        "/api/accounts/test-connection",
+        headers=CSRF,
+        json={
+            **BODY,
+            "connection_mode": "dedicated",
+            "credentials": {"access_key_id": "fixture-key", "secret_access_key": "fixture-secret"},
+        },
+    )
+    assert result.status_code == 200
+    assert result.json() == {
+        "ok": False,
+        "error": "Region discovery failed: AccountIdentityMismatch",
+    }
+    assert [call.args[0] for call in sdk.client.call_args_list] == ["sts"]
+    sdk.client.return_value.describe_regions.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "regions,discovered,excluded,expected",
+    [
+        ("all", [], [], "no valid regions"),
+        ("all", [], ["us-east-1"], "no valid regions"),
+        (["us-west-2"], ["us-east-1"], [], "no valid regions"),
+        ("all", ["us-east-1"], ["us-east-1"], "no regions left after exclusions"),
+    ],
+)
+def test_empty_region_diagnostics(regions, discovered, excluded, expected) -> None:
+    provider = Mock()
+    provider.test_access.return_value = discovered
+    account = AccountConfig(**{**BODY, "regions": regions}, excluded_regions=excluded)
+    assert asyncio.run(AccountAccess({"aws": provider}).check(account)) == {
+        "ok": False,
+        "error": f"Region discovery failed: {expected}",
+    }

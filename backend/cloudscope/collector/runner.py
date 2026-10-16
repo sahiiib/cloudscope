@@ -10,7 +10,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Literal
 
-from sqlalchemy import Text, all_, bindparam, case, or_, select, tuple_, update
+from sqlalchemy import Text, all_, bindparam, case, delete, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -24,7 +24,14 @@ from cloudscope.config import (
     included_regions,
     load_accounts,
 )
-from cloudscope.db.models import Account, Instance, LoadBalancer, SyncResult, SyncRun
+from cloudscope.db.models import (
+    Account,
+    Instance,
+    LoadBalancer,
+    LoadBalancerScan,
+    SyncResult,
+    SyncRun,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +277,13 @@ class SyncRunner:
                     and account_results
                     and all(result.status == "success" for result in account_results)
                 ):
+                    session.execute(
+                        delete(LoadBalancerScan).where(
+                            LoadBalancerScan.provider == account.provider,
+                            LoadBalancerScan.account_id == account.account_id,
+                            LoadBalancerScan.region.in_(account.excluded_regions),
+                        )
+                    )
                     for model in (Instance, LoadBalancer):
                         session.execute(
                             update(model)
@@ -403,11 +417,7 @@ class SyncRunner:
     ) -> None:
         # SDK/DB exception text can contain credentials or raw payloads. Persist and
         # log only a diagnostic code/class, without exception tracebacks.
-        code = (
-            "no regions left after exclusions"
-            if isinstance(exc, NoRegionsError)
-            else describe_error(exc)
-        )
+        code = exc.reason if isinstance(exc, NoRegionsError) else describe_error(exc)
         logger.warning(
             "event=collection_error run_id=%s phase=%s provider=%s "
             "account_id=%s region=%s error=%s",

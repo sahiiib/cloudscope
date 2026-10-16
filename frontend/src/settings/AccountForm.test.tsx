@@ -109,3 +109,24 @@ test('failed pre-save check displays sanitized error and does not save', async (
   expect(await screen.findByRole('alert')).toHaveTextContent('AccessDenied');
   expect(saved).not.toHaveBeenCalled();
 });
+
+
+test('retyping dedicated keys retains the discovered checklist and selected exclusions', async () => {
+  fetchApi.mockResolvedValue(response({ ok: true, regions: ['us-east-1', 'us-west-2'] }));
+  renderSettings(<AccountForm dedicatedEnabled onSaved={vi.fn()} onCancel={vi.fn()} />);
+  fill();
+  fireEvent.change(screen.getByLabelText('Access Key ID'), { target: { value: 'fixture-key' } });
+  fireEvent.change(screen.getByLabelText('Secret Access Key'), { target: { value: 'fixture-secret' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+  await screen.findByRole('checkbox', { name: 'us-west-2' });
+  for (const label of ['Access Key ID', 'Secret Access Key', 'Session Token (optional)']) {
+    fireEvent.change(screen.getByLabelText(label), { target: { value: 'fixture-retyped' } });
+    expect(screen.getByRole('checkbox', { name: 'us-west-2' })).toBeInTheDocument();
+  }
+  fireEvent.click(screen.getByRole('checkbox', { name: 'us-west-2' }));
+  expect(screen.getByRole('checkbox', { name: 'us-west-2' })).toBeChecked();
+  expect(screen.getByText('Connection OK. Select regions to exclude.')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Regions'), { target: { value: 'us-east-1' } });
+  expect(screen.queryByText('Connection OK. Select regions to exclude.')).not.toBeInTheDocument();
+  expect(screen.queryByRole('checkbox', { name: 'us-east-1' })).not.toBeInTheDocument();
+});

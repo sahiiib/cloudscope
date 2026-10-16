@@ -203,4 +203,9 @@ selection is empty it fails with `no regions left after exclusions`. Only after
 all included regions of a selected account have successful results are instances
 and load balancers in excluded regions marked `present=false`. Failed, partial,
 region-filtered or incompletely cancelled accounts retain excluded inventory.
-Re-enabling a region allows its next successful scan to restore presence.
+Retirement also removes that account’s excluded-region LB scan status rows in
+the same transaction, so stale access errors disappear. Re-enabling a region
+allows its next successful scan to restore presence.
+
+An empty discovery or unmatched explicit selection reports `no valid regions`;
+`no regions left after exclusions` is reserved for exclusions removing candidates.

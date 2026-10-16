@@ -151,7 +151,9 @@ async def test_unsaved_account(
             "credential_reference": "unsaved-test" if body.connection_mode == "dedicated" else None,
         }
     )
-    result = await test_connection(config, body.credentials)
+    result = await test_connection(
+        config, body.credentials, cast(AccountAccess, request.app.state.account_access)
+    )
     logger.info(
         "event=account_test_connection actor=%s provider=%s account_id=%s ok=%s",
         actor.id,

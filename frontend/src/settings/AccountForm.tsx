@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
-import type { AccountInput, AccountSummary } from '../api/types';
+import type { AccountConnectionPreview, AccountInput, AccountSummary } from '../api/types';
 import { accountErrors, validateAccount, type AccountErrors } from './accountValidation';
 
-export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabled = false, onDirty, onBusy }: {
-  account?: AccountSummary; onSaved: () => void; onCancel: () => void; dedicatedEnabled?: boolean; onDirty?: () => void; onBusy?: (busy: boolean) => void;
+export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabled = false, onDirty, onBusy, titleId }: {
+  account?: AccountSummary; onSaved: () => void; onCancel: () => void; dedicatedEnabled?: boolean; onDirty?: () => void; onBusy?: (busy: boolean) => void; titleId?: string;
 }) {
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
@@ -53,7 +53,7 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
     const body = JSON.stringify({ ...input, ...(method === 'dedicated' ? { credentials: { access_key_id: keyId, secret_access_key: secret, ...(token ? { session_token: token } : {}) } } : {}) });
     for (const name of ['access_key_id', 'secret_access_key', 'session_token']) { const field = form.elements.namedItem(name) as HTMLInputElement | null; if (field) field.value = ''; }
     try {
-      const result: { ok: true; regions: string[] } | { ok: false; error: string } = await (await apiFetch('/api/accounts/test-connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })).json();
+      const result: AccountConnectionPreview = await (await apiFetch('/api/accounts/test-connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })).json();
       if (controller.signal.aborted) return;
       if (result.ok) { setDiscovered(result.regions); setTestMessage('Connection OK. Select regions to exclude.'); }
       else setTestError(result.error);
@@ -66,7 +66,7 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
   function accessibility(field: keyof AccountInput) {
     return { 'aria-invalid': !!errors[field], 'aria-describedby': errors[field] ? `${id}-${field}-error` : undefined };
   }
-  return <form ref={formRef} onChange={event => { onDirty?.(); if (!(event.target as HTMLElement).closest('.region-checklist')) { setTestMessage(''); setTestError(''); setDiscovered([]); } }} className="account-form" aria-label={account ? 'Edit cloud account' : 'Add cloud account'} noValidate onSubmit={event => {
+  return <form ref={formRef} onChange={event => { onDirty?.(); if (!(event.target as HTMLElement).closest('.region-checklist') && !['access_key_id', 'secret_access_key', 'session_token'].includes((event.target as HTMLInputElement).name)) { setTestMessage(''); setTestError(''); setDiscovered([]); } }} className="account-form" aria-label={account ? 'Edit cloud account' : 'Add cloud account'} noValidate onSubmit={event => {
     event.preventDefault();
     const input: AccountInput = { ...values, excluded_regions: excluded, regions: regions.trim() === 'all' ? 'all' : regions.split(',').map(region => region.trim()) };
     // Only input fields go to the API, never source/count/timestamps from a row.
@@ -84,7 +84,7 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
     }
     setErrors(invalid);
     if (!Object.keys(invalid).length && !save.isPending) save.mutate(body); else pendingKeys.current = null;
-  }}><h3>{account ? `Edit ${account.name}` : 'Add cloud account'}</h3>
+  }}><h3 id={titleId}>{account ? `Edit ${account.name}` : 'Add cloud account'}</h3>
     <fieldset disabled={save.isPending || testing}>
       <label>Provider<select value={values.provider} disabled={!!account} {...accessibility('provider')} onChange={event => { setExcluded([]); setValues({ ...values, provider: event.target.value as AccountInput['provider'], external_id: null }); }}>
         <option value="aws">AWS</option><option value="alibaba">Alibaba</option>

@@ -47,18 +47,16 @@ class AccountAccess:
                 if isinstance(exc, AssumeRoleError)
                 else "Region discovery failed"
             )
-            code = (
-                "no regions left after exclusions"
-                if isinstance(exc, NoRegionsError)
-                else describe_error(exc)
-            )
+            code = exc.reason if isinstance(exc, NoRegionsError) else describe_error(exc)
             return {"ok": False, "error": f"{phase}: {code}"}
 
 
-async def test_connection(account: AccountConfig, keys: Credentials | None) -> AccessResult:
+async def test_connection(
+    account: AccountConfig, keys: Credentials | None, runtime_access: AccountAccess
+) -> AccessResult:
     """Request-scoped factories: supplied keys never reach a credential store or shared cache."""
     if keys is None:
-        return await AccountAccess().check(account)
+        return await runtime_access.check(account)
 
     def load_keys(config: AccountConfig) -> Credentials:
         return keys

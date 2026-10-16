@@ -180,18 +180,20 @@ def load_accounts(path: str | Path = Path("config/accounts.yaml")) -> list[Accou
 
 
 class NoRegionsError(ValueError):
-    """All configured/discovered regions were excluded."""
+    """A safe, fixed diagnostic for an empty region selection."""
+
+    def __init__(self, *, excluded: bool) -> None:
+        self.reason = "no regions left after exclusions" if excluded else "no valid regions"
+        super().__init__(self.reason)
 
 
 def included_regions(account: AccountConfig, discovered: list[str]) -> list[str]:
-    regions = list(
+    candidates = list(
         dict.fromkeys(
-            region
-            for region in discovered
-            if (account.regions == "all" or region in account.regions)
-            and region not in account.excluded_regions
+            region for region in discovered if account.regions == "all" or region in account.regions
         )
     )
+    regions = [region for region in candidates if region not in account.excluded_regions]
     if not regions:
-        raise NoRegionsError("no regions left after exclusions")
+        raise NoRegionsError(excluded=bool(candidates))
     return regions

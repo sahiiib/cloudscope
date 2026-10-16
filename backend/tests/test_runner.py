@@ -470,7 +470,7 @@ def test_cancellation_before_next_account_discovery(factory: sessionmaker[Sessio
 def test_excluded_regions_not_scanned_and_retired_only_after_success(
     factory: sessionmaker[Session],
 ) -> None:
-    from cloudscope.db.models import LoadBalancer
+    from cloudscope.db.models import LoadBalancer, LoadBalancerScan
 
     provider = FakeProvider()
     runner = SyncRunner(factory, {"aws": provider}, clock=lambda: NOW)
@@ -495,6 +495,19 @@ def test_excluded_regions_not_scanned_and_retired_only_after_success(
                 last_observed=NOW,
             )
         )
+    with factory.begin() as session:
+        for scan_region in ("us-east-1", "us-west-2"):
+            session.add(
+                LoadBalancerScan(
+                    provider="aws",
+                    account_id=ACCOUNT.account_id,
+                    region=scan_region,
+                    family="elbv2",
+                    status="error",
+                    error="AccessDenied",
+                    last_attempt=NOW,
+                )
+            )
     excluded = ACCOUNT.model_copy(update={"excluded_regions": ["us-west-2"]})
     try:
         provider.results["us-east-1"] = RuntimeError("failed")
@@ -502,6 +515,7 @@ def test_excluded_regions_not_scanned_and_retired_only_after_success(
         assert runner.run([excluded]).status == "failed"
         assert provider.calls == ["us-east-1"]
         with factory() as session:
+            assert len(session.scalars(select(LoadBalancerScan)).all()) == 2
             assert session.scalar(select(LoadBalancer.present)) is True
             assert (
                 session.scalar(select(Instance.present).where(Instance.region == "us-west-2"))
@@ -511,6 +525,7 @@ def test_excluded_regions_not_scanned_and_retired_only_after_success(
         result = runner.run([excluded])
         assert result.status == "success"
         with factory() as session:
+            assert session.scalars(select(LoadBalancerScan.region)).all() == ["us-east-1"]
             assert session.scalar(select(LoadBalancer.present)) is False
             assert (
                 session.scalar(select(Instance.present).where(Instance.region == "us-west-2"))
@@ -530,4 +545,5 @@ def test_excluded_regions_not_scanned_and_retired_only_after_success(
             )
     finally:
         with factory.begin() as session:
+            session.execute(delete(LoadBalancerScan))
             session.execute(delete(LoadBalancer))
