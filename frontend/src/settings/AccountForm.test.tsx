@@ -130,3 +130,8 @@ test('retyping dedicated keys retains the discovered checklist and selected excl
   expect(screen.queryByText('Connection OK. Select regions to exclude.')).not.toBeInTheDocument();
   expect(screen.queryByRole('checkbox', { name: 'us-east-1' })).not.toBeInTheDocument();
 });
+test('always shows the excluded regions section with a hint before the first test', () => {
+  renderSettings(<AccountForm onSaved={vi.fn()} onCancel={vi.fn()} />);
+  const group = screen.getByRole('group', { name: 'Excluded regions' });
+  expect(group).toHaveTextContent('Click Test connection to list this account’s regions');
+});
