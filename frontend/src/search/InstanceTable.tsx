@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { InstanceSummary } from '../api/types';
-import { CopyIcon, OtherStateIcon, RunningIcon, StoppedIcon, TerminatedIcon } from '../icons';
-
-const stateIcons = { running: RunningIcon, stopped: StoppedIcon, terminated: TerminatedIcon } as const;
-
-function StateIcon({ state }: { state: string }) {
-  const known = state in stateIcons ? state as keyof typeof stateIcons : null;
-  const Glyph = known ? stateIcons[known] : OtherStateIcon;
-  return <span className={`state-icon state-${known ?? 'other'}`} role="img" aria-label={state} title={state}><Glyph /></span>;
-}
+import FloatingScroll from '../FloatingScroll';
+import { CopyIcon, StateIcon } from '../icons';
 
 function launchAge(value: string) {
   const days = Math.floor((Date.now() - Date.parse(value)) / 86400000);
@@ -27,7 +20,7 @@ export default function InstanceTable({ items, sort, onSort }: {
       <button className="secondary" onClick={() => onSort(field)}>{label}{active ? (sort.startsWith('-') ? ' ↓' : ' ↑') : ''}</button>
     </th>;
   }
-  return <><p role="status">{copyStatus}</p><div className="instance-scroll"><table className="instance-table">
+  return <><p role="status">{copyStatus}</p><FloatingScroll className="instance-scroll"><table className="instance-table">
     <thead><tr>{heading('Name', 'name')}<th scope="col">Instance ID</th><th scope="col">State</th><th scope="col">Type</th>
       <th scope="col">Private IPs</th><th scope="col">Public IPs</th>{heading('Account', 'account')}<th scope="col">Account alias</th><th scope="col">Account ID</th>{heading('Region', 'region')}
       <th scope="col">Provider</th>{heading('Launch time', 'launch_time')}<th scope="col">Tags</th></tr></thead>
@@ -55,5 +48,5 @@ export default function InstanceTable({ items, sort, onSort }: {
           {!tags.length && '—'}</td>
       </tr>;
     })}</tbody>
-  </table></div></>;
+  </table></FloatingScroll></>;
 }
