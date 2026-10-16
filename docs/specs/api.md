@@ -216,3 +216,35 @@ and now returns `region_ids` alongside the existing `regions` count. Both access
 checks intersect discovery with explicit regions and then remove exclusions.
 Audit preview events contain `event=account_test_connection actor=… provider=…
 account_id=… ok=…`, never keys or error payloads.
+
+### Edit connection preview and region picker (T-079)
+
+`POST /api/accounts/{provider}/{account_id}/test-connection` requires a full
+admin session and CSRF. It accepts the create/unsaved-preview settings body;
+`provider` and `account_id` may be omitted but must match the path if supplied.
+Omitted `connection_mode` keeps the saved mode. Missing/deleted accounts return
+404 and invalid/mismatched input returns 422.
+
+For Dedicated mode, submitted keys override saved keys for this test only. When
+keys are absent, only that same account's saved Dedicated reference can be used;
+a Runtime account switching to Dedicated still needs a pair. The dedicated feature
+flag remains required. Runtime mode uses runtime credentials, even when the stored
+account is Dedicated. Secret reads and cloud identity checks run through the
+existing collector access service, within its 30-second deadline. No account,
+inventory or credential writes occur, and no keys/reference are returned or logged.
+Response and audit format match the unsaved preview: `{ok: true, regions: [...]}`
+or `{ok: false, error: "<sanitized error>"}`.
+
+`GET /api/accounts/{provider}/{account_id}/regions` requires a full admin session
+and returns `{regions: [{region, instances, load_balancers, excluded}]}`, sorted by
+region. It performs database reads only. Regions are the union of the most recent
+run's non-`*` results for this account, present inventory regions, and exclusions.
+Runs that scanned only other accounts or only failed discovery do not replace
+that account's last scanned region list. Counts include present rows only and are
+aggregated separately to avoid multiplying instance/LB counts. An untouched account
+has an empty list; configured exclusions remain visible even before its first scan.
+
+The dialog uses GET on opening Edit. Select regions sends a preview with empty
+exclusions to discover selectable regions, then merges new regions with zero counts
+without changing the user's exclusions. Checked means scanned; unchecked region
+IDs are submitted as `excluded_regions`. At least one listed region must stay checked.

@@ -199,3 +199,18 @@ checked means excluded. Keys clear after the test and need re-entry for save;
 they never enter React Query caches or browser storage. Existing row Test access
 continues to check the saved connection. Mutations/tests disable the form while
 pending; changing connection fields clears stale preview results.
+
+## Region picker (T-079)
+
+The Account dialog's Select regions button replaces Test connection and appears
+under the Regions field. Edit immediately loads the account's known regions with
+instance and load balancer counts. Checkbox semantics are now **checked = scan**;
+unchecked regions are saved as `excluded_regions`. A preview merges newly discovered
+regions with zero counts without discarding existing choices. An entirely unchecked
+list displays "Keep at least one region" and blocks save. Region-list load errors
+can be retried independently of preview errors.
+
+Edit previews use that account's saved Dedicated keys when key fields are blank;
+Add still requires supplied keys. New keys override saved keys for preview only,
+are cleared afterward, and must be re-entered to save a rotation. No saved keys or
+Secret references are sent to the browser.

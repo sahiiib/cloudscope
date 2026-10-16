@@ -59,7 +59,7 @@ A task can start when all its dependencies are `done`.
 | T-076 | Per-account sync and stopping a sync | codex | T-073 | done |
 | T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | done |
 | T-078 | Floating table scrollbar; same polish on Load balancers | claude | T-075 | done |
-| T-079 | Region picker with counts; test with saved keys when editing | codex | T-077 | todo |
+| T-079 | Region picker with counts; test with saved keys when editing | codex | T-077 | review |
 
 ---
 

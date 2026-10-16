@@ -51,6 +51,8 @@ export interface AccountInput {
   enabled: boolean;
   connection_mode?: 'runtime' | 'dedicated';
 }
+export interface AccountRegion { region: string; instances: number; load_balancers: number; excluded: boolean }
+export interface AccountRegions { regions: AccountRegion[] }
 export type AccountConnectionPreview = { ok: true; regions: string[] } | { ok: false; error: string };
 export type AccountAccessResult = { ok: true; regions: number; region_ids: string[] } | { ok: false; error: string };
 export interface AccountSummary extends AccountInput {

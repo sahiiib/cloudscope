@@ -18,7 +18,7 @@ from cloudscope.collector.errors import log_account_id
 from cloudscope.collector.manual import COLLECTION_LOCK_KEY
 from cloudscope.config import AccountConfig
 from cloudscope.credentials import CredentialError, Credentials, CredentialStore
-from cloudscope.db.models import Account, Instance, User
+from cloudscope.db.models import Account, Instance, LoadBalancer, SyncResult, SyncRun, User
 
 logger = logging.getLogger(__name__)
 Admin = Annotated[User, Depends(require_admin)]
@@ -140,15 +140,23 @@ async def prepare_credentials(
 async def test_unsaved_account(
     body: CreateAccount, request: Request, actor: Admin
 ) -> dict[str, object]:
+    return await connection_preview(body, request, actor)
+
+
+async def connection_preview(
+    body: CreateAccount, request: Request, actor: User, saved_reference: str | None = None
+) -> dict[str, object]:
     if body.connection_mode == "dedicated":
         if not getattr(request.app.state, "dedicated_credentials_enabled", False):
             raise HTTPException(409, "Dedicated credentials are disabled by the operator")
-        if body.credentials is None:
+        if body.credentials is None and saved_reference is None:
             raise HTTPException(422, "Enter an access key ID and secret access key")
     config = AccountConfig.model_validate(
         {
             **body.model_dump(exclude={"credentials", "enabled"}),
-            "credential_reference": "unsaved-test" if body.connection_mode == "dedicated" else None,
+            "credential_reference": ("unsaved-test" if body.credentials else saved_reference)
+            if body.connection_mode == "dedicated"
+            else None,
         }
     )
     result = await test_connection(
@@ -164,6 +172,109 @@ async def test_unsaved_account(
     if result["ok"]:
         return {"ok": True, "regions": result["region_ids"]}
     return {"ok": False, "error": result["error"]}
+
+
+@router.post("/{provider}/{account_id}/test-connection", dependencies=[Depends(require_csrf)])
+async def test_edit_account(
+    provider: str,
+    account_id: str,
+    body: dict[str, object],
+    request: Request,
+    auth: Auth,
+    actor: Admin,
+) -> dict[str, object]:
+    # Resolve immutable identity before loading any saved credential reference.
+    if (
+        body.get("provider", provider) != provider
+        or body.get("account_id", account_id) != account_id
+    ):
+        raise HTTPException(422, "Body identity must match the account path")
+    with auth.sessions() as session:
+        account = session.get(Account, (provider, account_id))
+        if account is None or account.deleted:
+            raise HTTPException(404, "Account not found")
+        reference = account.credential_reference if account.connection_mode == "dedicated" else None
+        mode = account.connection_mode
+    try:
+        settings = CreateAccount.model_validate(
+            {
+                "connection_mode": mode,
+                **body,
+                "provider": provider,
+                "account_id": account_id,
+            }
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            422,
+            detail=[
+                {"loc": ["body", *error["loc"]], "msg": error["msg"], "type": error["type"]}
+                for error in exc.errors(
+                    include_input=False, include_context=False, include_url=False
+                )
+            ],
+        ) from None
+    return await connection_preview(settings, request, actor, reference)
+
+
+@router.get("/{provider}/{account_id}/regions")
+def account_regions(provider: str, account_id: str, auth: Auth, actor: Admin) -> dict[str, object]:
+    with auth.sessions() as session:
+        account = session.get(Account, (provider, account_id))
+        if account is None or account.deleted:
+            raise HTTPException(404, "Account not found")
+        counts: list[dict[str, int]] = []
+        for model in (Instance, LoadBalancer):
+            counts.append(
+                dict(
+                    session.execute(
+                        select(model.region, func.count())
+                        .where(
+                            model.provider == provider,
+                            model.account_id == account_id,
+                            model.present.is_(True),
+                        )
+                        .group_by(model.region)
+                    ).all()
+                )
+            )
+        latest_run = session.scalar(
+            select(SyncResult.run_id)
+            .join(SyncRun)
+            .where(
+                SyncResult.provider == provider,
+                SyncResult.account_id == account_id,
+                SyncResult.region != "*",
+            )
+            .order_by(SyncRun.started_at.desc(), SyncRun.id.desc())
+            .limit(1)
+        )
+        scanned = (
+            set(
+                session.scalars(
+                    select(SyncResult.region).where(
+                        SyncResult.provider == provider,
+                        SyncResult.account_id == account_id,
+                        SyncResult.run_id == latest_run,
+                        SyncResult.region != "*",
+                    )
+                )
+            )
+            if latest_run is not None
+            else set()
+        )
+        regions = scanned | set(counts[0]) | set(counts[1]) | set(account.excluded_regions)
+        return {
+            "regions": [
+                {
+                    "region": region,
+                    "instances": counts[0].get(region, 0),
+                    "load_balancers": counts[1].get(region, 0),
+                    "excluded": region in account.excluded_regions,
+                }
+                for region in sorted(regions)
+            ]
+        }
 
 
 @router.post("", status_code=201, dependencies=[Depends(require_csrf)])
