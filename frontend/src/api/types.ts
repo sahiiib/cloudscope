@@ -64,7 +64,9 @@ export interface SyncRun {
   started_at: string;
   finished_at: string | null;
   trigger: 'schedule' | 'manual';
-  status: 'running' | 'success' | 'partial' | 'failed';
+  status: 'running' | 'success' | 'partial' | 'failed' | 'cancelled';
+  scope: { provider: 'aws' | 'alibaba' | null; account_id: string } | null;
+  cancel_requested_at: string | null;
   instances_seen: number;
 }
 export interface SyncResult {

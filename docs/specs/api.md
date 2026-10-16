@@ -174,3 +174,22 @@ stale edits or a running collector return 409. POST
 expected_version, and preserves existing data while making the UI authoritative.
 All writes require full admin session and CSRF. Failed access validation returns
 sanitized 422; unavailable Secret storage returns 503 without changing the account.
+
+### Scoped collection and cancellation (T-076)
+
+`POST /api/sync/runs` optionally accepts `{ "provider": "aws", "account_id": "111111111111" }`.
+Omitting the body starts a full run. A missing/deleted account returns 404;
+a disabled account or occupied global collection lock returns 409. Both scoped
+and full runs return 202. Admin full session and CSRF are required.
+
+Run list/detail responses include `scope: null | {provider, account_id}` and
+`cancel_requested_at: null | <timestamp>`. Full runs have null scope. CLI
+`--account` may select the ID across providers, represented by a null scope provider.
+
+`POST /api/sync/runs/{id}/cancel` requires admin and CSRF. It returns 202 for a
+running run (including repeated requests), 404 for an unknown run, or 409 for
+a terminal run. The database flag also reaches scheduled collectors. In-flight
+scans finish; pending account discovery and region scans stop. The terminal
+status is `cancelled`, with counts for completed scans and a finish timestamp.
+Unscanned regions retain their inventory; partially scanned accounts do not
+advance `last_success_at`.

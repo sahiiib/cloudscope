@@ -186,7 +186,9 @@ class SyncRun(Base):
     __tablename__ = "sync_runs"
     __table_args__ = (
         CheckConstraint("trigger IN ('schedule', 'manual')", name="trigger"),
-        CheckConstraint("status IN ('running', 'success', 'partial', 'failed')", name="status"),
+        CheckConstraint(
+            "status IN ('running', 'success', 'partial', 'failed', 'cancelled')", name="status"
+        ),
         CheckConstraint("instances_seen >= 0", name="instances_seen"),
     )
 
@@ -195,6 +197,9 @@ class SyncRun(Base):
         DateTime(timezone=True), server_default=text("now()")
     )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scope_provider: Mapped[str | None] = mapped_column(Text)
+    scope_account_id: Mapped[str | None] = mapped_column(Text)
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     trigger: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, server_default=text("'running'"))
     instances_seen: Mapped[int] = mapped_column(Integer, server_default=text("0"))

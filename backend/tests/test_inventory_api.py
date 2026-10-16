@@ -286,3 +286,76 @@ def test_alias_null_literal_wildcards_and_live_renames(client, inventory, db_ses
         client.get("/api/instances", params={"q": "Alpha", "include_missing": True}).json()["total"]
         == 3
     )
+
+
+def test_cancel_run_auth_idempotence_and_scope(
+    client: TestClient, db_session: Session, user: User
+) -> None:
+    run = SyncRun(
+        trigger="schedule", status="running", scope_provider="aws", scope_account_id="111111111111"
+    )
+    db_session.add(run)
+    db_session.commit()
+    login(client)
+    path = f"/api/sync/runs/{run.id}/cancel"
+    assert client.post(path, headers=CSRF).status_code == 403
+    user.is_admin = True
+    db_session.commit()
+    assert client.post(path).status_code == 403
+    for _ in range(2):
+        assert client.post(path, headers=CSRF).status_code == 202
+    result = client.get(f"/api/sync/runs/{run.id}").json()
+    assert result["scope"] == {"provider": "aws", "account_id": "111111111111"}
+    assert result["cancel_requested_at"] is not None
+    db_session.refresh(run)
+    run.status = "cancelled"
+    db_session.commit()
+    assert client.post(path, headers=CSRF).status_code == 409
+    assert client.post("/api/sync/runs/999999/cancel", headers=CSRF).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "failure,status", [("missing", 404), ("disabled", 409), ("busy", 409), ("none", 202)]
+)
+def test_scoped_sync_route(
+    client: TestClient, db_session: Session, user: User, failure: str, status: int
+) -> None:
+    from cloudscope.collector.manual import (
+        SyncAccountDisabled,
+        SyncAccountNotFound,
+        SyncAlreadyRunning,
+    )
+
+    class Service:
+        def start(self, *, provider: str, account_id: str) -> None:
+            assert (provider, account_id) == ("aws", "111111111111")
+            if failure != "none":
+                raise {
+                    "missing": SyncAccountNotFound,
+                    "disabled": SyncAccountDisabled,
+                    "busy": SyncAlreadyRunning,
+                }[failure]()
+
+    user.is_admin = True
+    db_session.commit()
+    client.app.state.manual_sync = Service()
+    try:
+        login(client)
+        assert (
+            client.post(
+                "/api/sync/runs",
+                headers=CSRF,
+                json={"provider": "aws", "account_id": "111111111111"},
+            ).status_code
+            == status
+        )
+        assert (
+            client.post(
+                "/api/sync/runs",
+                headers=CSRF,
+                json={"provider": "invalid", "account_id": "111111111111"},
+            ).status_code
+            == 422
+        )
+    finally:
+        client.app.state.manual_sync = None

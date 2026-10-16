@@ -10,7 +10,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Literal
 
-from sqlalchemy import Text, all_, bindparam, or_, select, tuple_, update
+from sqlalchemy import Text, all_, bindparam, case, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -65,6 +65,7 @@ class SyncRunner:
         accounts: Sequence[AccountConfig],
         *,
         account_id: str | None = None,
+        scope_provider: str | None = None,
         region: str | None = None,
         trigger: Literal["schedule", "manual"] = "manual",
     ) -> SyncRun:
@@ -147,7 +148,8 @@ class SyncRunner:
             selected = [
                 account
                 for account in accounts
-                if account_id is None or account.account_id == account_id
+                if (account_id is None or account.account_id == account_id)
+                and (scope_provider is None or account.provider == scope_provider)
             ]
             if account_id is not None and not selected:
                 raise AccountFilterError("Account filter does not match configuration")
@@ -156,12 +158,23 @@ class SyncRunner:
             stale = session.scalars(
                 update(SyncRun)
                 .where(SyncRun.status == "running")
-                .values(status="failed", finished_at=self.clock())
+                .values(
+                    status=case(
+                        (SyncRun.cancel_requested_at.is_not(None), "cancelled"), else_="failed"
+                    ),
+                    finished_at=self.clock(),
+                )
                 .returning(SyncRun.id)
             ).all()
             if stale:
-                logger.warning("event=stale_runs_failed count=%s", len(stale))
-            run = SyncRun(trigger=trigger, status="running", started_at=self.clock())
+                logger.warning("event=stale_runs_finished count=%s", len(stale))
+            run = SyncRun(
+                trigger=trigger,
+                status="running",
+                started_at=self.clock(),
+                scope_provider=scope_provider,
+                scope_account_id=account_id,
+            )
             session.add(run)
             session.flush()
             run_id = run.id
@@ -186,8 +199,10 @@ class SyncRunner:
         region: str | None,
     ) -> SyncRun:
         jobs: list[tuple[AccountConfig, str]] = []
-        complete_accounts: set[tuple[str, str]] = set()
+        complete_accounts: dict[tuple[str, str], set[str]] = {}
         for account in selected:
+            if self._cancelled(run_id):
+                break
             self._refresh_alias(account)
             started = monotonic()
             try:
@@ -199,7 +214,7 @@ class SyncRunner:
                     target for target in regions if region is None or target == region
                 ]
                 if selected_regions == regions:
-                    complete_accounts.add((account.provider, account.account_id))
+                    complete_accounts[(account.provider, account.account_id)] = set(regions)
                 jobs.extend((account, target) for target in selected_regions)
             except Exception as exc:
                 self._error(run_id, account, "*", "Region discovery failed", started, exc)
@@ -214,9 +229,11 @@ class SyncRunner:
         with self.sessions.begin() as session:
             results = list(session.scalars(select(SyncResult).where(SyncResult.run_id == run_id)))
             failures = sum(result.status == "error" for result in results)
-            run = session.get_one(SyncRun, run_id)
+            run = session.get_one(SyncRun, run_id, with_for_update=True)
             run.status = (
-                "failed"
+                "cancelled"
+                if run.cancel_requested_at is not None
+                else "failed"
                 if not results and region is not None
                 else "success"
                 if failures == 0
@@ -235,6 +252,8 @@ class SyncRunner:
                 ]
                 if (
                     (account.provider, account.account_id) in complete_accounts
+                    and {result.region for result in account_results}
+                    == complete_accounts[(account.provider, account.account_id)]
                     and account_results
                     and all(result.status == "success" for result in account_results)
                 ):
@@ -274,7 +293,16 @@ class SyncRunner:
                 )
             )
 
+    def _cancelled(self, run_id: int) -> bool:
+        with self.sessions() as session:
+            return (
+                session.scalar(select(SyncRun.cancel_requested_at).where(SyncRun.id == run_id))
+                is not None
+            )
+
     def _scan(self, run_id: int, account: AccountConfig, region: str) -> None:
+        if self._cancelled(run_id):
+            return
         started = monotonic()
         try:
             instances = self.providers[account.provider].scan(account, region)

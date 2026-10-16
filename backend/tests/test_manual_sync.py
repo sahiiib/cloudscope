@@ -55,3 +55,59 @@ def test_manual_sync_lock_and_failure_release(
         release.set()
         first.close()
         second.close()
+
+
+def test_scoped_manual_validates_account_under_lock_and_forwards_filter(
+    migrated_engine: Engine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from sqlalchemy import delete
+
+    from cloudscope.collector.manual import SyncAccountDisabled, SyncAccountNotFound
+    from cloudscope.db.models import Account
+    from cloudscope.db.session import create_session_factory
+
+    factory = create_session_factory(migrated_engine)
+    path = tmp_path / "accounts.yaml"
+    path.write_text("accounts: []\n")
+    settings = Settings(
+        database_url=SecretStr("postgresql+psycopg://localhost/test"),
+        secret_key=SecretStr(Fernet.generate_key().decode()),
+        accounts_file=path,
+    )
+    seen = {}
+    entered, release = Event(), Event()
+
+    def run(*args: object, **kwargs: object) -> None:
+        seen.update(kwargs)
+        entered.set()
+        assert release.wait(5)
+
+    monkeypatch.setattr(SyncRunner, "run", run)
+    service = ManualSync(migrated_engine, settings)
+    try:
+        with pytest.raises(SyncAccountNotFound):
+            service.start(provider="aws", account_id="111111111111")
+        with factory.begin() as session:
+            session.add(
+                Account(
+                    provider="aws",
+                    account_id="111111111111",
+                    name="Test",
+                    source="ui",
+                    enabled=False,
+                )
+            )
+        with pytest.raises(SyncAccountDisabled):
+            service.start(provider="aws", account_id="111111111111")
+        with factory.begin() as session:
+            session.get_one(Account, ("aws", "111111111111")).enabled = True
+        service.start(provider="aws", account_id="111111111111")
+        assert entered.wait(5)
+        assert seen["account_id"] == "111111111111" and seen["scope_provider"] == "aws"
+        with pytest.raises(SyncAlreadyRunning):
+            service.start(provider="aws", account_id="111111111111")
+    finally:
+        release.set()
+        service.close()
+        with factory.begin() as session:
+            session.execute(delete(Account).where(Account.account_id == "111111111111"))

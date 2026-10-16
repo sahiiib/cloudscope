@@ -14,3 +14,5 @@
 .sync-partial { background: #fff0c2; color: #6b4a00; }
 .sync-failed, .sync-error.sync-status { background: #ffe0e0; color: #852929; }
 .sync-error { overflow-wrap: anywhere; min-width: 10rem; max-width: 30rem; }
+
+.sync-cancelled { background: #e7e2f5; color: #493477; }

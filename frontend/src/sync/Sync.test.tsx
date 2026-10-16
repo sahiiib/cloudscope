@@ -8,7 +8,7 @@ import Sync from './Sync';
 
 vi.mock('../api/client', async original => ({ ...await original<typeof import('../api/client')>(), apiFetch: vi.fn() }));
 const fetchApi = vi.mocked(apiFetch);
-const run: SyncRun = { id: 7, started_at: '2026-01-01T00:00:00Z', finished_at: '2026-01-01T00:01:05Z', trigger: 'manual', status: 'partial', instances_seen: 11 };
+const run: SyncRun = { scope: null, cancel_requested_at: null, id: 7, started_at: '2026-01-01T00:00:00Z', finished_at: '2026-01-01T00:01:05Z', trigger: 'manual', status: 'partial', instances_seen: 11 };
 function response(body: unknown) { return new Response(JSON.stringify(body)); }
 function setup(admin = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -108,4 +108,30 @@ test('polls every 30 seconds when idle, every 5 while running, then slows on com
   expect(fetchApi).toHaveBeenCalledTimes(initial + 3);
   await act(async () => { await vi.advanceTimersByTimeAsync(25000); });
   expect(fetchApi).toHaveBeenCalledTimes(initial + 4);
+});
+
+test('scoped scheduled run can be stopped with confirmation and stays stopping until finished', async () => {
+  let cancelled = false;
+  fetchApi.mockImplementation(async (path, options) => {
+    if (options?.method === 'POST') { cancelled = true; return response({ status: 'accepted' }); }
+    if (path === '/api/accounts') return response([{ provider: 'aws', account_id: '111111111111', name: 'Production' }]);
+    return response([{ ...run, trigger: 'schedule', status: 'running', finished_at: null, scope: { provider: 'aws', account_id: '111111111111' }, cancel_requested_at: cancelled ? '2026-01-01T00:02:00Z' : null }]);
+  });
+  setup();
+  expect(await screen.findByText('Production · 111111111111')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+  expect(fetchApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Keep running' }));
+  expect(screen.queryByRole('button', { name: 'Confirm stop' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm stop' }));
+  expect(await screen.findByRole('button', { name: 'Stopping…' })).toBeDisabled();
+  expect(fetchApi).toHaveBeenCalledWith('/api/sync/runs/7/cancel', { method: 'POST' });
+});
+
+test('members cannot stop running syncs', async () => {
+  fetchApi.mockImplementation(async path => response(path === '/api/accounts' ? [] : [{ ...run, status: 'running', finished_at: null }]));
+  setup(false);
+  await screen.findByRole('button', { name: 'Run #7' });
+  expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
 });

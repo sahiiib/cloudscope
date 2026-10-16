@@ -92,3 +92,21 @@ test.each(['demo-alias', null])('shows cloud alias %s in its own column', async 
   expect(within(row).getByText(cloud_alias ?? '–')).toBeInTheDocument();
   expect(within(row).getByText(account.account_id)).toBeInTheDocument();
 });
+
+test('account sync sends scope and disables all rows while a run is active', async () => {
+  let running = false;
+  fetchApi.mockImplementation(async (path, options) => {
+    if (options?.method === 'POST') { running = true; return response({ status: 'accepted' }); }
+    if (path.startsWith('/api/sync/runs')) return response(running ? [{ id: 1, status: 'running' }] : []);
+    if (path.endsWith('/capabilities')) return response({ dedicated_credentials: false });
+    return response([account, { ...account, account_id: '222222222222', name: 'Disabled', enabled: false }]);
+  });
+  renderSettings(<CloudAccounts />);
+  const button = await screen.findByRole('button', { name: 'Sync UI test' });
+  await waitFor(() => expect(button).toBeEnabled());
+  expect(screen.getByRole('button', { name: 'Sync Disabled' })).toBeDisabled();
+  fireEvent.click(button);
+  expect(await screen.findByText('Sync requested for UI test.')).toBeInTheDocument();
+  expect(button).toBeDisabled();
+  expect(fetchApi).toHaveBeenCalledWith('/api/sync/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'aws', account_id: '111111111111' }) });
+});
