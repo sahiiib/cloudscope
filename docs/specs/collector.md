@@ -4,7 +4,9 @@ Entry point: `cloudscope collect [--account ID] [--region R] [--trigger schedule
 
 `collect` uses exported `Settings` (database URL, Fernet key, accounts path and
 concurrency); it never implicitly loads `.env`. It prints a tab-separated summary
-and exits 0 for success/partial, 1 for failed/configuration/database errors.
+and exits 0 for success/partial/cancelled, 1 for failed/configuration/database errors.
+A cancelled run exits 0 because an admin stopped it on purpose; the CronJob must not
+retry or alert on it.
 Invalid command-line options return 2. Setup failures print only safe categories:
 configuration field locations (without inputs/messages), database exception class, the fixed unknown-account
 message, or an unexpected exception class. Invalid YAML reports the `accounts`
