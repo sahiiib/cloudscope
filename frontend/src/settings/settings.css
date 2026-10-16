@@ -29,3 +29,5 @@
   .cloud-accounts .settings-table th:last-child, .cloud-accounts .settings-table td:last-child { position: sticky; right: 0; background: var(--surface); box-shadow: -6px 0 12px -8px var(--border); }
   .cloud-accounts .settings-table th:last-child { z-index: 1; }
 }
+.settings-section-title { margin: 1rem 0 0; font-size: 1rem; color: var(--muted); }
+.cloud-accounts .settings-table td:last-child { min-width: 9rem; }

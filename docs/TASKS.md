@@ -55,6 +55,9 @@ A task can start when all its dependencies are `done`.
 | T-072 | Key-first account form and recoverable deletion | codex | T-071 | done |
 | T-073 | Fix collector OOM and stale collection runs | claude | T-012 | done |
 | T-074 | Bound AWS connect timeout in collection | claude | T-073 | done |
+| T-075 | UI polish: Instances page, filters, icons, Settings | claude | T-068 | review |
+| T-076 | Per-account sync and stopping a sync | codex | T-073 | todo |
+| T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | todo |
 
 ---
 
@@ -566,3 +569,40 @@ With 20+ AWS accounts, one enabled region whose endpoint the cluster cannot reac
 connect timeout on every retry, and the run did not finish within 15 minutes.
 Acceptance: collection clients use a 10s connect timeout and 60s read timeout,
 keeping adaptive retries; a test pins the values.
+
+### T-075: UI polish: Instances page, filters, icons, Settings
+Owner: claude · Spec: [ui](specs/ui.md#ui-polish-t-075)
+
+Requested by Saheb on 2026-10-16. Acceptance: the Search page is called
+Instances in the navigation and heading; only one filter dropdown is open at a
+time and it closes on outside click or Esc; the instance table scrolls inside a
+viewport-high box so its horizontal scrollbar stays on screen, with a sticky
+header; State shows an icon with the state as its accessible name and tooltip;
+copy buttons and the Accounts row actions are icon buttons that keep their
+accessible names; Settings has a page heading, a "Your security" section and an
+"Administration" section, and no longer repeats the Cloud accounts table, which
+lives on the Accounts page.
+
+### T-076: Per-account sync and stopping a sync
+Owner: codex · Spec: [sync and account controls](specs/sync-and-account-controls.md#per-account-sync-t-076)
+
+Acceptance: `POST /api/sync/runs` with `{provider, account_id}` collects only
+that account under the global lock; runs record and return their scope;
+`POST /api/sync/runs/{id}/cancel` stops a running run (including one started by
+the CronJob) before its next account or region and ends it as `cancelled`
+without marking unscanned regions missing; Sync icon per account row and a Stop
+button with confirmation on the Sync page. Additive migration, API docs in
+`api.md`, `frontend/src/api/types.ts`, and tests for scope, lock conflicts,
+cancel from another process, and the UI buttons.
+
+### T-077: Account dialog, excluded regions and pre-save test
+Owner: codex · Spec: [sync and account controls](specs/sync-and-account-controls.md#account-dialog-excluded-regions-and-pre-save-test-t-077)
+
+Acceptance: Add and Edit account open in an accessible modal dialog; accounts
+have `excluded_regions` (API, `accounts.yaml`, collector and access test honour
+it); `POST /api/accounts/test-connection` tests unsaved settings without storing
+keys anywhere and returns the region list; the dialog's Test connection shows
+the regions as a checklist to exclude. Additive migration, API docs in
+`api.md`, types, and tests including "keys never persisted or logged" and
+"excluded region is not scanned".
+

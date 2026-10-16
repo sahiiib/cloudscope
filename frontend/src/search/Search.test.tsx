@@ -125,3 +125,17 @@ test('keeps rows, pagination and keyboard focus while the next page is pending',
   await screen.findByText('web-2');
   expect(screen.queryByText(/Updating…/)).not.toBeInTheDocument();
 });
+
+test('opening one filter closes the others, and clicking outside closes it', async () => {
+  mockData(); setup();
+  await screen.findByRole('link', { name: 'web-1' });
+  const summary = (label: string) => screen.getByText(label, { selector: 'summary' });
+  const isOpen = (label: string) => (summary(label).parentElement as HTMLDetailsElement).open;
+  fireEvent.click(summary('Provider'));
+  await waitFor(() => expect(isOpen('Provider')).toBe(true));
+  fireEvent.click(summary('Region'));
+  await waitFor(() => expect(isOpen('Region')).toBe(true));
+  expect(isOpen('Provider')).toBe(false);
+  fireEvent.mouseDown(document.body);
+  await waitFor(() => expect(isOpen('Region')).toBe(false));
+});

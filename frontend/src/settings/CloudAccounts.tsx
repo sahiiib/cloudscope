@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
 import type { AccountAccessResult, AccountSummary } from '../api/types';
 import AccountForm from './AccountForm';
+import { AdoptIcon, DeleteIcon, DisableIcon, EditIcon, EnableIcon, TestIcon } from '../icons';
 import { settingsError } from './errors';
 
 function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean; account: AccountSummary; onEdit: () => void; onChanged: () => Promise<void> }) {
@@ -31,11 +32,11 @@ function AccountRow({ account, onEdit, onChanged, editing }: { editing: boolean;
     <td>{account.source === 'file' ? 'Managed by accounts.yaml' : 'UI'}</td><td>{account.enabled ? 'Enabled' : 'Disabled'}</td>
     <td>{account.last_success_at ? <time dateTime={account.last_success_at}>{new Date(account.last_success_at).toLocaleString()}</time> : 'Never'}</td><td>{account.instance_count}</td>
     <td><div className="settings-actions">
-      {account.source === 'file' && <button className="secondary" disabled={adopt.isPending || editing} onClick={() => { adopt.reset(); setAdoptConfirm(true); }}>Manage {account.name} in web</button>}
-      {account.source === 'ui' && <><button className="secondary" disabled={activity.isPending || editing} onClick={onEdit}>Edit {account.name}</button>
-        <button className="secondary" disabled={activity.isPending} onClick={() => { activity.reset(); setConfirm(true); }}>{account.enabled ? 'Disable' : 'Enable'} {account.name}</button></>}
-      <button className="secondary" disabled={access.isPending} onClick={() => access.mutate()}>{access.isPending ? 'Testing…' : `Test access for ${account.name}`}</button>
-      <button className="secondary" disabled={remove.isPending || editing} onClick={() => { remove.reset(); setDeleteConfirm(true); }}>Delete {account.name}</button>
+      {account.source === 'file' && <button className="secondary icon-button" aria-label={`Manage ${account.name} in web`} title="Manage in web" disabled={adopt.isPending || editing} onClick={() => { adopt.reset(); setAdoptConfirm(true); }}><AdoptIcon /></button>}
+      {account.source === 'ui' && <><button className="secondary icon-button" aria-label={`Edit ${account.name}`} title="Edit" disabled={activity.isPending || editing} onClick={onEdit}><EditIcon /></button>
+        <button className="secondary icon-button" aria-label={`${account.enabled ? 'Disable' : 'Enable'} ${account.name}`} title={account.enabled ? 'Disable' : 'Enable'} disabled={activity.isPending} onClick={() => { activity.reset(); setConfirm(true); }}>{account.enabled ? <DisableIcon /> : <EnableIcon />}</button></>}
+      <button className="secondary icon-button" aria-label={access.isPending ? 'Testing…' : `Test access for ${account.name}`} title="Test access" disabled={access.isPending} onClick={() => access.mutate()}><TestIcon /></button>
+      <button className="secondary icon-button danger" aria-label={`Delete ${account.name}`} title="Delete" disabled={remove.isPending || editing} onClick={() => { remove.reset(); setDeleteConfirm(true); }}><DeleteIcon /></button>
     </div>
       {deleteConfirm && <div className="settings-confirm" role="group" aria-label={`Confirm deletion for ${account.name}`}>
         <p>Delete <strong>{account.name}</strong> from Cloudscope?</p><p>Collection will stop and this account’s inventory will be hidden. Your cloud resources are unchanged. Re-add the same account to restore its saved history.</p>

@@ -92,3 +92,6 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 @media (max-width: 460px) { .overview-grid { grid-template-columns: 1fr; } .overview-card { grid-template-columns: 1fr auto; align-items: center; } .overview-card strong { font-size: 1.5rem; } .login-card { padding: 1.5rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }
+.icon-button { display: inline-flex; align-items: center; justify-content: center; padding: .3rem; line-height: 0; }
+.icon-button.danger { color: #c83c3c; }
+.icon { display: block; }

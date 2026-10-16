@@ -11,7 +11,9 @@ under `/api` and send `X-Requested-With: cloudscope`.
 Username + password. If the API answers `mfa_required`, show a 6-digit code
 step. Errors are shown inline.
 
-### Search (`/`)
+### Instances (`/`)
+
+Shown as "Instances" in the navigation and heading (named Search before T-075).
 - Search box (debounced 300 ms) → `q`.
 - Filters: provider, account, region, state (multi-select, counts from
   `/api/instances/facets`), "show terminated/missing" toggle.
@@ -59,7 +61,7 @@ shows per account/region results with errors. Admins get a "Sync now" button.
 - Change password.
 - Enable MFA (show QR, confirm code) / disable MFA.
 - Admin only: users list, create user, deactivate, reset MFA.
-- Admin only: **Cloud accounts** ([accounts.md](accounts.md)). Table of all
+- Admin only, on the Accounts page (`/accounts`) since T-075: **Cloud accounts** ([accounts.md](accounts.md)). Table of all
   accounts (provider, name, cloud alias, ID, regions, role, source, enabled, last success,
   instance count). Add and edit forms for `ui` accounts; `file` accounts are
   read-only with a "Managed by accounts.yaml" label. Enable/disable with an
@@ -168,3 +170,19 @@ Only the validated preference is stored as `cloudscope.theme`; unavailable
 storage does not block use. Login also offers the picker. Keyboard focus, skip
 navigation, reduced motion and narrow-screen layouts are supported. No external
 fonts, trackers or new dependencies are needed.
+
+## UI polish (T-075)
+
+- Page `/` is titled **Instances**.
+- Filter dropdowns: the page owns which one is open; opening one closes the
+  others, and a click outside the filter bar or Esc closes it.
+- The instance table scrolls inside a box at most `100vh - 8rem` high, so the
+  horizontal scrollbar stays visible; the header row is sticky.
+- State column: an icon (running, stopped, terminated, other) with the state as
+  accessible name and tooltip. Copy buttons are icon buttons labelled
+  `Copy <instance id>` / `Copy account ID <id>`.
+- Accounts row actions (Manage in web, Edit, Enable/Disable, Test access,
+  Delete) are icon buttons with the same accessible names and a tooltip.
+- Settings: page heading, "Your security" (password, MFA) and, for admins,
+  "Administration" (users). Cloud accounts are only on `/accounts`.
+
