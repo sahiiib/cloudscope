@@ -125,7 +125,8 @@ before discarding edits, keyboard focus stays inside, and closing restores focus
 to the opener. Existing version checks and write-only credential fields remain.
 
 `excluded_regions` is a list of at most 64 unique region IDs, default `[]`, for
-both UI and file accounts. A connection preview shows effective discovered regions
+both UI and file accounts. The Excluded regions section is always visible; before a
+successful test it tells the admin to click Test connection. A connection preview shows effective discovered regions
 as a checklist; checked entries are saved as exclusions. Existing exclusions stay
 visible so they can be unchecked. Changing connection settings invalidates the
 preview, except retyping cleared key inputs, which preserves the region checklist. If all regions are excluded, collection/test fails explicitly.
