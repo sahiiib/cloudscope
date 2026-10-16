@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
-import type { AccountConnectionPreview, AccountInput, AccountSummary } from '../api/types';
+import type { AccountConnectionPreview, AccountInput, AccountRegions, AccountSummary } from '../api/types';
+import RegionPicker from './RegionPicker';
 import { accountErrors, validateAccount, type AccountErrors } from './accountValidation';
 
 export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabled = false, onDirty, onBusy, titleId }: {
@@ -14,6 +15,15 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
   const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState('');
   const [testError, setTestError] = useState('');
+  const [testedNewKeys, setTestedNewKeys] = useState(false);
+  const known = useQuery({
+    queryKey: ['account-regions', account?.provider, account?.account_id],
+    enabled: !!account,
+    queryFn: async ({ signal }): Promise<AccountRegions> => (await apiFetch(`/api/accounts/${account!.provider}/${account!.account_id}/regions`, { signal })).json(),
+  });
+  const knownRegions = Array.isArray(known.data?.regions) ? known.data.regions : [];
+  const regionItems = [...new Set([...knownRegions.map(item => item.region), ...discovered, ...excluded])].sort().map(region => knownRegions.find(item => item.region === region) ?? { region, instances: 0, load_balancers: 0, excluded: excluded.includes(region) });
+  const noneSelected = regionItems.length > 0 && regionItems.every(item => excluded.includes(item.region));
   const activeTest = useRef<AbortController | null>(null);
   useEffect(() => () => { activeTest.current?.abort(); }, []);
   const [values, setValues] = useState<AccountInput>(() => account ?? {
@@ -44,18 +54,21 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
     if (method === 'role' && !input.role_arn) invalid.role_arn = 'Enter the role ARN.';
     const read = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
     const keyId = read('access_key_id'), secret = read('secret_access_key'), token = read('session_token');
-    if (method === 'dedicated' && (!keyId || !secret)) invalid.form = 'Enter the access key ID and secret access key to test these settings.';
+    if (method === 'dedicated') {
+      if ((keyId || secret || token) && (!keyId || !secret)) invalid.form = 'Enter both the access key ID and secret access key.';
+      else if (!keyId && !(account?.connection_mode === 'dedicated' && account.credentials_configured)) invalid.form = 'Enter the access key ID and secret access key to test these settings.';
+    }
     setErrors(invalid);
     if (Object.keys(invalid).length) return;
     const controller = new AbortController(); activeTest.current = controller;
-    setTesting(true); setTestMessage(''); setTestError(''); setDiscovered([]);
+    setTesting(true); setTestMessage(''); setTestError(''); setTestedNewKeys(false);
     // Do not put keys in React Query variables, cached responses or persistent storage.
-    const body = JSON.stringify({ ...input, ...(method === 'dedicated' ? { credentials: { access_key_id: keyId, secret_access_key: secret, ...(token ? { session_token: token } : {}) } } : {}) });
+    const body = JSON.stringify({ ...input, excluded_regions: [], ...(method === 'dedicated' && keyId && secret ? { credentials: { access_key_id: keyId, secret_access_key: secret, ...(token ? { session_token: token } : {}) } } : {}) });
     for (const name of ['access_key_id', 'secret_access_key', 'session_token']) { const field = form.elements.namedItem(name) as HTMLInputElement | null; if (field) field.value = ''; }
     try {
-      const result: AccountConnectionPreview = await (await apiFetch('/api/accounts/test-connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })).json();
+      const result: AccountConnectionPreview = await (await apiFetch(account ? `/api/accounts/${account.provider}/${account.account_id}/test-connection` : '/api/accounts/test-connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: controller.signal })).json();
       if (controller.signal.aborted) return;
-      if (result.ok) { setDiscovered(result.regions); setTestMessage('Connection OK. Select regions to exclude.'); }
+      if (result.ok) { setDiscovered(previous => [...new Set([...previous, ...result.regions])]); setTestMessage('Connection OK'); setTestedNewKeys(!!keyId); }
       else setTestError(result.error);
     } catch (error) { if (!controller.signal.aborted) setErrors(accountErrors(error, !!account)); }
     finally { if (!controller.signal.aborted) { setTesting(false); activeTest.current = null; } }
@@ -71,7 +84,9 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
     const input: AccountInput = { ...values, excluded_regions: excluded, regions: regions.trim() === 'all' ? 'all' : regions.split(',').map(region => region.trim()) };
     // Only input fields go to the API, never source/count/timestamps from a row.
     const body: AccountInput = { provider: input.provider, account_id: input.account_id, name: input.name, regions: input.regions, excluded_regions: input.excluded_regions, role_arn: method === 'role' ? input.role_arn : null, external_id: method === 'role' ? input.external_id : null, enabled: input.enabled, connection_mode: method === 'dedicated' ? 'dedicated' : 'runtime' };
-    const invalid = validateAccount(body); setErrors(invalid);
+    const invalid = validateAccount(body);
+    if (noneSelected) invalid.excluded_regions = 'Keep at least one region';
+    setErrors(invalid);
     if (method === 'role' && !body.role_arn) invalid.role_arn = 'Enter the role ARN.';
     if (method === 'dedicated') {
       const form = event.currentTarget;
@@ -93,6 +108,13 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
       <label>Name<input value={values.name} {...accessibility('name')} onChange={event => setValues({ ...values, name: event.target.value })} />{fieldError('name')}</label>
       <label>Regions<input value={regions} {...accessibility('regions')} onChange={event => setRegions(event.target.value)} />{fieldError('regions')}</label>
       <small>Enter all or comma-separated region IDs, for example eu-central-1, us-east-1.</small>
+      <button type="button" className="secondary" onClick={() => void testConnection()}>{testing ? 'Testing…' : 'Select regions'}</button>
+      {testMessage && <p role="status">{testMessage}</p>}
+      {testError && <p role="alert">{testError}</p>}
+      {account && known.isPending && <p role="status">Loading regions…</p>}
+      {account && known.isError && <p role="alert">Unable to load known regions. <button type="button" onClick={() => void known.refetch()}>Retry regions</button></p>}
+      <RegionPicker regions={regionItems} excluded={excluded} onChange={(region, scan) => { setExcluded(previous => scan ? previous.filter(value => value !== region) : [...new Set([...previous, region])]); setErrors(previous => ({ ...previous, excluded_regions: undefined })); }} error={noneSelected ? 'Keep at least one region' : errors.excluded_regions} />
+      {testedNewKeys && testMessage && <small>Keys were cleared after the test. Re-enter them to save new keys.</small>}
       <label>Connection method<select value={method} onChange={event => { pendingKeys.current = null; setMethod(event.target.value as typeof method); }}>
         <option value="runtime">Runtime credentials</option><option value="role">Assume Role</option><option value="dedicated" disabled={!dedicatedEnabled}>Dedicated Access Key</option>
       </select></label>
@@ -109,12 +131,7 @@ export default function AccountForm({ account, onSaved, onCancel, dedicatedEnabl
         {values.provider === 'aws' && <label>Session Token (optional)<input name="session_token" type="password" autoComplete="off" maxLength={8192} /></label>}
       </div>}
       {!account && <label className="settings-check"><input type="checkbox" checked={values.enabled} onChange={event => setValues({ ...values, enabled: event.target.checked })} />Enabled{fieldError('enabled')}</label>}
-      <button type="button" className="secondary" onClick={() => void testConnection()}>{testing ? 'Testing…' : 'Test connection'}</button>
-      {testMessage && <p role="status">{testMessage}</p>}
-      {testError && <p role="alert">{testError}</p>}
-      <fieldset><legend>Excluded regions</legend>{discovered.length === 0 && excluded.length === 0 && <small>Click Test connection to list this account’s regions, then tick the ones to skip.</small>}<div className="region-checklist">{[...new Set([...discovered, ...excluded])].sort().map(region => <label className="settings-check" key={region}><input type="checkbox" checked={excluded.includes(region)} onChange={event => setExcluded(previous => event.target.checked ? [...previous, region] : previous.filter(value => value !== region))} />{region}</label>)}</div>{fieldError('excluded_regions')}</fieldset>
-      {method === 'dedicated' && testMessage && <small>Keys were cleared after the test. Re-enter them to save.</small>}
-      <div className="settings-actions"><button type="submit">{save.isPending ? 'Saving…' : account ? 'Save account' : 'Add account'}</button><button type="button" className="secondary" onClick={onCancel}>Cancel</button></div>
+      <div className="settings-actions"><button type="submit" disabled={noneSelected}>{save.isPending ? 'Saving…' : account ? 'Save account' : 'Add account'}</button><button type="button" className="secondary" onClick={onCancel}>Cancel</button></div>
     </fieldset>
     {errors.form && <p role="alert" className="error">{errors.form}</p>}
   </form>;

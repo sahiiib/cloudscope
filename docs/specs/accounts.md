@@ -139,3 +139,18 @@ preview. Test access on the table remains available for testing the saved keys.
 account's saved keys and shows a ticked-means-scanned region list with counts; see
 [sync-and-account-controls.md](sync-and-account-controls.md#region-picker-in-the-edit-dialog-t-079).
 No keys enter query/mutation caches, browser storage, database, Secret or logs.
+
+### T-079 implementation
+
+Edit uses the identity-bound preview endpoint and can test the saved Dedicated
+connection with blank key inputs. Entering a complete new pair overrides it for
+that test only; a partial pair is rejected. Preview never saves changes. Typed
+keys still clear after testing and must be re-entered if the administrator wants
+to save a rotation; testing saved keys does not require re-entry for saving edits.
+
+The region picker loads known regions and present instance/LB counts on opening
+Edit. Select regions is directly under the Regions input and replaces Test
+connection. Checked entries are scanned; unchecked entries become exclusions.
+Discovered new regions have zero counts until collected. Existing choices are
+preserved when discovery adds regions, and saving an entirely unchecked list is
+blocked with "Keep at least one region".

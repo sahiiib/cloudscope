@@ -77,7 +77,7 @@ export default function CloudAccounts() {
   const runs = useQuery({ queryKey: ['sync', 'runs'], queryFn: async ({ signal }): Promise<SyncRun[]> => (await apiFetch('/api/sync/runs?limit=20', { signal })).json(), refetchInterval: q => q.state.data?.some(run => run.status === 'running') ? 5000 : 30000 });
   const capabilities = useQuery({ queryKey: ['account-capabilities'], queryFn: async ({ signal }): Promise<{ dedicated_credentials: boolean }> => (await apiFetch('/api/accounts/capabilities', { signal })).json() });
   async function refresh() {
-    await Promise.all(['accounts', 'instance-facets', 'instances', 'instance', 'sync', 'load-balancers', 'load-balancer'].map(key => client.invalidateQueries({ queryKey: [key] })));
+    await Promise.all(['accounts', 'account-regions', 'instance-facets', 'instances', 'instance', 'sync', 'load-balancers', 'load-balancer'].map(key => client.invalidateQueries({ queryKey: [key] })));
   }
   return <section className="settings-card cloud-accounts" aria-labelledby="accounts-title"><h2 id="accounts-title">Cloud accounts</h2>
     <p>Choose Runtime credentials, Assume Role or an account’s own Access Key. Existing file accounts can be moved to web management without deleting inventory.</p>
