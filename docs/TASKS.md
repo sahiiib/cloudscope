@@ -54,7 +54,7 @@ A task can start when all its dependencies are `done`.
 | T-071 | Secret-backed account connections and web adoption | codex | T-069, T-070 | done |
 | T-072 | Key-first account form and recoverable deletion | codex | T-071 | done |
 | T-073 | Fix collector OOM and stale collection runs | claude | T-012 | done |
-| T-074 | Bound AWS connect timeout in collection | claude | T-073 | review |
+| T-074 | Bound AWS connect timeout in collection | claude | T-073 | done |
 
 ---
 
