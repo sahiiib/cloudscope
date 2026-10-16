@@ -27,6 +27,8 @@ test.each([['name', 'ascending'], ['-name', 'descending']])('exposes aria-sort f
   expect(screen.getByText('Missing')).toBeInTheDocument();
   expect(screen.getByText('+2')).toHaveAttribute('title', 'd=4\ne=5');
   expect(screen.queryByText('d=4')).not.toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'stopped' })).toHaveAttribute('title', 'stopped');
+  expect(screen.queryByText('Copy')).not.toBeInTheDocument();
 });
 
 test.each([true, false])('copy success=%s keeps row navigation untouched', async success => {

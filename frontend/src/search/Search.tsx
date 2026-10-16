@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
@@ -19,6 +20,17 @@ function positiveNumber(value: string | null, fallback: number, maximum: number)
 
 export default function Search() {
   const location = useLocation();
+  const [openFacet, setOpenFacet] = useState<string | null>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openFacet) return;
+    function close(event: MouseEvent | KeyboardEvent) {
+      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !filtersRef.current?.contains(event.target as Node)) setOpenFacet(null);
+    }
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
+  }, [openFacet]);
   const [params, setParams] = useSearchParams();
   const page = positiveNumber(params.get('page'), 1, Number.MAX_SAFE_INTEGER);
   const pageSize = positiveNumber(params.get('page_size'), 50, 500);
@@ -43,14 +55,15 @@ export default function Search() {
   const names = Object.fromEntries((Array.isArray(accounts.data) ? accounts.data : []).map(account => [account.account_id, account.name]));
   const total = instances.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  return <section className="search-page"><div className="page-heading"><span className="eyebrow">Inventory</span><h1>Search</h1><p>Find instances across your cloud accounts.</p></div>
+  return <section className="search-page"><div className="page-heading"><span className="eyebrow">Inventory</span><h1>Instances</h1><p>Find instances across your cloud accounts.</p></div>
     <div className="overview-grid" aria-label="Inventory overview">
       <div className="overview-card"><span>Matching instances</span><strong>{instances.data ? total : '–'}</strong><small>Current search and filters</small></div>
       <div className="overview-card"><span>Configured accounts</span><strong>{Array.isArray(accounts.data) ? accounts.data.length : '–'}</strong><small>AWS &amp; Alibaba Cloud</small></div>
       <div className="overview-card"><span>Inventory mode</span><strong className="overview-label">Read only</strong><small>No changes to cloud resources</small></div>
     </div>
     <SearchInput revision={location.key} value={params.get('q') || ''} onChange={value => update(next => { if (value) next.set('q', value); else next.delete('q'); })} />
-    <div className="search-filters">{dimensions.map(([label, field, facet]) => <FacetFilter key={field} label={label}
+    <div className="search-filters" ref={filtersRef}>{dimensions.map(([label, field, facet]) => <FacetFilter key={field} label={label}
+      open={openFacet === field} onToggle={open => setOpenFacet(open ? field : null)}
       options={facets.data?.[facet] ?? []} selected={params.getAll(field)} names={field === 'account_id' ? names : undefined}
       onChange={(value, checked) => update(next => {
         const values = next.getAll(field).filter(item => item !== value);

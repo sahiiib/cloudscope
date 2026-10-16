@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { fetchApi, response, setup, user } from '../test/auth';
 
@@ -21,10 +21,10 @@ test('successful password change clears inventory cache and goes to login', asyn
   expect(client.getQueryData(['instances'])).toBeUndefined();
 });
 
-test('admins see Cloud accounts and fetch the accounts list', async () => {
+test('admins see user administration; cloud accounts live on the Accounts page', async () => {
   fetchApi.mockImplementation(async path => response(path === '/api/auth/me' ? user : []));
   setup('/settings');
-  expect(await screen.findByRole('heading', { name: 'Cloud accounts' })).toBeInTheDocument();
-  expect(await screen.findByText('No cloud accounts yet.')).toBeInTheDocument();
-  expect(fetchApi.mock.calls.some(([path]) => path === '/api/accounts')).toBe(true);
+  expect(await screen.findByRole('heading', { name: 'Administration' })).toBeInTheDocument();
+  expect(within(screen.getByRole('main')).getByRole('link', { name: 'Accounts' })).toHaveAttribute('href', '/accounts');
+  expect(screen.queryByRole('heading', { name: 'Cloud accounts' })).not.toBeInTheDocument();
 });

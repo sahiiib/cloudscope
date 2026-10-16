@@ -1,10 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import type { AuthUser } from '../api/types';
 import PasswordSettings from './PasswordSettings';
 import MFASettings from './MFASettings';
 import UsersSettings from './UsersSettings';
-import CloudAccounts from './CloudAccounts';
 import './settings.css';
 
 export default function Settings() {
@@ -17,9 +16,11 @@ export default function Settings() {
     void client.invalidateQueries({ queryKey: ['auth', 'me'] });
     void client.invalidateQueries({ queryKey: ['users'] });
   }
-  return <section className="settings-page"><h1>Settings</h1><p>Signed in as {user.username}</p>
+  return <section className="settings-page">
+    <div className="page-heading"><span className="eyebrow">Workspace</span><h1>Settings</h1>
+      <p>Signed in as {user.username}. Cloud accounts are managed on the {user.is_admin ? <Link to="/accounts">Accounts</Link> : 'Accounts'} page.</p></div>
+    <h2 className="settings-section-title">Your security</h2>
     <div className="settings-grid"><PasswordSettings onSessionEnd={endSession} /><MFASettings enabled={user.mfa_enabled} onChanged={mfaChanged} /></div>
-    {user.is_admin && <CloudAccounts />}
-    {user.is_admin && <UsersSettings currentUserId={user.id} onSessionEnd={endSession} />}
+    {user.is_admin && <><h2 className="settings-section-title">Administration</h2><UsersSettings currentUserId={user.id} onSessionEnd={endSession} /></>}
   </section>;
 }

@@ -20,3 +20,10 @@
 .state-stopped { background: #fff0c2; color: #6b4a00; }
 .state-terminated { background: #ffe0e0; color: #852929; }
 .search-pagination select { font: inherit; color: inherit; background: var(--surface); padding: .4rem; border: 1px solid var(--border); border-radius: .35rem; }
+/* Keep the horizontal scrollbar on screen: the table scrolls inside a viewport-high box. */
+.instance-scroll { overflow: auto; max-height: calc(100vh - 8rem); }
+.instance-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+.state-icon { display: inline-flex; color: var(--muted); }
+.state-icon.state-running { color: #1f9d5c; }
+.state-icon.state-stopped { color: #c58a00; }
+.state-icon.state-terminated { color: #c83c3c; }

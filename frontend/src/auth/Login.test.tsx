@@ -7,7 +7,7 @@ test('successful login checks session and opens the protected shell', async () =
   fetchApi.mockResolvedValueOnce(response({ mfa_required: false })).mockResolvedValue(response(user));
   setup(); signIn();
   expect(await screen.findByRole('navigation')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Search' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Instances' })).toBeInTheDocument();
   expect(fetchApi).toHaveBeenCalledWith('/api/auth/me', { redirectOnUnauthorized: false });
 });
 

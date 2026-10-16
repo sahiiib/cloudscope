@@ -33,7 +33,7 @@ export default function ProtectedLayout() {
       <NavLink className="brand" to="/"><span className="brand-symbol" aria-hidden="true">C</span><span>Cloudscope<small>Cloud inventory</small></span></NavLink>
       <span className="nav-caption">Workspace</span>
       <nav aria-label="Main navigation">
-        <NavLink to="/" end><span aria-hidden="true">&#9638;</span> Search</NavLink>
+        <NavLink to="/" end><span aria-hidden="true">&#9638;</span> Instances</NavLink>
         {me.data.is_admin && <NavLink to="/accounts"><span aria-hidden="true">&#9678;</span> Accounts</NavLink>}
         <NavLink to="/load-balancers">Load balancers</NavLink>
         <NavLink to="/sync"><span aria-hidden="true">&#8635;</span> Sync</NavLink>
