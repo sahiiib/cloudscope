@@ -22,6 +22,7 @@ test('shows inventory, details and encoded ARN identity', async () => {
   mock(); setup('/load-balancers');
   expect(await screen.findByText('demo.example.com')).toBeInTheDocument();
   expect(screen.getByRole('searchbox', { name: 'Search load balancers' })).toHaveAttribute('placeholder', 'Name, account, resource ID, address or VPC…');
+  expect(screen.getByRole('img', { name: 'active' })).toHaveClass('state-running');
   fireEvent.click(screen.getByRole('button', { name: 'View web-lb' }));
   expect(await screen.findByText('vpc-test')).toBeInTheDocument();
   expect(screen.getByText('demo-alias')).toBeInTheDocument();

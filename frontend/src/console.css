@@ -95,3 +95,16 @@ tbody tr:last-child td { border-bottom: 0; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; padding: .3rem; line-height: 0; }
 .icon-button.danger { color: #c83c3c; }
 .icon { display: block; }
+/* FloatingScroll: the content's own horizontal bar is hidden; the sticky copy is used instead. */
+.floating-scroll-content { overflow-x: auto; scrollbar-width: none; }
+.floating-scroll-content::-webkit-scrollbar { height: 0; }
+.floating-scroll-bar { position: sticky; bottom: 0; z-index: 3; overflow-x: auto; overflow-y: hidden; height: 14px; background: var(--panel); border-top: 1px solid var(--border); }
+.floating-scroll-bar > div { height: 1px; }
+.floating-scroll-bar[hidden] { display: none; }
+.state-icon { display: inline-flex; color: var(--muted); }
+.state-icon.state-running { color: #1f9d5c; }
+.state-icon.state-stopped { color: #c58a00; }
+.state-icon.state-terminated { color: #c83c3c; }
+/* Grid pages must not grow to the table's width, or the window scrolls instead of the table. */
+.search-page, .lb-page, .settings-page, .sync-page { grid-template-columns: minmax(0, 1fr); }
+.floating-scroll { min-width: 0; }

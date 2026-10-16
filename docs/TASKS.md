@@ -58,6 +58,7 @@ A task can start when all its dependencies are `done`.
 | T-075 | UI polish: Instances page, filters, icons, Settings | claude | T-068 | review |
 | T-076 | Per-account sync and stopping a sync | codex | T-073 | todo |
 | T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | todo |
+| T-078 | Floating table scrollbar; same polish on Load balancers | claude | T-075 | review |
 
 ---
 
@@ -605,4 +606,13 @@ keys anywhere and returns the region list; the dialog's Test connection shows
 the regions as a checklist to exclude. Additive migration, API docs in
 `api.md`, types, and tests including "keys never persisted or logged" and
 "excluded region is not scanned".
+
+### T-078: Floating table scrollbar; same polish on Load balancers
+Owner: claude · Spec: [ui](specs/ui.md#ui-polish-t-075)
+
+Saheb, 2026-10-16: with many instances the horizontal scrollbar was only reachable
+at the end of the table. Acceptance: a horizontal scrollbar stays at the bottom of
+the window while a wide table is on screen and scrolls the table; used on the
+instance, load balancer and LB scan tables; the Load balancers page gets the
+State icon, account ID copy icon and an icon View/Hide button.
 

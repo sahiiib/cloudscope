@@ -4,6 +4,8 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import type { AccountSummary, LoadBalancerDetail, LoadBalancerPage, LoadBalancerScans, LoadBalancerSummary } from '../api/types';
 import SearchInput from '../search/SearchInput';
+import FloatingScroll from '../FloatingScroll';
+import { CopyIcon, StateIcon, ViewIcon } from '../icons';
 import './load-balancers.css';
 
 function identity(lb: LoadBalancerSummary) {
@@ -30,6 +32,11 @@ export default function LoadBalancers() {
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState('');
+  async function copy(value: string, what: string) {
+    try { await navigator.clipboard.writeText(value); setCopyStatus(`${what} copied.`); }
+    catch { setCopyStatus(`Unable to copy. Select and copy the ${what.toLowerCase()}.`); }
+  }
   const rawPage = Number(params.get('page') || 1);
   const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   const query = new URLSearchParams();
@@ -71,26 +78,27 @@ export default function LoadBalancers() {
       {inventory.isError && <p role="alert">Unable to refresh inventory. Showing previous results. <button onClick={() => void inventory.refetch()}>Retry inventory</button></p>}
       <div className="lb-toolbar"><span>{inventory.data?.total ?? 0} load balancers{inventory.isFetching ? ' · Updating…' : ''}</span>
         <button className="secondary" onClick={() => { void inventory.refetch(); void scans.refetch(); }}>Refresh</button></div>
-      {inventory.data?.items.length ? <div className="lb-scroll"><table className="lb-table"><thead><tr>
+      <p role="status">{copyStatus}</p>
+      {inventory.data?.items.length ? <FloatingScroll className="lb-scroll"><table className="lb-table"><thead><tr>
         {['Name', 'Type', 'State', 'Exposure', 'Address', 'Account', 'Region', 'Observed', 'Details'].map(label => <th key={label} scope="col">{label}</th>)}
       </tr></thead><tbody>{inventory.data.items.map(lb => <tr key={identity(lb)}>
         <td><strong>{lb.name}</strong><small>{lb.provider === 'aws' ? 'AWS' : 'Alibaba Cloud'}{!lb.present && ' · Missing'}</small></td>
-        <td><span className="lb-chip">{lb.kind.toUpperCase()}</span></td><td>{lb.state}</td><td>{lb.scheme}</td>
+        <td><span className="lb-chip">{lb.kind.toUpperCase()}</span></td><td><StateIcon state={lb.state} /></td><td>{lb.scheme}</td>
         <td>{lb.addresses.length ? lb.addresses.map(address => <div key={address}>{address}</div>) : 'Not available'}</td>
-        <td>{lb.account_name}<small>{lb.account_id}</small></td><td>{lb.region}</td>
+        <td>{lb.account_name}<small><code>{lb.account_id}</code> <button className="secondary icon-button" aria-label={`Copy account ID ${lb.account_id}`} title="Copy account ID" onClick={() => void copy(lb.account_id, 'Account ID')}><CopyIcon /></button></small></td><td>{lb.region}</td>
         <td><time dateTime={lb.last_observed}>{new Date(lb.last_observed).toLocaleString()}</time></td>
-        <td><button className="secondary" aria-expanded={expanded === identity(lb)} onClick={() => setExpanded(expanded === identity(lb) ? null : identity(lb))}>{expanded === identity(lb) ? 'Hide' : 'View'} {lb.name}</button></td>
-      </tr>)}</tbody></table></div> : <p>No load balancers match this search. Check collection status to confirm scans succeeded.</p>}
+        <td><button className="secondary icon-button" aria-label={`${expanded === identity(lb) ? 'Hide' : 'View'} ${lb.name}`} title={expanded === identity(lb) ? 'Hide details' : 'View details'} aria-expanded={expanded === identity(lb)} onClick={() => setExpanded(expanded === identity(lb) ? null : identity(lb))}><ViewIcon /></button></td>
+      </tr>)}</tbody></table></FloatingScroll> : <p>No load balancers match this search. Check collection status to confirm scans succeeded.</p>}
       {expanded && inventory.data?.items.filter(lb => identity(lb) === expanded).map(lb => <Details key={expanded} lb={lb} />)}
       <nav className="lb-pagination" aria-label="Load balancer pagination"><button disabled={page === 1} onClick={() => update('page', String(page - 1))}>Previous</button>
         <span>Page {page} of {Math.max(1, Math.ceil((inventory.data?.total ?? 0) / 50))}</span>
         <button disabled={page * 50 >= (inventory.data?.total ?? 0)} onClick={() => update('page', String(page + 1))}>Next</button></nav>
     </>}
     {scans.data && <details className="lb-scan-status"><summary>Collection status ({scans.data.items.length} account / region / type scans)</summary>
-      <div className="lb-scroll"><table className="lb-table"><thead><tr>{['Provider', 'Account ID', 'Region', 'Family', 'Status', 'Error', 'Last success'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+      <FloatingScroll className="lb-scroll"><table className="lb-table"><thead><tr>{['Provider', 'Account ID', 'Region', 'Family', 'Status', 'Error', 'Last success'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
         <tbody>{scans.data.items.map(scan => <tr key={`${scan.provider}/${scan.account_id}/${scan.region}/${scan.family}`}>
           <td>{scan.provider}</td><td>{scan.account_id}</td><td>{scan.region}</td><td>{scan.family}</td><td>{scan.status}</td><td>{scan.error ?? '–'}</td>
-          <td>{scan.last_success ? new Date(scan.last_success).toLocaleString() : 'Never'}</td></tr>)}</tbody></table></div>
+          <td>{scan.last_success ? new Date(scan.last_success).toLocaleString() : 'Never'}</td></tr>)}</tbody></table></FloatingScroll>
     </details>}
   </section>;
 }

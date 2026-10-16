@@ -176,8 +176,9 @@ fonts, trackers or new dependencies are needed.
 - Page `/` is titled **Instances**.
 - Filter dropdowns: the page owns which one is open; opening one closes the
   others, and a click outside the filter bar or Esc closes it.
-- The instance table scrolls inside a box at most `100vh - 8rem` high, so the
-  horizontal scrollbar stays visible; the header row is sticky.
+- Wide tables (instances, load balancers, LB scan status) use `FloatingScroll`:
+  their own horizontal scrollbar is hidden and a synced copy sticks to the bottom
+  of the window while the table is on screen (T-078).
 - State column: an icon (running, stopped, terminated, other) with the state as
   accessible name and tooltip. Copy buttons are icon buttons labelled
   `Copy <instance id>` / `Copy account ID <id>`.
@@ -185,4 +186,6 @@ fonts, trackers or new dependencies are needed.
   Delete) are icon buttons with the same accessible names and a tooltip.
 - Settings: page heading, "Your security" (password, MFA) and, for admins,
   "Administration" (users). Cloud accounts are only on `/accounts`.
+- Load balancers page (T-078): same floating scrollbar, State icon, copy icon for
+  the account ID and an icon button for View/Hide details.
 

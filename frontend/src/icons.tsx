@@ -17,3 +17,17 @@ export const RunningIcon = () => <Icon><circle cx="12" cy="12" r="9" /><path d="
 export const StoppedIcon = () => <Icon><circle cx="12" cy="12" r="9" /><rect x="9" y="9" width="6" height="6" fill="currentColor" /></Icon>;
 export const TerminatedIcon = () => <Icon><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></Icon>;
 export const OtherStateIcon = () => <Icon><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Icon>;
+export const ViewIcon = () => <Icon><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></Icon>;
+
+// Instance and load balancer states share one icon set; the state text stays the accessible name.
+const stateKinds: Record<string, 'running' | 'stopped' | 'terminated'> = {
+  running: 'running', active: 'running', stopped: 'stopped', inactive: 'stopped',
+  terminated: 'terminated', failed: 'terminated',
+};
+const stateGlyphs = { running: RunningIcon, stopped: StoppedIcon, terminated: TerminatedIcon, other: OtherStateIcon };
+
+export function StateIcon({ state }: { state: string }) {
+  const kind = stateKinds[state.toLowerCase()] ?? 'other';
+  const Glyph = stateGlyphs[kind];
+  return <span className={`state-icon state-${kind}`} role="img" aria-label={state} title={state}><Glyph /></span>;
+}
