@@ -83,3 +83,52 @@ the existing access test without saving anything.
 UI: the Add and Edit dialogs have a Test connection button. On success they show
 the discovered regions as a checklist so the admin can tick regions to exclude;
 the choice is saved as `excluded_regions`.
+
+## Region picker in the Edit dialog (T-079)
+
+Requested by Saheb on 2026-10-16 after testing T-077. Replaces the "re-enter
+dedicated keys to test while editing" decision and changes how the region
+checklist is shown. Saved data stays the same: `excluded_regions`.
+
+### Test while editing uses the saved keys
+
+- `POST /api/accounts/{provider}/{account_id}/test-connection` takes the same
+  body as `POST /api/accounts/test-connection` (provider and account ID come
+  from the path and must match the body if present).
+- If the body has no `credentials` and the account is saved as `dedicated`,
+  the server loads that account's own saved keys from its Secret, the same way
+  the collector does. Keys never go back to the browser and are not logged.
+- Saved keys are only used for the same provider and account ID. Changing
+  connection mode to dedicated without saved keys still requires keys.
+- New keys typed in the form still override the saved ones for that test.
+- Errors, the 30 s deadline and the audit log `event=account_test_connection`
+  are the same as the unsaved test.
+- The Edit dialog uses this endpoint; Add keeps using the unsaved one.
+
+### Region list with counts
+
+`GET /api/accounts/{provider}/{account_id}/regions` (admin) returns
+`{regions: [{region, instances, load_balancers, excluded}]}`, sorted by region.
+
+- The list is the union of: regions in the account's most recent run that
+  scanned it, regions with present instances or load balancers, and
+  `excluded_regions`.
+- `instances` and `load_balancers` count present rows in that region (0 for
+  an excluded region whose rows were retired).
+- No cloud calls; reads only the database. Empty list for an account that
+  never synced.
+
+### Dialog
+
+- Under the Regions text box there is a **Select regions** button. It replaces
+  the separate Test connection button: it runs the connection test and, on
+  success, shows "Connection OK" and refreshes the region list with any newly
+  discovered regions (counts 0 for new ones).
+- When editing an account that has synced before, the region list loads from
+  `GET …/regions` as soon as the dialog opens, without a test.
+- The checklist means **scan this region**: every region is ticked except the
+  ones in `excluded_regions`. Unticking a region excludes it. Saving sends the
+  unticked regions as `excluded_regions`.
+- Each row shows the counts, for example `eu-central-1 · 12 instances · 3 load
+  balancers`.
+- Unticking every region shows "Keep at least one region" and blocks saving.

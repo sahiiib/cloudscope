@@ -59,6 +59,7 @@ A task can start when all its dependencies are `done`.
 | T-076 | Per-account sync and stopping a sync | codex | T-073 | done |
 | T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | review |
 | T-078 | Floating table scrollbar; same polish on Load balancers | claude | T-075 | done |
+| T-079 | Region picker with counts; test with saved keys when editing | codex | T-077 | todo |
 
 ---
 
@@ -616,3 +617,17 @@ the window while a wide table is on screen and scrolls the table; used on the
 instance, load balancer and LB scan tables; the Load balancers page gets the
 State icon, account ID copy icon and an icon View/Hide button.
 
+### T-079: Region picker with counts; test with saved keys when editing
+Owner: codex · Spec: [sync and account controls](specs/sync-and-account-controls.md#region-picker-in-the-edit-dialog-t-079)
+
+Saheb, 2026-10-16, after testing T-077. Acceptance: in the Edit dialog, Test
+connection no longer asks for dedicated keys again (new
+`POST /api/accounts/{provider}/{account_id}/test-connection` uses the account's
+own saved Secret when no keys are sent); new `GET /api/accounts/{provider}/{account_id}/regions`
+returns each known region with present instance and load balancer counts; an
+account that has synced opens with its regions listed, all ticked except
+excluded ones, each with its counts; a **Select regions** button under the
+Regions text box runs the test and adds newly discovered regions. API docs in
+`api.md`, types, and tests including "saved keys are used only for the same
+account", "keys never returned or logged" and "unticked regions are saved as
+`excluded_regions`".
