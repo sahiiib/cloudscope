@@ -10,7 +10,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Literal
 
-from sqlalchemy import Text, all_, bindparam, or_, select, tuple_, update
+from sqlalchemy import Text, all_, bindparam, case, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -158,11 +158,16 @@ class SyncRunner:
             stale = session.scalars(
                 update(SyncRun)
                 .where(SyncRun.status == "running")
-                .values(status="failed", finished_at=self.clock())
+                .values(
+                    status=case(
+                        (SyncRun.cancel_requested_at.is_not(None), "cancelled"), else_="failed"
+                    ),
+                    finished_at=self.clock(),
+                )
                 .returning(SyncRun.id)
             ).all()
             if stale:
-                logger.warning("event=stale_runs_failed count=%s", len(stale))
+                logger.warning("event=stale_runs_finished count=%s", len(stale))
             run = SyncRun(
                 trigger=trigger,
                 status="running",

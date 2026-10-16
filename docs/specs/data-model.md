@@ -130,7 +130,9 @@ an extra API call is required.
 | `id` | bigserial | |
 | `started_at` / `finished_at` | timestamptz | |
 | `trigger` | text | `schedule` \| `manual` |
-| `status` | text | `running` \| `success` \| `partial` \| `failed` |
+| `status` | text | `running` \| `success` \| `partial` \| `failed` \| `cancelled` |
+| `scope_provider` / `scope_account_id` | text null | Null for full runs; CLI account-only scope may have null provider |
+| `cancel_requested_at` | timestamptz null | Cooperative cancellation request |
 | `instances_seen` | int | |
 
 `finished_at` is nullable while the run is active. New runs default to

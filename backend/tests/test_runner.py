@@ -334,15 +334,25 @@ def test_file_timestamp_only_changes_when_configuration_changes(factory):
         assert row.enabled and row.updated_at == NOW + timedelta(hours=3)
 
 
-def test_stale_running_runs_are_failed_by_next_run(factory: sessionmaker[Session]) -> None:
+@pytest.mark.parametrize("cancel_requested,expected", [(False, "failed"), (True, "cancelled")])
+def test_stale_running_runs_are_finished_by_next_run(
+    factory: sessionmaker[Session], cancel_requested: bool, expected: str
+) -> None:
     # A collector killed mid-run (e.g. OOMKilled) leaves its row "running".
     with factory.begin() as session:
-        session.add(SyncRun(trigger="schedule", status="running", started_at=NOW))
+        session.add(
+            SyncRun(
+                trigger="schedule",
+                status="running",
+                started_at=NOW,
+                cancel_requested_at=NOW if cancel_requested else None,
+            )
+        )
     result = SyncRunner(factory, {"aws": FakeProvider()}).run([ACCOUNT])
     assert result.status == "success"
     with factory() as session:
         runs = session.scalars(select(SyncRun).order_by(SyncRun.id)).all()
-        assert [run.status for run in runs] == ["failed", "success"]
+        assert [run.status for run in runs] == [expected, "success"]
         assert runs[0].finished_at is not None
 
 
@@ -375,12 +385,34 @@ def test_scoped_run_isolates_provider_and_other_inventory(factory: sessionmaker[
                 last_success_at=NOW,
             )
         )
+        session.flush()
+        session.add(
+            Instance(
+                provider="alibaba",
+                account_id=ACCOUNT.account_id,
+                region="us-east-1",
+                instance_id="i-other",
+                state="running",
+                provider_state="running",
+                instance_type="test.small",
+                private_ips=[],
+                public_ips=[],
+                tags={},
+                details={},
+                raw={},
+                first_seen=NOW,
+                last_observed=NOW,
+                present=True,
+            )
+        )
     provider.calls.clear()
     scoped = runner.run([ACCOUNT], account_id=ACCOUNT.account_id, scope_provider="aws")
     assert scoped.scope_provider == "aws" and scoped.scope_account_id == ACCOUNT.account_id
     assert scoped.status == "success" and first.instances_seen == scoped.instances_seen
     with factory() as session:
         assert session.get_one(Account, ("alibaba", ACCOUNT.account_id)).last_success_at == NOW
+        other = session.scalar(select(Instance).where(Instance.provider == "alibaba"))
+        assert other is not None and other.present and other.last_observed == NOW
         assert {
             r.provider
             for r in session.scalars(select(SyncResult).where(SyncResult.run_id == scoped.id))

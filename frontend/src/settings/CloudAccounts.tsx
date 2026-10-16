@@ -73,7 +73,7 @@ export default function CloudAccounts() {
   const [editing, setEditing] = useState<AccountSummary | 'new' | null>(null);
   const [notice, setNotice] = useState('');
   const accounts = useQuery({ queryKey: ['accounts'], queryFn: async ({ signal }): Promise<AccountSummary[]> => (await apiFetch('/api/accounts', { signal })).json() });
-  const runs = useQuery({ queryKey: ['sync', 'runs'], queryFn: async ({ signal }): Promise<SyncRun[]> => (await apiFetch('/api/sync/runs?limit=20', { signal })).json(), refetchInterval: 5000 });
+  const runs = useQuery({ queryKey: ['sync', 'runs'], queryFn: async ({ signal }): Promise<SyncRun[]> => (await apiFetch('/api/sync/runs?limit=20', { signal })).json(), refetchInterval: q => q.state.data?.some(run => run.status === 'running') ? 5000 : 30000 });
   const capabilities = useQuery({ queryKey: ['account-capabilities'], queryFn: async ({ signal }): Promise<{ dedicated_credentials: boolean }> => (await apiFetch('/api/accounts/capabilities', { signal })).json() });
   async function refresh() {
     await Promise.all(['accounts', 'instance-facets', 'instances', 'instance', 'sync', 'load-balancers', 'load-balancer'].map(key => client.invalidateQueries({ queryKey: [key] })));

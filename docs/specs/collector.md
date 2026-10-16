@@ -28,7 +28,8 @@ callers must use the same database-scoped lock. SDK retries remain provider-owne
 1. Load `accounts.yaml`, upsert `accounts` rows with `source = file` (mark
    removed ones `enabled = false`), then read every enabled row, from either
    source, as the account list. See [accounts.md](accounts.md).
-2. Mark any `sync_runs` row still `running` as `failed` (the caller holds the
+2. Mark any `sync_runs` row still `running` as `cancelled` if cancellation was
+   requested, otherwise `failed` (the caller holds the
    collection lock, so such a row was left by a killed process, e.g. OOMKilled),
    then insert a `sync_runs` row with `status = running`. Any unexpected error
    after this point marks the run `failed` before it propagates.
@@ -47,7 +48,7 @@ callers must use the same database-scoped lock. SDK retries remain provider-owne
      `present = false`, `state = terminated`. **Only if the scan succeeded.**
    - Write a `sync_results` row.
 6. Finish the run: `success` if all scans succeeded, `partial` if some failed,
-   `failed` if all failed. Update `accounts.last_success_at`.
+   `failed` if all failed, or `cancelled` when Stop was requested. Update `accounts.last_success_at`.
 
 A failure in one scan (throttling, access denied, region disabled) is caught,
 logged and recorded; it never aborts the run. Retries use the SDKs' built-in
