@@ -55,7 +55,7 @@ A task can start when all its dependencies are `done`.
 | T-072 | Key-first account form and recoverable deletion | codex | T-071 | done |
 | T-073 | Fix collector OOM and stale collection runs | claude | T-012 | done |
 | T-074 | Bound AWS connect timeout in collection | claude | T-073 | done |
-| T-075 | UI polish: Instances page, filters, icons, Settings | claude | T-068 | review |
+| T-075 | UI polish: Instances page, filters, icons, Settings | claude | T-068 | done |
 | T-076 | Per-account sync and stopping a sync | codex | T-073 | todo |
 | T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | todo |
 
