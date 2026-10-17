@@ -172,3 +172,14 @@ export interface NetworkScans {
   enabled: boolean;
   items: { provider: string; account_id: string; region: string; resource_type: 'elastic_ip' | 'nat_gateway'; status: 'success' | 'error'; error: string | null; last_attempt: string; last_success: string | null }[];
 }
+
+export interface NatAddress { allocation_id: string | null; public_ip: string | null; private_ip: string | null; network_interface_id: string | null }
+export interface NatGatewaySummary {
+  provider: 'aws' | 'alibaba'; account_id: string; account_name: string; account_alias: string | null;
+  region: string; nat_gateway_id: string; name: string; state: string;
+  connectivity_type: string | null; nat_type: string | null; network_type: string | null; spec: string | null;
+  vpc_id: string | null; subnet_id: string | null; private_ip: string | null;
+  addresses: NatAddress[]; tags: Record<string, string>; last_observed: string; present: boolean;
+}
+export interface NatGatewayDetail extends NatGatewaySummary { raw: Record<string, unknown>; first_seen: string }
+export interface NatGatewayPage { items: NatGatewaySummary[]; total: number; page: number; page_size: number }

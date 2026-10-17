@@ -31,6 +31,7 @@ from cloudscope.db.models import (
     Instance,
     LoadBalancer,
     LoadBalancerScan,
+    NatGateway,
     NetworkScan,
     SyncResult,
     SyncRun,
@@ -296,7 +297,7 @@ class SyncRunner:
                             NetworkScan.region.in_(account.excluded_regions),
                         )
                     )
-                    for model in (Instance, LoadBalancer, ElasticIP):
+                    for model in (Instance, LoadBalancer, ElasticIP, NatGateway):
                         session.execute(
                             update(model)
                             .where(

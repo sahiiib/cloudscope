@@ -267,13 +267,42 @@ including when network collection is disabled; they make no cloud calls.
   EIP, otherwise `{type, id, link}`; missing type/ID/link are null. Links resolve
   only to present resources in the same provider/account/region. AWS NLB matches
   its stored allocation ID; Alibaba CLB and instances match their provider IDs.
-  NAT gateway resolution is deferred to T-082.
+  NAT gateways resolve by Alibaba associated ID or AWS allocation ID, overriding
+  an ENI association. All resource lookups are batched per EIP page.
 - `GET /api/elastic-ips/{provider}/{account_id}/{region}/{allocation_id}` adds
   `raw` and `first_seen`; missing inventory remains addressable, unknown identity
   or deleted account returns 404.
 - `GET /api/network/scans`: `{enabled, items}`; each item contains `provider`,
   `account_id`, `region`, `resource_type`, `status`, `error`, `last_attempt`,
-  `last_success`. Resource types are `elastic_ip` and (from T-082) `nat_gateway`.
+  `last_success`. Resource types are `elastic_ip` and `nat_gateway`.
   Errors are sanitized codes; last success remains unchanged on failure.
 - Instance details add `elastic_ips: [{public_ip, allocation_id}]`, sorted by
   allocation ID, for present, non-available EIPs associated with that instance.
+
+
+## NAT gateway inventory (T-082)
+
+Full authenticated sessions can read these endpoints regardless of the network
+collection flag. Deleted accounts are excluded. No cloud calls occur in routes.
+
+- `GET /api/nat-gateways`: `q` (literal case-insensitive substring of name, NAT
+  ID, public/private IP, VPC, account name/alias/ID), `provider`, `account_id`,
+  `region`, `state` (exact provider value), `include_missing=false`, `page=1`,
+  `page_size=50` (max 500). Default visibility excludes `present=false` and
+  deleted state. Stable ordering: name, internal ID. Returns
+  `{items, total, page, page_size}`.
+- Items: `provider`, `account_id`, `account_name`, `account_alias`, `region`,
+  `nat_gateway_id`, `name`, `state`, `connectivity_type`, `nat_type`,
+  `network_type`, `spec`, `vpc_id`, `subnet_id`, `private_ip`, `addresses`,
+  `tags`, `last_observed`, `present`. Provider-specific absent fields are null.
+  Each address has nullable `allocation_id`, `public_ip`, `private_ip`,
+  `network_interface_id`. Raw data is omitted from lists.
+- `GET /api/nat-gateways/{provider}/{account_id}/{region}/{nat_gateway_id}`:
+  adds `raw` and `first_seen`. Missing/deleted gateways remain addressable;
+  unknown identity or deleted account returns 404.
+- `GET /api/network/scans` includes separate `nat_gateway` attempts and successes.
+  EIP `association` now resolves to `/nat-gateways/{provider}/{account}/{region}/{id}`
+  only for a present, non-deleted gateway in the same provider/account/region.
+  Lookup is by allocation ID for AWS, associated ID for Alibaba. Available EIPs
+  still return null. Failure to resolve preserves the provider association as
+  text with a null link.

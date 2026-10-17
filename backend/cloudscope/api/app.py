@@ -21,6 +21,7 @@ from cloudscope.api.routes.auth import router as auth_router
 from cloudscope.api.routes.auth import set_session_cookie
 from cloudscope.api.routes.instances import router as instances_router
 from cloudscope.api.routes.load_balancers import router as load_balancers_router
+from cloudscope.api.routes.nat_gateways import router as nat_gateways_router
 from cloudscope.api.routes.network import router as network_router
 from cloudscope.api.routes.sync import router as sync_router
 from cloudscope.api.routes.users import router as users_router
@@ -108,6 +109,7 @@ def create_app(
     app.include_router(instances_router)
     app.include_router(load_balancers_router)
     app.include_router(network_router)
+    app.include_router(nat_gateways_router)
     app.include_router(accounts_router)
     app.include_router(sync_router)
 

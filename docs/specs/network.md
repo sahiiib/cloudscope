@@ -141,10 +141,29 @@ Migrations are additive; older images run fine against the added tables.
 
 Elastic IP `associated_type` filtering uses the normalized provider field;
 `association` contains the separately resolved inventory target (for example an
-AWS `network_interface` can resolve to a present NLB). NAT inventory and NAT
-allocation resolution follow in T-082. Alibaba pagination requires a stable
+AWS `network_interface` can resolve to a present NLB). T-082 adds NAT inventory and allocation resolution; association lookup is batched
+per page (at most three resource queries). Alibaba pagination requires a stable
 `TotalCount`; a missing/changing total, unexpected page number, duplicate ID or
 premature empty page fails the snapshot without retiring earlier rows.
 
 Provider references: [AWS DescribeAddresses](https://docs.aws.amazon.com/botocore/latest/reference/services/ec2/client/describe_addresses.html)
 and [Alibaba DescribeEipAddresses](https://www.alibabacloud.com/help/en/eip/developer-reference/api-vpc-2016-04-28-describeeipaddresses-eips).
+
+### T-082 implementation notes
+
+Migration `0013` adds NAT gateways under the existing network opt-in flag. The
+collector records EIP and NAT snapshots independently; a failed resource scan
+cannot retire the other resource's rows. Both respect excluded regions and the
+existing worker pool/lock. Provider states are preserved (AWS `available`,
+Alibaba `Available`); the state filter is exact. Deleted gateways are retained
+for details/include-missing but do not receive association links.
+
+NAT address entries normalize to `allocation_id`, `public_ip`, `private_ip` and
+`network_interface_id` (nullable strings). Alibaba `NatGatewayPrivateInfo`
+provides gateway-level private IP and vSwitch. AWS public/private IPs come from
+each address. An address with an allocation ID links to the EIP detail route;
+private-only addresses have no invented EIP link. An allocation absent from EIP
+inventory produces the existing EIP not-found screen.
+
+API references: [AWS DescribeNatGateways](https://docs.aws.amazon.com/boto3/latest/reference/services/ec2/client/describe_nat_gateways.html)
+and [Alibaba DescribeNatGateways](https://www.alibabacloud.com/help/en/nat-gateway/developer-reference/api-vpc-2016-04-28-describenatgateways-natgws).

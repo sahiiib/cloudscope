@@ -1,15 +1,14 @@
 """Authenticated network inventory and database-only association resolution."""
 
 from typing import Annotated, Literal
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import ColumnElement, func, or_, select
-from sqlalchemy.orm import Session
 
+from cloudscope.api.network_links import associations
 from cloudscope.auth.deps import current_user, get_auth
 from cloudscope.auth.sessions import AuthService
-from cloudscope.db.models import Account, ElasticIP, Instance, LoadBalancer, NetworkScan
+from cloudscope.db.models import Account, ElasticIP, NetworkScan
 
 router = APIRouter(prefix="/api", dependencies=[Depends(current_user)])
 Auth = Annotated[AuthService, Depends(get_auth)]
@@ -33,79 +32,14 @@ FIELDS = (
 )
 
 
-def resource_link(prefix: str, *identity: str) -> str:
-    return "/" + prefix + "/" + "/".join(quote(part, safe="") for part in identity)
-
-
-def association(session: Session, eip: ElasticIP) -> dict[str, object] | None:
-    if eip.status == "available":
-        return None
-    kind, resource_id = eip.associated_type, eip.associated_id
-    scope = (eip.provider, eip.account_id, eip.region)
-    if eip.provider == "aws" and kind in (None, "network_interface"):
-        lb = session.scalar(
-            select(LoadBalancer)
-            .where(
-                LoadBalancer.provider == eip.provider,
-                LoadBalancer.account_id == eip.account_id,
-                LoadBalancer.region == eip.region,
-                LoadBalancer.present.is_(True),
-                LoadBalancer.family == "elbv2",
-                LoadBalancer.kind == "network",
-                LoadBalancer.raw.contains(
-                    {
-                        "AvailabilityZones": [
-                            {"LoadBalancerAddresses": [{"AllocationId": eip.allocation_id}]}
-                        ]
-                    }
-                ),
-            )
-            .order_by(LoadBalancer.id)
-            .limit(1)
-        )
-        if lb is not None:
-            return {
-                "type": "load_balancer",
-                "id": lb.load_balancer_id,
-                "link": resource_link("load-balancers", *scope, lb.family, lb.load_balancer_id),
-            }
-    link: str | None = None
-    if kind == "instance" and resource_id:
-        present = session.scalar(
-            select(Instance.id).where(
-                Instance.provider == eip.provider,
-                Instance.account_id == eip.account_id,
-                Instance.region == eip.region,
-                Instance.instance_id == resource_id,
-                Instance.present.is_(True),
-            )
-        )
-        if present is not None:
-            link = resource_link("instances", *scope, resource_id)
-    elif kind == "load_balancer" and resource_id:
-        lb = session.scalar(
-            select(LoadBalancer).where(
-                LoadBalancer.provider == eip.provider,
-                LoadBalancer.account_id == eip.account_id,
-                LoadBalancer.region == eip.region,
-                LoadBalancer.load_balancer_id == resource_id,
-                LoadBalancer.family == "clb",
-                LoadBalancer.present.is_(True),
-            )
-        )
-        if lb is not None:
-            link = resource_link("load-balancers", *scope, lb.family, resource_id)
-    return {"type": kind, "id": resource_id, "link": link}
-
-
 def item(
-    session: Session, eip: ElasticIP, account: Account, detail: bool = False
+    eip: ElasticIP, account: Account, association: dict[str, object] | None, detail: bool = False
 ) -> dict[str, object]:
     return {
         **{field: getattr(eip, field) for field in FIELDS},
         "account_name": account.name,
         "account_alias": account.cloud_alias,
-        "association": association(session, eip),
+        "association": association,
         **({"raw": eip.raw, "first_seen": eip.first_seen} if detail else {}),
     }
 
@@ -161,8 +95,9 @@ def inventory(
             .offset((page - 1) * page_size)
             .limit(page_size)
         ).all()
+        targets = associations(session, [eip for eip, _ in rows])
         return {
-            "items": [item(session, eip, account) for eip, account in rows],
+            "items": [item(eip, account, targets[eip.id]) for eip, account in rows],
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -226,4 +161,4 @@ def detail(
         ).one_or_none()
         if row is None:
             raise HTTPException(404, "Elastic IP not found")
-        return item(session, *row, detail=True)
+        return item(*row, associations(session, [row[0]])[row[0].id], detail=True)

@@ -242,3 +242,16 @@ always opens EIP details, and embedded links/copy buttons do not trigger row
 navigation. Association IDs without an inventory match remain copyable text.
 Details show all normalized fields, association, tags and raw payload. Instance
 details link their known Elastic IPs to these details pages.
+
+
+## NAT gateway inventory (T-082)
+
+**NAT gateways** follows Elastic IPs in the navigation. `/nat-gateways` has
+URL-backed search, provider/account/region/state filters, include-missing and
+pagination, plus a 30-second refresh while visible. Its collection status uses
+only `nat_gateway` scans and distinguishes disabled, never-run and failed scans.
+A table row click, Enter on the row, or View opens NAT details. Embedded copy
+buttons and EIP links do not trigger row navigation. Public address allocation
+IDs link to EIP details; private-only addresses are plain text. Details show
+provider-specific fields, VPC/subnet, all addresses, tags and raw data with a
+"Back to NAT gateways" link. Missing inventory retains its details and warning.
