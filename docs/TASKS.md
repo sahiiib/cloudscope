@@ -61,6 +61,8 @@ A task can start when all its dependencies are `done`.
 | T-078 | Floating table scrollbar; same polish on Load balancers | claude | T-075 | done |
 | T-079 | Region picker with counts; test with saved keys when editing | codex | T-077 | done |
 | T-080 | Load balancer details page and more copy icons | claude | T-078 | done |
+| T-081 | Elastic IP inventory page | codex | T-069, T-080 | todo |
+| T-082 | NAT gateway inventory page | codex | T-081 | todo |
 
 ---
 
@@ -640,3 +642,29 @@ Saheb, 2026-10-17. Acceptance: load balancer details open on their own page
 like instance details; addresses (DNS names) can be copied; filter dropdowns
 do not repeat their title; instance name and private/public IPs can be copied;
 instance details link reads "Back to instances".
+
+### T-081: Elastic IP inventory page
+Owner: codex · Spec: [network](specs/network.md)
+
+Saheb, 2026-10-17. Acceptance: opt-in `CLOUDSCOPE_NETWORK_ENABLED` / Helm
+`collector.networkEnabled`; migration `0012` adds `elastic_ips` and
+`network_scans`; AWS `DescribeAddresses` and Alibaba `DescribeEipAddresses`
+collected per account/region with the load balancer atomicity rules; list,
+details and scans endpoints; instance details return and show their Elastic
+IPs; **Elastic IPs** page where a row opens the associated instance or load
+balancer when it is in the inventory, else the EIP details page, and the
+*Associated with* cell is a link. `ec2:DescribeAddresses` added to the AWS
+template and policy block. API docs in `api.md`, types, and tests including
+"failed scan keeps previous rows", "excluded region is not scanned",
+"association link only for a present resource" and the row click targets.
+
+### T-082: NAT gateway inventory page
+Owner: codex · Spec: [network](specs/network.md#nat-gateways-t-082-migration-0013)
+
+Saheb, 2026-10-17. Acceptance: migration `0013` adds `nat_gateways`; AWS
+`DescribeNatGateways` and Alibaba `DescribeNatGateways` collected under the same
+flag and scan table; list and details endpoints; **NAT gateways** page and
+details page with EIP links; EIPs attached to a NAT gateway (AWS by allocation
+ID, Alibaba by `InstanceId`) now link to it from the Elastic IPs page.
+`ec2:DescribeNatGateways` added to the AWS template and policy block. API docs,
+types and tests as in T-081.
