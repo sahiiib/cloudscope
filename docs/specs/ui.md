@@ -214,3 +214,18 @@ Edit previews use that account's saved Dedicated keys when key fields are blank;
 Add still requires supplied keys. New keys override saved keys for preview only,
 are cleared afterward, and must be re-entered to save a rotation. No saved keys or
 Secret references are sent to the browser.
+
+## Small UI fixes (T-080)
+
+Requested by Saheb on 2026-10-17.
+
+- Load balancer details open on their own page,
+  `/load-balancers/:provider/:account/:region/:family/:id` (each segment
+  URL-encoded, so ARNs with `/` work), with a "Back to load balancers" link. The
+  table's View icon is a link to it; details no longer appear under the table.
+- Load balancer addresses (DNS names) have a copy icon in the table and on the
+  details page; the details page also copies the load balancer ID and account ID.
+- Instances filter dropdowns no longer repeat their title inside the open panel
+  (the legend stays for screen readers only).
+- Instances table: copy icons for the name and for each private and public IP.
+- Instance details: the top link reads "Back to instances".

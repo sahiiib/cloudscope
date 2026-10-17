@@ -60,6 +60,7 @@ A task can start when all its dependencies are `done`.
 | T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | done |
 | T-078 | Floating table scrollbar; same polish on Load balancers | claude | T-075 | done |
 | T-079 | Region picker with counts; test with saved keys when editing | codex | T-077 | done |
+| T-080 | Load balancer details page and more copy icons | claude | T-078 | review |
 
 ---
 
@@ -631,3 +632,11 @@ Regions text box runs the test and adds newly discovered regions. API docs in
 `api.md`, types, and tests including "saved keys are used only for the same
 account", "keys never returned or logged" and "unticked regions are saved as
 `excluded_regions`".
+
+### T-080: Load balancer details page and more copy icons
+Owner: claude · Spec: [ui](specs/ui.md#small-ui-fixes-t-080)
+
+Saheb, 2026-10-17. Acceptance: load balancer details open on their own page
+like instance details; addresses (DNS names) can be copied; filter dropdowns
+do not repeat their title; instance name and private/public IPs can be copied;
+instance details link reads "Back to instances".

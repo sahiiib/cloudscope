@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { InstanceSummary } from '../api/types';
 import FloatingScroll from '../FloatingScroll';
-import { CopyIcon, StateIcon } from '../icons';
+import CopyButton from '../CopyButton';
+import { StateIcon } from '../icons';
 
 function launchAge(value: string) {
   const days = Math.floor((Date.now() - Date.parse(value)) / 86400000);
@@ -20,6 +21,10 @@ export default function InstanceTable({ items, sort, onSort }: {
       <button className="secondary" onClick={() => onSort(field)}>{label}{active ? (sort.startsWith('-') ? ' ↓' : ' ↑') : ''}</button>
     </th>;
   }
+  function ips(values: string[], what: string) {
+    if (!values.length) return '—';
+    return values.map(ip => <div className="copy-line" key={ip}><code>{ip}</code> <CopyButton value={ip} label={`Copy ${what.charAt(0).toLowerCase() + what.slice(1)} ${ip}`} what={what} onStatus={setCopyStatus} /></div>);
+  }
   return <><p role="status">{copyStatus}</p><FloatingScroll className="instance-scroll"><table className="instance-table">
     <thead><tr>{heading('Name', 'name')}<th scope="col">Instance ID</th><th scope="col">State</th><th scope="col">Type</th>
       <th scope="col">Private IPs</th><th scope="col">Public IPs</th>{heading('Account', 'account')}<th scope="col">Account alias</th><th scope="col">Account ID</th>{heading('Region', 'region')}
@@ -30,18 +35,12 @@ export default function InstanceTable({ items, sort, onSort }: {
       return <tr key={path} onClick={event => {
         if (!(event.target as HTMLElement).closest('a, button') && !window.getSelection()?.toString()) navigate(path);
       }}>
-        <td><Link to={path}>{item.name || 'Unnamed instance'}</Link>{!item.present && <small>Missing</small>}</td>
-        <td><code>{item.instance_id}</code> <button aria-label={`Copy ${item.instance_id}`} onClick={async () => {
-          try { await navigator.clipboard.writeText(item.instance_id); setCopyStatus('Instance ID copied.'); }
-          catch { setCopyStatus('Unable to copy. Select and copy the instance ID.'); }
-        }} title="Copy instance ID" className="secondary icon-button"><CopyIcon /></button></td>
+        <td className="copy-line"><Link to={path}>{item.name || 'Unnamed instance'}</Link>{item.name && <> <CopyButton value={item.name} label={`Copy name ${item.name}`} what="Name" onStatus={setCopyStatus} /></>}{!item.present && <small>Missing</small>}</td>
+        <td className="copy-line"><code>{item.instance_id}</code> <CopyButton value={item.instance_id} label={`Copy ${item.instance_id}`} what="Instance ID" onStatus={setCopyStatus} /></td>
         <td><StateIcon state={item.state} /></td>
-        <td>{item.instance_type}</td><td>{item.private_ips.join(', ') || '—'}</td><td>{item.public_ips.join(', ') || '—'}</td>
+        <td>{item.instance_type}</td><td>{ips(item.private_ips, 'Private IP')}</td><td>{ips(item.public_ips, 'Public IP')}</td>
         <td>{item.account_name}</td><td>{item.account_alias ?? '–'}</td>
-        <td><code>{item.account_id}</code> <button aria-label={`Copy account ID ${item.account_id}`} onClick={async () => {
-          try { await navigator.clipboard.writeText(item.account_id); setCopyStatus('Account ID copied.'); }
-          catch { setCopyStatus('Unable to copy. Select and copy the account ID.'); }
-        }} title="Copy account ID" className="secondary icon-button"><CopyIcon /></button></td><td>{item.region}</td><td>{item.provider === 'aws' ? 'AWS' : 'Alibaba'}</td>
+        <td className="copy-line"><code>{item.account_id}</code> <CopyButton value={item.account_id} label={`Copy account ID ${item.account_id}`} what="Account ID" onStatus={setCopyStatus} /></td><td>{item.region}</td><td>{item.provider === 'aws' ? 'AWS' : 'Alibaba'}</td>
         <td>{item.launch_time ? <time dateTime={item.launch_time} title={new Date(item.launch_time).toISOString()}>{launchAge(item.launch_time)}</time> : '—'}</td>
         <td>{tags.slice(0, 3).map(([key, value]) => <span className="tag-chip" key={key}>{key}={value}</span>)}
           {tags.length > 3 && <span title={tags.slice(3).map(([key, value]) => `${key}=${value}`).join('\n')}>+{tags.length - 3}</span>}

@@ -25,6 +25,7 @@ test.each(['aws', 'alibaba'] as const)('renders all five sections from the %s fi
   expect(within(screen.getByRole('region', { name: 'Summary' })).getByText(`${provider}-web`)).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'Tags' })).getByText('infra')).toBeInTheDocument();
   expect(fetchApi).toHaveBeenCalledWith(`/api/instances/${provider}/${provider === 'aws' ? '111111111111' : '1111111111111111'}/eu-central-1/i-0123456789abcdef0`, expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(screen.getByRole('link', { name: 'Back to instances' })).toHaveAttribute('href', '/');
   fireEvent.click(screen.getByText('Show provider payload'));
   expect(screen.getByText(/"InstanceId"/)).toBeInTheDocument();
 });

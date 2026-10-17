@@ -74,3 +74,23 @@ test('null account alias is explicit and account ID copy failure stays inline', 
   await screen.findByText('Unable to copy. Select and copy the account ID.');
   expect(navigate).not.toHaveBeenCalled();
 });
+
+test('copies the name and each private and public IP', async () => {
+  const copy = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal('navigator', { clipboard: { writeText: copy } });
+  render(<MemoryRouter><InstanceTable items={[{ ...item, private_ips: ['10.0.0.1', '10.0.0.2'], public_ips: ['203.0.113.10'] }]} sort="name" onSort={vi.fn()} /></MemoryRouter>);
+  fireEvent.click(screen.getByRole('button', { name: 'Copy name web-1' }));
+  await screen.findByText('Name copied.');
+  fireEvent.click(screen.getByRole('button', { name: 'Copy private IP 10.0.0.2' }));
+  await screen.findByText('Private IP copied.');
+  fireEvent.click(screen.getByRole('button', { name: 'Copy public IP 203.0.113.10' }));
+  await screen.findByText('Public IP copied.');
+  expect(copy.mock.calls).toEqual([['web-1'], ['10.0.0.2'], ['203.0.113.10']]);
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+test('unnamed instances and empty IP lists have no copy button', () => {
+  render(<MemoryRouter><InstanceTable items={[{ ...item, name: '' }]} sort="name" onSort={vi.fn()} /></MemoryRouter>);
+  expect(screen.queryByRole('button', { name: /^Copy name/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /IP/ })).not.toBeInTheDocument();
+});
