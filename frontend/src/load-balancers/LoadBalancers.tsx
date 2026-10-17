@@ -63,7 +63,7 @@ export default function LoadBalancers() {
       </tr></thead><tbody>{inventory.data.items.map(lb => <tr key={identity(lb)}>
         <td><strong>{lb.name}</strong><small>{lb.provider === 'aws' ? 'AWS' : 'Alibaba Cloud'}{!lb.present && ' · Missing'}</small></td>
         <td><span className="lb-chip">{lb.kind.toUpperCase()}</span></td><td><StateIcon state={lb.state} /></td><td>{lb.scheme}</td>
-        <td>{lb.addresses.length ? lb.addresses.map(address => <div className="copy-line" key={address}>{address} <CopyButton value={address} label={`Copy address ${address}`} what="Address" onStatus={setCopyStatus} /></div>) : 'Not available'}</td>
+        <td>{lb.addresses.length ? lb.addresses.map(address => <div className="copy-wrap" key={address}><span>{address}</span><CopyButton value={address} label={`Copy address ${address}`} what="Address" onStatus={setCopyStatus} /></div>) : 'Not available'}</td>
         <td>{lb.account_name}<small><code>{lb.account_id}</code> <CopyButton value={lb.account_id} label={`Copy account ID ${lb.account_id}`} what="Account ID" onStatus={setCopyStatus} /></small></td><td>{lb.region}</td>
         <td><time dateTime={lb.last_observed}>{new Date(lb.last_observed).toLocaleString()}</time></td>
         <td><Link className="secondary icon-button" to={`/load-balancers/${identity(lb)}`} aria-label={`View ${lb.name}`} title="View details"><ViewIcon /></Link></td>

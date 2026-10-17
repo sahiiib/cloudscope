@@ -25,7 +25,7 @@ export default function LoadBalancerDetails() {
         <dl><dt>Load balancer ID</dt><dd><code>{detail.data.load_balancer_id}</code> <CopyButton value={detail.data.load_balancer_id} label="Copy load balancer ID" what="Load balancer ID" onStatus={setCopyStatus} /></dd>
           <dt>Type</dt><dd>{detail.data.kind.toUpperCase()} · {detail.data.scheme}</dd>
           <dt>State</dt><dd><StateIcon state={detail.data.state} /> {detail.data.state}</dd>
-          <dt>Address</dt><dd>{detail.data.addresses.length ? detail.data.addresses.map(address => <div className="copy-line" key={address}><code>{address}</code> <CopyButton value={address} label={`Copy address ${address}`} what="Address" onStatus={setCopyStatus} /></div>) : 'Not available'}</dd>
+          <dt>Address</dt><dd>{detail.data.addresses.length ? detail.data.addresses.map(address => <div className="copy-wrap" key={address}><code>{address}</code><CopyButton value={address} label={`Copy address ${address}`} what="Address" onStatus={setCopyStatus} /></div>) : 'Not available'}</dd>
           <dt>Account</dt><dd>{detail.data.account_name} · <code>{detail.data.account_id}</code> <CopyButton value={detail.data.account_id} label={`Copy account ID ${detail.data.account_id}`} what="Account ID" onStatus={setCopyStatus} /></dd>
           <dt>Account alias</dt><dd>{detail.data.account_alias ?? '–'}</dd><dt>Region</dt><dd>{detail.data.region}</dd>
           <dt>VPC</dt><dd>{detail.data.vpc_id ?? 'Not available'}</dd>
