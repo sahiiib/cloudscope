@@ -92,6 +92,16 @@ def test_network_flag_matches_manual_and_scheduled_collection(enabled: str) -> N
         assert env["CLOUDSCOPE_NETWORK_ENABLED"]["value"] == enabled
 
 
+def test_missing_collection_flags_render_false() -> None:
+    # `helm upgrade --reuse-values` keeps the old values, so a flag added in a newer chart is
+    # missing. An empty string would stop the API at startup (not a valid boolean).
+    docs = render("collector.networkEnabled=null", "collector.loadBalancersEnabled=null")
+    api = resource(docs, "Deployment", "cloudscope-api")["spec"]["template"]["spec"]
+    env = {item["name"]: item for item in api["containers"][0]["env"]}
+    assert env["CLOUDSCOPE_NETWORK_ENABLED"]["value"] == "false"
+    assert env["CLOUDSCOPE_LOAD_BALANCERS_ENABLED"]["value"] == "false"
+
+
 def test_external_database_ingress_accounts_and_irsa() -> None:
     docs = render(
         "postgres.enabled=false",
