@@ -82,6 +82,12 @@ the Kubernetes Secret and is deleted once EKS is live.
 See [load-balancers.md](load-balancers.md) for the additive schema, read-only
 operations, per-family failure behavior, API and opt-in rollout.
 
+## Elastic IP and NAT gateway permissions (T-081, T-082)
+
+See [network.md](network.md#permissions-and-rollout): AWS
+`ec2:DescribeAddresses` and `ec2:DescribeNatGateways`; Alibaba reads are already
+in `AliyunVPCReadOnlyAccess`.
+
 ## Dedicated connection identity (T-071)
 
 Dedicated connections add read-only AWS STS GetCallerIdentity and Alibaba STS
