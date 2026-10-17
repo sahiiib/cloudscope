@@ -1,42 +1,22 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/client';
-import type { AccountSummary, LoadBalancerDetail, LoadBalancerPage, LoadBalancerScans, LoadBalancerSummary } from '../api/types';
+import type { AccountSummary, LoadBalancerPage, LoadBalancerScans, LoadBalancerSummary } from '../api/types';
 import SearchInput from '../search/SearchInput';
 import FloatingScroll from '../FloatingScroll';
-import { CopyIcon, StateIcon, ViewIcon } from '../icons';
+import CopyButton from '../CopyButton';
+import { StateIcon, ViewIcon } from '../icons';
 import './load-balancers.css';
 
 function identity(lb: LoadBalancerSummary) {
   return [lb.provider, lb.account_id, lb.region, lb.family, lb.load_balancer_id].map(encodeURIComponent).join('/');
 }
 
-function Details({ lb }: { lb: LoadBalancerSummary }) {
-  const detail = useQuery({ queryKey: ['load-balancer', identity(lb)], queryFn: async ({ signal }): Promise<LoadBalancerDetail> =>
-    (await apiFetch(`/api/load-balancers/${identity(lb)}`, { signal })).json() });
-  if (detail.isPending) return <p role="status">Loading load balancer details…</p>;
-  if (detail.isError) return <p role="alert">Unable to load details. <button onClick={() => void detail.refetch()}>Retry details</button></p>;
-  return <div className="lb-details"><h2>{detail.data.name}</h2>
-    {!detail.data.present && <p className="lb-notice">Missing from the last successful scan. Last observed data is retained.</p>}
-    <dl><dt>Load balancer ID</dt><dd>{detail.data.load_balancer_id}</dd><dt>Account</dt><dd>{detail.data.account_name} · {detail.data.account_id}</dd>
-      <dt>Account alias</dt><dd>{detail.data.account_alias ?? '–'}</dd><dt>VPC</dt><dd>{detail.data.vpc_id ?? 'Not available'}</dd>
-      <dt>Availability zones</dt><dd>{detail.data.zones.join(', ') || 'Not available'}</dd>
-      <dt>First seen</dt><dd>{new Date(detail.data.first_seen).toLocaleString()}</dd>
-      <dt>Last observed</dt><dd>{new Date(detail.data.last_observed).toLocaleString()}</dd></dl>
-    <details><summary>Raw provider data</summary><pre>{JSON.stringify(detail.data.raw, null, 2)}</pre></details>
-  </div>;
-}
-
 export default function LoadBalancers() {
   const location = useLocation();
   const [params, setParams] = useSearchParams();
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
-  async function copy(value: string, what: string) {
-    try { await navigator.clipboard.writeText(value); setCopyStatus(`${what} copied.`); }
-    catch { setCopyStatus(`Unable to copy. Select and copy the ${what.toLowerCase()}.`); }
-  }
   const rawPage = Number(params.get('page') || 1);
   const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   const query = new URLSearchParams();
@@ -52,7 +32,6 @@ export default function LoadBalancers() {
     (await apiFetch('/api/accounts', { signal })).json() });
   function update(field: string, value: string) {
     setParams(previous => { const next = new URLSearchParams(previous); if (value) next.set(field, value); else next.delete(field); if (field !== 'page') next.delete('page'); return next; });
-    setExpanded(null);
   }
   const failures = scans.data?.items.filter(scan => scan.status === 'error') ?? [];
   return <section className="lb-page"><div className="page-heading"><span className="eyebrow">Network inventory</span>
@@ -71,7 +50,7 @@ export default function LoadBalancers() {
       <label>Type<select value={params.get('kind') || ''} onChange={event => update('kind', event.target.value)}>
         <option value="">All types</option>{['application', 'network', 'gateway', 'classic', 'clb', 'alb', 'nlb'].map(kind => <option key={kind} value={kind}>{kind.toUpperCase()}</option>)}</select></label>
       <label className="lb-toggle"><input type="checkbox" checked={params.get('include_missing') === 'true'} onChange={event => update('include_missing', String(event.target.checked))} />Include missing</label>
-      <button className="secondary" onClick={() => { setParams({}); setExpanded(null); }}>Clear filters</button>
+      <button className="secondary" onClick={() => setParams({})}>Clear filters</button>
     </div>
     {inventory.isPending ? <p role="status">Loading load balancers…</p> : inventory.isError && !inventory.data ?
       <p role="alert">Unable to load load balancers. <button onClick={() => void inventory.refetch()}>Retry inventory</button></p> : <>
@@ -84,12 +63,11 @@ export default function LoadBalancers() {
       </tr></thead><tbody>{inventory.data.items.map(lb => <tr key={identity(lb)}>
         <td><strong>{lb.name}</strong><small>{lb.provider === 'aws' ? 'AWS' : 'Alibaba Cloud'}{!lb.present && ' · Missing'}</small></td>
         <td><span className="lb-chip">{lb.kind.toUpperCase()}</span></td><td><StateIcon state={lb.state} /></td><td>{lb.scheme}</td>
-        <td>{lb.addresses.length ? lb.addresses.map(address => <div key={address}>{address}</div>) : 'Not available'}</td>
-        <td>{lb.account_name}<small><code>{lb.account_id}</code> <button className="secondary icon-button" aria-label={`Copy account ID ${lb.account_id}`} title="Copy account ID" onClick={() => void copy(lb.account_id, 'Account ID')}><CopyIcon /></button></small></td><td>{lb.region}</td>
+        <td>{lb.addresses.length ? lb.addresses.map(address => <div className="copy-line" key={address}>{address} <CopyButton value={address} label={`Copy address ${address}`} what="Address" onStatus={setCopyStatus} /></div>) : 'Not available'}</td>
+        <td>{lb.account_name}<small><code>{lb.account_id}</code> <CopyButton value={lb.account_id} label={`Copy account ID ${lb.account_id}`} what="Account ID" onStatus={setCopyStatus} /></small></td><td>{lb.region}</td>
         <td><time dateTime={lb.last_observed}>{new Date(lb.last_observed).toLocaleString()}</time></td>
-        <td><button className="secondary icon-button" aria-label={`${expanded === identity(lb) ? 'Hide' : 'View'} ${lb.name}`} title={expanded === identity(lb) ? 'Hide details' : 'View details'} aria-expanded={expanded === identity(lb)} onClick={() => setExpanded(expanded === identity(lb) ? null : identity(lb))}><ViewIcon /></button></td>
+        <td><Link className="secondary icon-button" to={`/load-balancers/${identity(lb)}`} aria-label={`View ${lb.name}`} title="View details"><ViewIcon /></Link></td>
       </tr>)}</tbody></table></FloatingScroll> : <p>No load balancers match this search. Check collection status to confirm scans succeeded.</p>}
-      {expanded && inventory.data?.items.filter(lb => identity(lb) === expanded).map(lb => <Details key={expanded} lb={lb} />)}
       <nav className="lb-pagination" aria-label="Load balancer pagination"><button disabled={page === 1} onClick={() => update('page', String(page - 1))}>Previous</button>
         <span>Page {page} of {Math.max(1, Math.ceil((inventory.data?.total ?? 0) / 50))}</span>
         <button disabled={page * 50 >= (inventory.data?.total ?? 0)} onClick={() => update('page', String(page + 1))}>Next</button></nav>

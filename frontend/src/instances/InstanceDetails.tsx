@@ -17,7 +17,7 @@ export default function InstanceDetails() {
     queryFn: async ({ signal }): Promise<InstanceDetail> => (await apiFetch(`/api/instances/${[provider, account, region, id].map(encodeURIComponent).join('/')}`, { signal })).json(),
     retry: false,
   });
-  return <div className="instance-details"><Link to="/">Back to search</Link><h1>Instance details</h1>
+  return <div className="instance-details"><Link to="/">Back to instances</Link><h1>Instance details</h1>
     {!valid || (instance.error instanceof ApiError && instance.error.status === 404) ? <p role="alert">Instance not found.</p>
       : instance.isPending ? <p role="status">Loading instance…</p>
       : <>

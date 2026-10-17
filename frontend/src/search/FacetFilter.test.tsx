@@ -18,3 +18,9 @@ test('labels accounts with name and ID and emits selection', () => {
   fireEvent.click(screen.getByLabelText('Demo · 111111111111 (2)'));
   expect(change).toHaveBeenCalledWith('111111111111', true);
 });
+
+test('the open panel keeps an accessible group name without repeating the title visually', () => {
+  render(<FacetFilter label="Region" options={[{ value: 'eu-central-1', count: 1 }]} selected={[]} open onToggle={() => {}} onChange={() => {}} />);
+  expect(screen.getByRole('group', { name: 'Region' })).toBeInTheDocument();
+  expect(screen.getByText('Region', { selector: 'legend' })).toHaveClass('sr-only');
+});

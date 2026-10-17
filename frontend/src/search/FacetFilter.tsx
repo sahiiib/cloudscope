@@ -8,7 +8,7 @@ export default function FacetFilter({ label, options, selected, names = {}, open
   const all = [...options, ...selected.filter(value => !options.some(item => item.value === value)).map(value => ({ value, count: 0 }))];
   // The parent owns which filter is open, so opening one closes the others.
   return <details className="facet" open={open}><summary onClick={event => { event.preventDefault(); onToggle(!open); }}>{label}{selected.length > 0 && ` (${selected.length})`}</summary>
-    <fieldset><legend>{label}</legend>
+    <fieldset><legend className="sr-only">{label}</legend>
       {all.length === 0 && <span>No options</span>}
       {all.map(({ value, count }) => <label key={value}>
         <input type="checkbox" checked={selected.includes(value)} onChange={event => onChange(value, event.target.checked)} />

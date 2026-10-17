@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import InstanceDetails from './instances/InstanceDetails';
 import Search from './search/Search';
+import LoadBalancerDetails from './load-balancers/LoadBalancerDetails';
 import LoadBalancers from './load-balancers/LoadBalancers';
 import Sync from './sync/Sync';
 import Settings from './settings/Settings';
@@ -14,6 +15,7 @@ export default function App() {
     <Route element={<ProtectedLayout />}>
       <Route index element={<Search />} />
       <Route path="/load-balancers" element={<LoadBalancers />} />
+      <Route path="/load-balancers/:provider/:account/:region/:family/:id" element={<LoadBalancerDetails />} />
       <Route path="/instances/:provider/:account/:region/:id" element={<InstanceDetails />} />
       <Route path="/sync" element={<Sync />} />
       <Route path="/settings" element={<Settings />} />
