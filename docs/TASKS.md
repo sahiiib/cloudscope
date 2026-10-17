@@ -60,7 +60,7 @@ A task can start when all its dependencies are `done`.
 | T-077 | Account dialog, excluded regions and pre-save test | codex | T-072 | done |
 | T-078 | Floating table scrollbar; same polish on Load balancers | claude | T-075 | done |
 | T-079 | Region picker with counts; test with saved keys when editing | codex | T-077 | done |
-| T-080 | Load balancer details page and more copy icons | claude | T-078 | review |
+| T-080 | Load balancer details page and more copy icons | claude | T-078 | done |
 
 ---
 
