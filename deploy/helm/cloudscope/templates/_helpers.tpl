@@ -22,9 +22,9 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
 - name: CLOUDSCOPE_COLLECT_CONCURRENCY
   value: {{ .Values.collector.concurrency | quote }}
 - name: CLOUDSCOPE_NETWORK_ENABLED
-  value: {{ .Values.collector.networkEnabled | quote }}
+  value: {{ .Values.collector.networkEnabled | default false | quote }}
 - name: CLOUDSCOPE_LOAD_BALANCERS_ENABLED
-  value: {{ .Values.collector.loadBalancersEnabled | quote }}
+  value: {{ .Values.collector.loadBalancersEnabled | default false | quote }}
 - name: CLOUDSCOPE_DEDICATED_CREDENTIALS_ENABLED
   value: {{ .Values.accountCredentials.enabled | quote }}
 - name: CLOUDSCOPE_CREDENTIALS_NAMESPACE
