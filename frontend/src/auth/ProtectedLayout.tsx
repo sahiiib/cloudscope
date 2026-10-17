@@ -36,6 +36,7 @@ export default function ProtectedLayout() {
         <NavLink to="/" end><span aria-hidden="true">&#9638;</span> Instances</NavLink>
         {me.data.is_admin && <NavLink to="/accounts"><span aria-hidden="true">&#9678;</span> Accounts</NavLink>}
         <NavLink to="/load-balancers">Load balancers</NavLink>
+        <NavLink to="/elastic-ips">Elastic IPs</NavLink>
         <NavLink to="/sync"><span aria-hidden="true">&#8635;</span> Sync</NavLink>
         <NavLink to="/settings"><span aria-hidden="true">&#9881;</span> Settings</NavLink>
       </nav>

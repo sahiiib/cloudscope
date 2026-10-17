@@ -83,3 +83,13 @@ kubectl -n cloudscope exec -it deploy/cloudscope-api -- cloudscope create-user a
 CI lints and renders the chart and checks internal/external DB, Secret, ingress,
 identity, network isolation and migration wiring. A real cluster/storage/ingress
 installation is covered by T-042; rendering does not verify those integrations.
+
+### Elastic IP inventory (T-081)
+
+`collector.networkEnabled` defaults to `false` and sets
+`CLOUDSCOPE_NETWORK_ENABLED` for both API/manual sync and the collector CronJob.
+Apply additive migration `0012` before running the new image. Grant AWS
+`ec2:DescribeAddresses` or Alibaba `vpc:DescribeEipAddresses` (included in
+`AliyunVPCReadOnlyAccess`) before enabling. Scan errors retain earlier inventory;
+check **Elastic IPs → Collection status** after sync. The flag will also cover
+NAT gateways in T-082; it does not enable them in this increment.

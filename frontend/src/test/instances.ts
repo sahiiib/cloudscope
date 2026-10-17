@@ -20,6 +20,7 @@ export function instanceFixture(provider: 'aws' | 'alibaba' = 'aws'): InstanceDe
         outbound: [{ protocol: '-1', port_range: 'all', destination: '0.0.0.0/0', description: 'Egress' }],
       }],
     },
+    elastic_ips: [],
     raw: provider === 'aws' ? { InstanceId: 'i-0123456789abcdef0', State: { Name: 'running' } } : { InstanceId: 'i-0123456789abcdef0', Status: 'Running' },
   };
 }

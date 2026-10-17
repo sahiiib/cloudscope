@@ -21,6 +21,7 @@ from cloudscope.api.routes.auth import router as auth_router
 from cloudscope.api.routes.auth import set_session_cookie
 from cloudscope.api.routes.instances import router as instances_router
 from cloudscope.api.routes.load_balancers import router as load_balancers_router
+from cloudscope.api.routes.network import router as network_router
 from cloudscope.api.routes.sync import router as sync_router
 from cloudscope.api.routes.users import router as users_router
 from cloudscope.auth.deps import require_admin
@@ -71,6 +72,7 @@ def create_app(
         app.state.credential_store = (
             credential_store() if app.state.dedicated_credentials_enabled else None
         )
+        app.state.network_enabled = bool(runtime_settings and runtime_settings.network_enabled)
         app.state.load_balancers_enabled = bool(
             runtime_settings and runtime_settings.load_balancers_enabled
         )
@@ -105,6 +107,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(instances_router)
     app.include_router(load_balancers_router)
+    app.include_router(network_router)
     app.include_router(accounts_router)
     app.include_router(sync_router)
 

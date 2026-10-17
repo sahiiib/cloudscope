@@ -1,4 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
+import ElasticIPs from './network/ElasticIPs';
+import ElasticIPDetails from './network/ElasticIPDetails';
 import InstanceDetails from './instances/InstanceDetails';
 import Search from './search/Search';
 import LoadBalancerDetails from './load-balancers/LoadBalancerDetails';
@@ -14,6 +16,8 @@ export default function App() {
     <Route path="/login" element={<Login />} />
     <Route element={<ProtectedLayout />}>
       <Route index element={<Search />} />
+      <Route path="/elastic-ips" element={<ElasticIPs />} />
+      <Route path="/elastic-ips/:provider/:account/:region/:id" element={<ElasticIPDetails />} />
       <Route path="/load-balancers" element={<LoadBalancers />} />
       <Route path="/load-balancers/:provider/:account/:region/:family/:id" element={<LoadBalancerDetails />} />
       <Route path="/instances/:provider/:account/:region/:id" element={<InstanceDetails />} />

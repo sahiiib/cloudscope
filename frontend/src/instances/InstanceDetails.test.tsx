@@ -67,3 +67,9 @@ test('invalid provider does not make an API request', async () => {
   expect(screen.getByRole('alert')).toHaveTextContent('Instance not found.');
   expect(fetchApi).not.toHaveBeenCalled();
 });
+
+test('links present Elastic IP inventory from instance details', async () => {
+  fetchApi.mockImplementation(async () => response({ ...instanceFixture(), elastic_ips: [{ public_ip: '192.0.2.1', allocation_id: 'eipalloc-demo' }] }));
+  setup();
+  expect(await screen.findByRole('link', { name: '192.0.2.1' })).toHaveAttribute('href', '/elastic-ips/aws/111111111111/eu-central-1/eipalloc-demo');
+});

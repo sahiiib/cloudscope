@@ -25,6 +25,7 @@ export default function InstanceDetails() {
         {instance.data && <div key={[provider, account, region, id].join('/')}>
           {!instance.data.present && <p className="missing-notice">Missing — this instance was not found on the last successful scan. The last observed data is shown below.</p>}
           <Summary instance={instance.data} /><Tags tags={instance.data.tags} /><Network instance={instance.data} />
+          <section><h2>Elastic IPs</h2>{instance.data.elastic_ips?.length ? <ul>{instance.data.elastic_ips.map(eip => <li key={eip.allocation_id}><Link to={`/elastic-ips/${[provider, account, region, eip.allocation_id].map(encodeURIComponent).join('/')}`}>{eip.public_ip}</Link></li>)}</ul> : <p>No Elastic IPs in the current inventory. Check network collection status for coverage.</p>}</section>
           <SecurityGroups groups={instance.data.details?.security_groups} /><RawJSON raw={instance.data.raw} />
         </div>}
       </>}

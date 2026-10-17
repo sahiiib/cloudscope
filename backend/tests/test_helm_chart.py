@@ -80,6 +80,18 @@ def test_load_balancers_flag_matches_manual_and_scheduled_collection(enabled: st
         assert env["CLOUDSCOPE_LOAD_BALANCERS_ENABLED"]["value"] == enabled
 
 
+@pytest.mark.parametrize("enabled", ["false", "true"])
+def test_network_flag_matches_manual_and_scheduled_collection(enabled: str) -> None:
+    docs = render(f"collector.networkEnabled={enabled}")
+    api = resource(docs, "Deployment", "cloudscope-api")["spec"]["template"]["spec"]
+    cron = resource(docs, "CronJob", "cloudscope-collector")["spec"]["jobTemplate"]["spec"][
+        "template"
+    ]["spec"]
+    for pod in (api, cron):
+        env = {item["name"]: item for item in pod["containers"][0]["env"]}
+        assert env["CLOUDSCOPE_NETWORK_ENABLED"]["value"] == enabled
+
+
 def test_external_database_ingress_accounts_and_irsa() -> None:
     docs = render(
         "postgres.enabled=false",
