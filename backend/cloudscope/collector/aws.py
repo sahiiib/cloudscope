@@ -19,6 +19,7 @@ from cloudscope.collector.base import (
 )
 from cloudscope.collector.errors import AssumeRoleError
 from cloudscope.collector.load_balancers import NormalizedLoadBalancer, aws_load_balancers
+from cloudscope.collector.nat_gateways import NormalizedNatGateway, nat_gateways
 from cloudscope.collector.network import NormalizedElasticIP, elastic_ips
 from cloudscope.config import AccountConfig
 from cloudscope.credentials import CredentialError, Credentials, account_credentials
@@ -50,6 +51,7 @@ class BotoReader:
             result: Payload = self.iam().list_account_aliases(**params)
             return result
         if operation not in {
+            "describe_nat_gateways",
             "describe_addresses",
             "describe_instances",
             "describe_regions",
@@ -233,6 +235,9 @@ def rules(permissions: list[Payload], direction: str) -> list[Payload]:
 
 class AWSProvider:
     name: Literal["aws"] = "aws"
+
+    def scan_nat_gateways(self, account: AccountConfig, region: str) -> list[NormalizedNatGateway]:
+        return nat_gateways(self.client_factory(account, region), account, region)
 
     def scan_elastic_ips(self, account: AccountConfig, region: str) -> list[NormalizedElasticIP]:
         return elastic_ips(self.client_factory(account, region), account, region)

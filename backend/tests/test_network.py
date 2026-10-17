@@ -50,6 +50,9 @@ def normalized(**changes):
 
 
 class Provider:
+    def scan_nat_gateways(self, account, region):
+        return []
+
     rows = None
 
     def scan_elastic_ips(self, account, region):

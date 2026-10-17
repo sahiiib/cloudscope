@@ -40,7 +40,7 @@ For local development and the local cluster we use existing test access keys.
    role chain. Permissions:
    ```json
    {"Effect": "Allow", "Resource": "*", "Action": [
-     "ec2:DescribeAddresses", "ec2:DescribeInstances", "ec2:DescribeRegions",
+     "ec2:DescribeNatGateways", "ec2:DescribeAddresses", "ec2:DescribeInstances", "ec2:DescribeRegions",
      "ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules",
      "ec2:DescribeVpcs", "ec2:DescribeSubnets",
      "ec2:DescribeNetworkInterfaces", "ec2:DescribeInstanceTypes",

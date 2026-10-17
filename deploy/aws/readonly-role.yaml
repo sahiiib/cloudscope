@@ -38,6 +38,7 @@ Resources:
               - Effect: Allow
                 Resource: '*'
                 Action:
+                  - ec2:DescribeNatGateways
                   - ec2:DescribeAddresses
                   - ec2:DescribeInstances
                   - ec2:DescribeRegions

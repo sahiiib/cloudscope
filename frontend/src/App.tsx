@@ -1,4 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
+import NatGateways from './network/NatGateways';
+import NatGatewayDetails from './network/NatGatewayDetails';
 import ElasticIPs from './network/ElasticIPs';
 import ElasticIPDetails from './network/ElasticIPDetails';
 import InstanceDetails from './instances/InstanceDetails';
@@ -16,6 +18,8 @@ export default function App() {
     <Route path="/login" element={<Login />} />
     <Route element={<ProtectedLayout />}>
       <Route index element={<Search />} />
+      <Route path="/nat-gateways" element={<NatGateways />} />
+      <Route path="/nat-gateways/:provider/:account/:region/:id" element={<NatGatewayDetails />} />
       <Route path="/elastic-ips" element={<ElasticIPs />} />
       <Route path="/elastic-ips/:provider/:account/:region/:id" element={<ElasticIPDetails />} />
       <Route path="/load-balancers" element={<LoadBalancers />} />

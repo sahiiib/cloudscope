@@ -218,6 +218,42 @@ class ElasticIP(Base):
     present: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
 
 
+class NatGateway(Base):
+    __tablename__ = "nat_gateways"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["provider", "account_id"], ["accounts.provider", "accounts.account_id"]
+        ),
+        UniqueConstraint(
+            "provider",
+            "account_id",
+            "region",
+            "nat_gateway_id",
+            name="uq_nat_gateways_identity",
+        ),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text)
+    account_id: Mapped[str] = mapped_column(Text)
+    region: Mapped[str] = mapped_column(Text)
+    nat_gateway_id: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(Text)
+    connectivity_type: Mapped[str | None] = mapped_column(Text)
+    nat_type: Mapped[str | None] = mapped_column(Text)
+    network_type: Mapped[str | None] = mapped_column(Text)
+    spec: Mapped[str | None] = mapped_column(Text)
+    vpc_id: Mapped[str | None] = mapped_column(Text)
+    subnet_id: Mapped[str | None] = mapped_column(Text)
+    private_ip: Mapped[str | None] = mapped_column(Text)
+    addresses: Mapped[list[dict[str, str | None]]] = mapped_column(JSONB)
+    tags: Mapped[dict[str, str]] = mapped_column(JSONB)
+    raw: Mapped[dict[str, object]] = mapped_column(JSONB)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_observed: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    present: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+
+
 class NetworkScan(Base):
     __tablename__ = "network_scans"
     __table_args__ = (

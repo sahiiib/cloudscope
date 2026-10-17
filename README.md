@@ -263,8 +263,11 @@ The feature is off by default. Before enabling accountCredentials.enabled, revie
 namespace-scoped permissions, API-server egress, workload identity and private
 backups. See [account connection rollout](docs/specs/account-credentials.md).
 
-Elastic IP inventory is opt-in: after migrating to `0012` and granting the
+Elastic IP and NAT gateway inventory is opt-in: after migrating to `0013` and granting the
 read-only permissions in [network inventory](docs/specs/network.md), set
 `CLOUDSCOPE_NETWORK_ENABLED=true` (Helm: `collector.networkEnabled=true`). The
 Elastic IPs page shows collection coverage and links to present associated
-instances/load balancers. Failed scans retain previous inventory.
+instances/load balancers/NAT gateways. The NAT gateways page links each allocated
+public address back to EIP details. Grant `ec2:DescribeNatGateways` before upgrading
+an AWS deployment with network collection already enabled. Failed scans retain
+previous inventory independently for each resource type.

@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from cloudscope.collector.base import Payload, json_payload
 from cloudscope.collector.errors import describe_error, log_account_id
 from cloudscope.collector.load_balancers import Reader
+from cloudscope.collector.nat_gateways import NormalizedNatGateway
 from cloudscope.config import AccountConfig
-from cloudscope.db.models import ElasticIP, NetworkScan
+from cloudscope.db.models import ElasticIP, NatGateway, NetworkScan
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,10 @@ class NormalizedElasticIP:
 
 
 class NetworkProvider(Protocol):
+    def scan_nat_gateways(
+        self, account: AccountConfig, region: str
+    ) -> list[NormalizedNatGateway]: ...
+
     def scan_elastic_ips(
         self, account: AccountConfig, region: str
     ) -> list[NormalizedElasticIP]: ...
@@ -163,33 +168,44 @@ class NetworkCollector:
         self.sessions, self.providers, self.clock = sessions, dict(providers), clock
 
     def scan(self, account: AccountConfig, region: str) -> None:
+        for resource_type in ("elastic_ip", "nat_gateway"):
+            self._scan_resource(account, region, resource_type)
+
+    def _scan_resource(self, account: AccountConfig, region: str, resource_type: str) -> None:
+        model = ElasticIP if resource_type == "elastic_ip" else NatGateway
+        id_field = "allocation_id" if resource_type == "elastic_ip" else "nat_gateway_id"
         identity = {
             "provider": account.provider,
             "account_id": account.account_id,
             "region": region,
         }
-        scan_identity = {**identity, "resource_type": "elastic_ip"}
+        scan_identity = {**identity, "resource_type": resource_type}
         attempted = self.clock()
         try:
-            rows = self.providers[account.provider].scan_elastic_ips(account, region)
+            provider = self.providers[account.provider]
+            rows = (
+                provider.scan_elastic_ips(account, region)
+                if resource_type == "elastic_ip"
+                else provider.scan_nat_gateways(account, region)
+            )
             seen: set[str] = set()
             for row in rows:
                 if (
                     any(getattr(row, key) != value for key, value in identity.items())
-                    or not row.allocation_id
-                    or row.allocation_id in seen
+                    or not getattr(row, id_field)
+                    or getattr(row, id_field) in seen
                 ):
-                    raise ValueError("Invalid Elastic IP scan identity")
-                seen.add(row.allocation_id)
+                    raise ValueError("Invalid network scan identity")
+                seen.add(getattr(row, id_field))
             with self.sessions.begin() as session:
                 for row in rows:
                     values = asdict(row)
-                    statement = insert(ElasticIP).values(
+                    statement = insert(model).values(
                         **values, first_seen=attempted, last_observed=attempted, present=True
                     )
                     session.execute(
                         statement.on_conflict_do_update(
-                            constraint="uq_elastic_ips_identity",
+                            constraint=f"uq_{model.__tablename__}_identity",
                             set_={
                                 **{key: statement.excluded[key] for key in values},
                                 "last_observed": attempted,
@@ -198,10 +214,10 @@ class NetworkCollector:
                         )
                     )
                 session.execute(
-                    update(ElasticIP)
+                    update(model)
                     .where(
-                        *(getattr(ElasticIP, key) == value for key, value in identity.items()),
-                        ElasticIP.allocation_id
+                        *(getattr(model, key) == value for key, value in identity.items()),
+                        getattr(model, id_field)
                         != all_(bindparam("seen", list(seen), type_=ARRAY(Text))),
                     )
                     .values(present=False)
@@ -228,10 +244,11 @@ class NetworkCollector:
             code = describe_error(exc)
             logger.warning(
                 "event=network_scan_failed provider=%s account_id=%s region=%s "
-                "resource_type=elastic_ip error=%s",
+                "resource_type=%s error=%s",
                 account.provider,
                 log_account_id(account.account_id),
                 region,
+                resource_type,
                 code,
             )
             with self.sessions.begin() as session:
