@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from cloudscope.collector.base import Payload, json_payload
-from cloudscope.collector.errors import describe_error
+from cloudscope.collector.errors import describe_error, log_account_id
 from cloudscope.collector.load_balancers import Reader
 from cloudscope.config import AccountConfig
 from cloudscope.db.models import ElasticIP, NetworkScan
@@ -227,8 +227,10 @@ class NetworkCollector:
         except Exception as exc:
             code = describe_error(exc)
             logger.warning(
-                "event=network_scan_failed provider=%s region=%s resource_type=elastic_ip error=%s",
+                "event=network_scan_failed provider=%s account_id=%s region=%s "
+                "resource_type=elastic_ip error=%s",
                 account.provider,
+                log_account_id(account.account_id),
                 region,
                 code,
             )

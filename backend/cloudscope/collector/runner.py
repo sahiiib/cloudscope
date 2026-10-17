@@ -423,7 +423,10 @@ class SyncRunner:
                 self.network.scan(account, region)
             except Exception as exc:
                 logger.warning(
-                    "event=network_step_failed region=%s error=%s", region, describe_error(exc)
+                    "event=network_step_failed account_id=%s region=%s error=%s",
+                    log_account_id(account.account_id),
+                    region,
+                    describe_error(exc),
                 )
 
     def _error(

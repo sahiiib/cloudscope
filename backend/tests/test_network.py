@@ -255,7 +255,8 @@ def test_atomic_failure_missing_reappearance(db_session, caplog):
     assert db_session.get_one(ElasticIP, original_id).first_seen == NOW
 
 
-def test_network_failure_preserves_instance_and_lb_collection(db_session):
+@pytest.mark.parametrize("step_failure", [False, True])
+def test_network_failure_preserves_instance_and_lb_collection(db_session, caplog, step_failure):
     from test_load_balancers import Provider as LBProvider
     from test_runner import FakeProvider
 
@@ -269,17 +270,29 @@ def test_network_failure_preserves_instance_and_lb_collection(db_session):
     provider = Provider()
     provider.rows = PermissionError("secret")
     sessions = factory(db_session)
+    network = NetworkCollector(sessions, {"aws": provider})
+    if step_failure:
+        network.scan = Mock(side_effect=RuntimeError("sensitive step payload"))
     runner = SyncRunner(
         sessions,
         {"aws": FakeProvider()},
-        network=NetworkCollector(sessions, {"aws": provider}),
+        network=network,
         load_balancers=LoadBalancerCollector(sessions, {"aws": LBProvider()}),
     )
     runner._scan(run.id, ACCOUNT, "us-east-1")
     assert db_session.scalar(select(Instance)) is not None
     assert db_session.scalar(select(LoadBalancer)) is not None
     assert db_session.scalar(select(SyncResult)).status == "success"
-    assert db_session.scalar(select(NetworkScan)).status == "error"
+    event = "network_step_failed" if step_failure else "network_scan_failed"
+    message = next(
+        record.getMessage() for record in caplog.records if f"event={event}" in record.getMessage()
+    )
+    assert f"account_id={ACCOUNT.account_id}" in message
+    assert "region=us-east-1" in message
+    assert "error=RuntimeError" in message if step_failure else "error=PermissionError" in message
+    assert "sensitive step payload" not in caplog.text and "secret" not in caplog.text
+    if not step_failure:
+        assert db_session.scalar(select(NetworkScan)).status == "error"
 
 
 def test_inventory_auth_filters_missing_details(client, db_session):
