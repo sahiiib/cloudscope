@@ -31,6 +31,7 @@ from cloudscope.collector.base import (
 )
 from cloudscope.collector.errors import AssumeRoleError
 from cloudscope.collector.load_balancers import NormalizedLoadBalancer, alibaba_load_balancers
+from cloudscope.collector.network import NormalizedElasticIP, elastic_ips
 from cloudscope.config import AccountConfig
 from cloudscope.credentials import CredentialError, Credentials, account_credentials
 
@@ -117,6 +118,7 @@ class SDKReader:
             result: Payload = response.body.to_map()
             return result
         operations = {
+            "describe_eip_addresses": (self.vpc, vpc_models.DescribeEipAddressesRequest),
             "describe_instances": (self.ecs, ecs_models.DescribeInstancesRequest),
             "describe_regions": (self.ecs, ecs_models.DescribeRegionsRequest),
             "describe_security_group_attribute": (
@@ -338,6 +340,9 @@ def security_group(client: AlibabaReader, region: str, group_id: str) -> Payload
 
 
 class AlibabaProvider:
+    def scan_elastic_ips(self, account: AccountConfig, region: str) -> list[NormalizedElasticIP]:
+        return elastic_ips(self.client_factory(account, region), account, region)
+
     def scan_load_balancers(
         self, account: AccountConfig, region: str, family: str
     ) -> list[NormalizedLoadBalancer]:

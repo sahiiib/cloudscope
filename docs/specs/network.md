@@ -136,3 +136,15 @@ Operators grant these reads before setting `networkEnabled=true`:
 
 No new dependencies: boto3 and the Alibaba VPC SDK already cover these APIs.
 Migrations are additive; older images run fine against the added tables.
+
+### T-081 implementation notes
+
+Elastic IP `associated_type` filtering uses the normalized provider field;
+`association` contains the separately resolved inventory target (for example an
+AWS `network_interface` can resolve to a present NLB). NAT inventory and NAT
+allocation resolution follow in T-082. Alibaba pagination requires a stable
+`TotalCount`; a missing/changing total, unexpected page number, duplicate ID or
+premature empty page fails the snapshot without retiring earlier rows.
+
+Provider references: [AWS DescribeAddresses](https://docs.aws.amazon.com/botocore/latest/reference/services/ec2/client/describe_addresses.html)
+and [Alibaba DescribeEipAddresses](https://www.alibabacloud.com/help/en/eip/developer-reference/api-vpc-2016-04-28-describeeipaddresses-eips).

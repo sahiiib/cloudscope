@@ -21,6 +21,8 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
   value: {{ .Values.api.cookieSecure | quote }}
 - name: CLOUDSCOPE_COLLECT_CONCURRENCY
   value: {{ .Values.collector.concurrency | quote }}
+- name: CLOUDSCOPE_NETWORK_ENABLED
+  value: {{ .Values.collector.networkEnabled | quote }}
 - name: CLOUDSCOPE_LOAD_BALANCERS_ENABLED
   value: {{ .Values.collector.loadBalancersEnabled | quote }}
 - name: CLOUDSCOPE_DEDICATED_CREDENTIALS_ENABLED

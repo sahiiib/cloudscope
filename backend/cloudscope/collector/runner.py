@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from cloudscope.collector.base import Provider
 from cloudscope.collector.errors import describe_error, log_account_id
 from cloudscope.collector.load_balancers import LoadBalancerCollector
+from cloudscope.collector.network import NetworkCollector
 from cloudscope.config import (
     AccountConfig,
     AccountsConfig,
@@ -26,9 +27,11 @@ from cloudscope.config import (
 )
 from cloudscope.db.models import (
     Account,
+    ElasticIP,
     Instance,
     LoadBalancer,
     LoadBalancerScan,
+    NetworkScan,
     SyncResult,
     SyncRun,
 )
@@ -59,6 +62,7 @@ class SyncRunner:
         concurrency: int = 8,
         clock: Callable[[], datetime] = utc_now,
         load_balancers: LoadBalancerCollector | None = None,
+        network: NetworkCollector | None = None,
     ) -> None:
         if concurrency < 1:
             raise ValueError("concurrency must be positive")
@@ -67,6 +71,7 @@ class SyncRunner:
         self.concurrency = concurrency
         self.clock = clock
         self.load_balancers = load_balancers
+        self.network = network
 
     def run_file(
         self, path: str | Path, *, trigger: Literal["schedule", "manual"] = "manual"
@@ -284,7 +289,14 @@ class SyncRunner:
                             LoadBalancerScan.region.in_(account.excluded_regions),
                         )
                     )
-                    for model in (Instance, LoadBalancer):
+                    session.execute(
+                        delete(NetworkScan).where(
+                            NetworkScan.provider == account.provider,
+                            NetworkScan.account_id == account.account_id,
+                            NetworkScan.region.in_(account.excluded_regions),
+                        )
+                    )
+                    for model in (Instance, LoadBalancer, ElasticIP):
                         session.execute(
                             update(model)
                             .where(
@@ -401,6 +413,17 @@ class SyncRunner:
             except Exception as exc:
                 logger.warning(
                     "event=load_balancer_step_failed account_id=%s region=%s error=%s",
+                    log_account_id(account.account_id),
+                    region,
+                    describe_error(exc),
+                )
+
+        if self.network is not None:
+            try:
+                self.network.scan(account, region)
+            except Exception as exc:
+                logger.warning(
+                    "event=network_step_failed account_id=%s region=%s error=%s",
                     log_account_id(account.account_id),
                     region,
                     describe_error(exc),

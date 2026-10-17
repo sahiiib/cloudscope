@@ -81,3 +81,6 @@ resource "alicloud_ram_role_policy_attachment" "load_balancers" {
   policy_type = "Custom"
   role_name   = alicloud_ram_role.readonly.role_name
 }
+
+# Network inventory (T-081): vpc:DescribeEipAddresses is covered by the
+# AliyunVPCReadOnlyAccess attachment above; no resource mutations are required.

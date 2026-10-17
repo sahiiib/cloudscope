@@ -132,6 +132,7 @@ export interface InstanceExtras {
   monitoring?: string | null;
 }
 export interface InstanceDetail extends InstanceSummary {
+  elastic_ips: { public_ip: string; allocation_id: string }[];
   zone: string | null;
   vpc_id: string | null;
   subnet_id: string | null;
@@ -155,4 +156,19 @@ export interface LoadBalancerScans {
   enabled: boolean;
   items: { provider: string; account_id: string; region: string; family: string; status: string;
     error: string | null; last_attempt: string; last_success: string | null }[];
+}
+
+export interface ElasticIPSummary {
+  provider: 'aws' | 'alibaba'; account_id: string; account_name: string; account_alias: string | null;
+  region: string; allocation_id: string; public_ip: string; name: string; status: string;
+  associated_type: string | null; associated_id: string | null; private_ip: string | null;
+  network_interface_id: string | null; bandwidth: string | null; charge_type: string | null;
+  association: { type: string | null; id: string | null; link: string | null } | null;
+  tags: Record<string, string>; last_observed: string; present: boolean;
+}
+export interface ElasticIPDetail extends ElasticIPSummary { raw: Record<string, unknown>; first_seen: string }
+export interface ElasticIPPage { items: ElasticIPSummary[]; total: number; page: number; page_size: number }
+export interface NetworkScans {
+  enabled: boolean;
+  items: { provider: string; account_id: string; region: string; resource_type: 'elastic_ip' | 'nat_gateway'; status: 'success' | 'error'; error: string | null; last_attempt: string; last_success: string | null }[];
 }

@@ -229,3 +229,16 @@ Requested by Saheb on 2026-10-17.
   (the legend stays for screen readers only).
 - Instances table: copy icons for the name and for each private and public IP.
 - Instance details: the top link reads "Back to instances".
+
+## Elastic IP inventory (T-081)
+
+The **Elastic IPs** navigation entry opens `/elastic-ips`, with URL-backed search,
+provider/account/region/status/associated-type filters, missing visibility and
+pagination. Inventory and scan status refresh every 30 seconds while visible.
+Disabled, never-run and failed scans are shown explicitly alongside stored data.
+Rows open their present associated instance or load balancer; unresolved rows
+open EIP details. Enter on a focused row uses the same target. The View link
+always opens EIP details, and embedded links/copy buttons do not trigger row
+navigation. Association IDs without an inventory match remain copyable text.
+Details show all normalized fields, association, tags and raw payload. Instance
+details link their known Elastic IPs to these details pages.

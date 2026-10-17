@@ -262,3 +262,9 @@ and stored in immutable Kubernetes Secrets, with only references in the database
 The feature is off by default. Before enabling accountCredentials.enabled, review
 namespace-scoped permissions, API-server egress, workload identity and private
 backups. See [account connection rollout](docs/specs/account-credentials.md).
+
+Elastic IP inventory is opt-in: after migrating to `0012` and granting the
+read-only permissions in [network inventory](docs/specs/network.md), set
+`CLOUDSCOPE_NETWORK_ENABLED=true` (Helm: `collector.networkEnabled=true`). The
+Elastic IPs page shows collection coverage and links to present associated
+instances/load balancers. Failed scans retain previous inventory.

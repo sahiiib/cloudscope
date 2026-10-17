@@ -7,7 +7,7 @@ from sqlalchemy import ColumnElement, func, or_, select
 
 from cloudscope.auth.deps import current_user, get_auth
 from cloudscope.auth.sessions import AuthService
-from cloudscope.db.models import Account, Instance
+from cloudscope.db.models import Account, ElasticIP, Instance
 
 router = APIRouter(prefix="/api/instances", dependencies=[Depends(current_user)])
 Auth = Annotated[AuthService, Depends(get_auth)]
@@ -190,4 +190,21 @@ def instance_detail(
         ).one_or_none()
         if row is None:
             raise HTTPException(404, "Instance not found")
-        return item(row[0], row[1], row[2], detail=True)
+        result = item(row[0], row[1], row[2], detail=True)
+        result["elastic_ips"] = [
+            {"public_ip": eip.public_ip, "allocation_id": eip.allocation_id}
+            for eip in session.scalars(
+                select(ElasticIP)
+                .where(
+                    ElasticIP.provider == provider,
+                    ElasticIP.account_id == account_id,
+                    ElasticIP.region == region,
+                    ElasticIP.associated_type == "instance",
+                    ElasticIP.associated_id == instance_id,
+                    ElasticIP.status != "available",
+                    ElasticIP.present.is_(True),
+                )
+                .order_by(ElasticIP.allocation_id)
+            )
+        ]
+        return result

@@ -17,6 +17,7 @@ from cloudscope.collector.aws import AWSProvider
 from cloudscope.collector.base import Provider
 from cloudscope.collector.load_balancers import build_load_balancer_collector
 from cloudscope.collector.manual import COLLECTION_LOCK_KEY
+from cloudscope.collector.network import build_network_collector
 from cloudscope.collector.runner import AccountFilterError, SyncRunner
 from cloudscope.config import AccountsConfigError, Settings, load_accounts
 from cloudscope.db.models import SyncResult, User
@@ -125,6 +126,7 @@ def collect(
                     factory,
                     collect_providers(),
                     concurrency=settings.collect_concurrency,
+                    network=build_network_collector(factory, settings.network_enabled),
                     load_balancers=build_load_balancer_collector(
                         factory, settings.load_balancers_enabled
                     ),

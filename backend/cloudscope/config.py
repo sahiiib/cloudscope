@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     collect_concurrency: int = Field(default=8, gt=0)
     load_balancers_enabled: bool = False
+    network_enabled: bool = False
     dedicated_credentials_enabled: bool = False
 
     @field_validator("database_url")

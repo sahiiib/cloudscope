@@ -183,6 +183,60 @@ class LoadBalancerScan(Base):
     last_success: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ElasticIP(Base):
+    __tablename__ = "elastic_ips"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["provider", "account_id"], ["accounts.provider", "accounts.account_id"]
+        ),
+        UniqueConstraint(
+            "provider",
+            "account_id",
+            "region",
+            "allocation_id",
+            name="uq_elastic_ips_identity",
+        ),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text)
+    account_id: Mapped[str] = mapped_column(Text)
+    region: Mapped[str] = mapped_column(Text)
+    allocation_id: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    public_ip: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text)
+    associated_type: Mapped[str | None] = mapped_column(Text)
+    associated_id: Mapped[str | None] = mapped_column(Text)
+    private_ip: Mapped[str | None] = mapped_column(Text)
+    network_interface_id: Mapped[str | None] = mapped_column(Text)
+    bandwidth: Mapped[str | None] = mapped_column(Text)
+    charge_type: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[dict[str, str]] = mapped_column(JSONB)
+    raw: Mapped[dict[str, object]] = mapped_column(JSONB)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_observed: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    present: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+
+
+class NetworkScan(Base):
+    __tablename__ = "network_scans"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["provider", "account_id"], ["accounts.provider", "accounts.account_id"]
+        ),
+        CheckConstraint("resource_type IN ('elastic_ip', 'nat_gateway')", name="resource_type"),
+        CheckConstraint("status IN ('success', 'error')", name="status"),
+    )
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)
+    account_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    region: Mapped[str] = mapped_column(Text, primary_key=True)
+    resource_type: Mapped[str] = mapped_column(Text, primary_key=True)
+    status: Mapped[str] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    last_attempt: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_success: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class SyncRun(Base):
     __tablename__ = "sync_runs"
     __table_args__ = (

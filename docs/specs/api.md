@@ -248,3 +248,32 @@ The dialog uses GET on opening Edit. Select regions sends a preview with empty
 exclusions to discover selectable regions, then merges new regions with zero counts
 without changing the user's exclusions. Checked means scanned; unchecked region
 IDs are submitted as `excluded_regions`. At least one listed region must stay checked.
+
+## Elastic IP inventory (T-081)
+
+All endpoints require a full authenticated session. They read stored inventory,
+including when network collection is disabled; they make no cloud calls.
+
+- `GET /api/elastic-ips`: `q` (literal, case-insensitive substring of public/private
+  IP, allocation ID, name, associated ID, account name/alias/ID), `provider`,
+  `account_id`, `region`, `status`, `associated_type`, `include_missing=false`,
+  `page=1`, `page_size=50` (max 500). Excludes deleted accounts; ordered by public
+  IP then internal ID. Returns `{items, total, page, page_size}`.
+- Each item contains `provider`, `account_id`, `account_name`, `account_alias`,
+  `region`, `allocation_id`, `public_ip`, `name`, `status`, `associated_type`,
+  `associated_id`, `private_ip`, `network_interface_id`, `bandwidth`, `charge_type`,
+  `tags`, `last_observed`, `present`, and `association`. Optional provider fields
+  are null; bandwidth is a nullable string. `association` is null for an available
+  EIP, otherwise `{type, id, link}`; missing type/ID/link are null. Links resolve
+  only to present resources in the same provider/account/region. AWS NLB matches
+  its stored allocation ID; Alibaba CLB and instances match their provider IDs.
+  NAT gateway resolution is deferred to T-082.
+- `GET /api/elastic-ips/{provider}/{account_id}/{region}/{allocation_id}` adds
+  `raw` and `first_seen`; missing inventory remains addressable, unknown identity
+  or deleted account returns 404.
+- `GET /api/network/scans`: `{enabled, items}`; each item contains `provider`,
+  `account_id`, `region`, `resource_type`, `status`, `error`, `last_attempt`,
+  `last_success`. Resource types are `elastic_ip` and (from T-082) `nat_gateway`.
+  Errors are sanitized codes; last success remains unchanged on failure.
+- Instance details add `elastic_ips: [{public_ip, allocation_id}]`, sorted by
+  allocation ID, for present, non-available EIPs associated with that instance.

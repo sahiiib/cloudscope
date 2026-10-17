@@ -33,6 +33,7 @@ collector:
   concurrency: 8
   suspend: false
   loadBalancersEnabled: false
+  networkEnabled: false
 postgres:
   enabled: true
   image: postgres:16
