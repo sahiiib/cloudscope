@@ -62,7 +62,7 @@ A task can start when all its dependencies are `done`.
 | T-079 | Region picker with counts; test with saved keys when editing | codex | T-077 | done |
 | T-080 | Load balancer details page and more copy icons | claude | T-078 | done |
 | T-081 | Elastic IP inventory page | codex | T-069, T-080 | done |
-| T-082 | NAT gateway inventory page | codex | T-081 | review |
+| T-082 | NAT gateway inventory page | codex | T-081 | done |
 
 ---
 
