@@ -111,3 +111,7 @@ a.icon-button { border: 1px solid var(--border); border-radius: .6rem; color: va
 .floating-scroll { min-width: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .copy-line { white-space: nowrap; }
+/* Long values (DNS names) wrap inside their cell; the copy icon stays beside them. */
+.copy-wrap { display: flex; align-items: flex-start; gap: .4rem; }
+.copy-wrap > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.copy-wrap > button { flex: none; }
