@@ -12,12 +12,16 @@ CHART = Path(__file__).resolve().parents[2] / "deploy/helm/cloudscope"
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="Helm is not installed")
 
 
-def render(*settings: str, release: str = "cloudscope") -> list[dict[str, Any]]:
+def render(
+    *settings: str, release: str = "cloudscope", namespace: str = "default"
+) -> list[dict[str, Any]]:
     args = [
         "helm",
         "template",
         release,
         str(CHART),
+        "--namespace",
+        namespace,
         "--set",
         "image.backend.tag=sha-test,image.web.tag=sha-test",
     ]
@@ -214,6 +218,27 @@ def test_dedicated_secret_rbac_tokens_and_network_boundary() -> None:
         assert token["projected"]["sources"][0]["serviceAccountToken"]["expirationSeconds"] == 3600
     policy = resource(docs, "NetworkPolicy", "cloudscope-credential-egress")
     assert policy["spec"]["egress"][0]["to"] == [{"ipBlock": {"cidr": "10.0.0.1/32"}}]
+
+
+def test_dedicated_credentials_create_their_namespace() -> None:
+    docs = render(
+        "accountCredentials.enabled=true", "accountCredentials.apiServerCIDRs[0]=10.0.0.1/32"
+    )
+    namespace = resource(docs, "Namespace", "cloudscope-credentials")
+    assert namespace["metadata"]["annotations"] == {"helm.sh/resource-policy": "keep"}
+
+
+def test_credentials_in_release_namespace_skip_namespace_object() -> None:
+    docs = render(
+        "accountCredentials.enabled=true",
+        "accountCredentials.namespace=awsearch",
+        "accountCredentials.apiServerCIDRs[0]=10.0.0.1/32",
+        namespace="awsearch",
+    )
+    assert not any(doc["kind"] == "Namespace" for doc in docs)
+    for name in ["cloudscope-credential-writer", "cloudscope-credential-reader"]:
+        assert resource(docs, "Role", name)["metadata"]["namespace"] == "awsearch"
+        assert resource(docs, "RoleBinding", name)["metadata"]["namespace"] == "awsearch"
 
 
 def test_dedicated_credentials_require_explicit_api_server_network() -> None:
