@@ -1,6 +1,6 @@
 # Authentication and MFA
 
-Local users only for now. SSO (OIDC) is a later phase.
+Local users, plus SSO through Keycloak (OIDC): see [sso.md](sso.md).
 
 ## Passwords
 
