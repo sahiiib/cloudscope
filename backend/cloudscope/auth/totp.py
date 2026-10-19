@@ -26,6 +26,8 @@ class MFAService:
     def setup(self, token: str | None) -> dict[str, str]:
         with self.auth.sessions.begin() as session:
             user, _ = self.auth.lookup_session(session, token)
+            if user.is_sso:
+                raise HTTPException(403, "MFA is managed by SSO")
             if user.mfa_enabled:
                 raise HTTPException(409, "MFA already enabled")
             secret = pyotp.random_base32()
@@ -72,6 +74,8 @@ class MFAService:
     def enable(self, token: str | None, code: str) -> None:
         with self.auth.sessions.begin() as session:
             user, stored = self.auth.lookup_session(session, token)
+            if user.is_sso:
+                raise HTTPException(403, "MFA is managed by SSO")
             if user.mfa_enabled:
                 raise HTTPException(409, "MFA already enabled")
             if not self._consume(user, code, self.auth.clock()):
@@ -82,6 +86,8 @@ class MFAService:
     def disable(self, token: str | None, password: str, code: str) -> None:
         with self.auth.sessions.begin() as session:
             user, stored = self.auth.lookup_session(session, token)
+            if user.is_sso:
+                raise HTTPException(403, "MFA is managed by SSO")
             if not user.mfa_enabled:
                 raise HTTPException(409, "MFA is not enabled")
             if not verify_password(password, user.password_hash) or not self._consume(
@@ -97,6 +103,8 @@ class MFAService:
         result: LoginResult | None = None
         with self.auth.sessions.begin() as session:
             user, stored = self.auth.lookup_session(session, token, require_mfa=False)
+            if user.is_sso:
+                raise HTTPException(403, "MFA is managed by SSO")
             if stored.mfa_passed:
                 raise HTTPException(409, "MFA already verified")
             if not user.mfa_enabled:

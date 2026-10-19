@@ -29,6 +29,8 @@ dependencies = [
     "alibabacloud-slb20140515>=3.3.31,<4",
     "alibabacloud-alb20200616>=1.3.3,<2",
     "alibabacloud-nlb20220430>=4.1.3,<5",
+    "pyjwt[crypto]>=2.10,<3",
+    "httpx>=0.27,<1",
 ]
 
 [project.scripts]

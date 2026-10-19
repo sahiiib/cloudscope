@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
 import { settingsError } from './errors';
 
-export default function CreateUser({ onCreated }: { onCreated: () => void }) {
+export default function CreateUser({ onCreated, adminOnly = false }: { onCreated: () => void; adminOnly?: boolean }) {
   const form = useRef<HTMLFormElement>(null);
   const payload = useRef<string | undefined>(undefined);
   useEffect(() => () => { payload.current = undefined; }, []);
@@ -26,7 +26,7 @@ export default function CreateUser({ onCreated }: { onCreated: () => void }) {
     if (String(fields.get('password')).length < 12) { setValidation('Use at least 12 characters.'); return; }
     setValidation('');
     if (!create.isPending) {
-      payload.current = JSON.stringify({ username, password: fields.get('password'), is_admin: fields.get('is_admin') === 'on' });
+      payload.current = JSON.stringify({ username, password: fields.get('password'), is_admin: adminOnly || fields.get('is_admin') === 'on' });
       const password = event.currentTarget.elements.namedItem('password');
       if (password instanceof HTMLInputElement) password.value = '';
       create.mutate();
@@ -34,7 +34,7 @@ export default function CreateUser({ onCreated }: { onCreated: () => void }) {
   }}><h3>Create user</h3><fieldset disabled={create.isPending}>
     <label>New username<input name="username" autoComplete="off" maxLength={256} required /></label>
     <label>Initial password<input name="password" type="password" autoComplete="new-password" minLength={12} required /></label>
-    <label className="settings-check"><input name="is_admin" type="checkbox" />Administrator</label>
+    {adminOnly ? <p>Creates a local administrator. Other team members sign in with Keycloak.</p> : <label className="settings-check"><input name="is_admin" type="checkbox" />Administrator</label>}
     <button type="submit">{create.isPending ? 'Creating…' : 'Create user'}</button>
   </fieldset>
     {validation && <p role="alert" className="error">{validation}</p>}

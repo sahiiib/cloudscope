@@ -255,3 +255,18 @@ buttons and EIP links do not trigger row navigation. Public address allocation
 IDs link to EIP details; private-only addresses are plain text. Details show
 provider-specific fields, VPC/subnet, all addresses, tags and raw data with a
 "Back to NAT gateways" link. Missing inventory retains its details and warning.
+
+## Keycloak sign-in (T-084)
+
+Login loads `/api/auth/config` before choosing sign-in methods. With SSO enabled,
+“Sign in with Keycloak” is the primary link, preserving the protected destination;
+“Admin sign-in” opens the local password/TOTP form. SSO callback errors are shown
+inline, including a distinct “Not authorized” message. Configuration failures
+show a retry instead of guessing which method is enabled.
+
+Logout clears cached inventory and follows `logout_url` with full-page navigation
+for SSO; local logout returns to `/login`. Settings hides password and app MFA
+controls for SSO users and points to Keycloak. Users includes a Sign-in column,
+marks SSO roles as managed by Keycloak and hides their MFA reset action.
+When SSO is enabled, user creation explicitly creates a local administrator;
+other team members use Keycloak. The API enforces these rules independently.

@@ -95,3 +95,18 @@ Apply additive migrations through `0013` before running the new image. Grant AWS
 check **Elastic IPs → Collection status** and **NAT gateways → Collection status**
 after sync. This one flag enables both resource types; operators already enabling
 EIPs must grant the NAT read permission before upgrading.
+
+### Keycloak SSO (T-084)
+
+Set `publicUrl`, `oidc.issuer` (public HTTPS realm URL) and `oidc.clientId`
+(default `cloudscope`). Add `CLOUDSCOPE_OIDC_CLIENT_SECRET` to `existingSecret`;
+the optional Secret key keeps SSO-off installs compatible. Missing/empty `oidc`
+values default to SSO off. With an issuer set, the API requires both the secret
+and public URL. Apply migration `0014` before serving the new API.
+
+API pods must reach the public issuer over HTTPS for discovery/JWKS/token calls;
+the issuer must match the token's `iss`. Configure custom egress rules as needed.
+Keep a local admin with TOTP for emergency access; SSO mode only permits local
+admin password login. Configure ingress logs to omit callback query strings and
+Referer. See [SSO setup](../../../docs/specs/sso.md) and
+[deployment notes](../../../docs/specs/deployment.md#keycloak-sso-t-084).

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, apiFetch } from '../api/client';
-import type { AuthUser } from '../api/types';
+import { leaveApp } from './navigation';
+import type { AuthUser, LogoutResult } from '../api/types';
 import ThemePicker from '../appearance/ThemePicker';
 
 export default function ProtectedLayout() {
@@ -15,10 +16,14 @@ export default function ProtectedLayout() {
   });
   const logout = useMutation({
     mutationFn: async () => {
-      try { await apiFetch('/api/auth/logout', { method: 'POST' }); }
+      try { return await (await apiFetch('/api/auth/logout', { method: 'POST' })).json() as LogoutResult; }
       catch (error) { if (!(error instanceof ApiError && error.status === 401)) throw error; }
     },
-    onSuccess: () => { queryClient.clear(); navigate('/login', { replace: true }); },
+    onSuccess: result => {
+      queryClient.clear();
+      if (result?.logout_url) leaveApp(result.logout_url);
+      else navigate('/login', { replace: true });
+    },
   });
   if (me.isPending) return <main role="status">Checking your session…</main>;
   if (me.isError && !me.data) {

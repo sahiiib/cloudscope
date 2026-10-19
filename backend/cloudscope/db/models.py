@@ -319,11 +319,21 @@ class SyncResult(Base):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (CheckConstraint("failed_logins >= 0", name="failed_logins"),)
+    __table_args__ = (
+        CheckConstraint("failed_logins >= 0", name="failed_logins"),
+        UniqueConstraint("oidc_issuer", "oidc_subject", name="uq_users_oidc_identity"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[str] = mapped_column(Text, unique=True)
-    password_hash: Mapped[str] = mapped_column(Text)
+    password_hash: Mapped[str | None] = mapped_column(Text)
+    oidc_issuer: Mapped[str | None] = mapped_column(Text)
+    oidc_subject: Mapped[str | None] = mapped_column(Text)
+
+    @property
+    def is_sso(self) -> bool:
+        return self.oidc_issuer is not None
+
     is_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     totp_secret_enc: Mapped[str | None] = mapped_column(Text)
@@ -357,3 +367,13 @@ class UserSession(Base):
     )
     ip: Mapped[str] = mapped_column(Text)
     user_agent: Mapped[str] = mapped_column(Text)
+
+
+class OIDCLoginState(Base):
+    __tablename__ = "oidc_login_states"
+    id_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    state: Mapped[str] = mapped_column(Text)
+    nonce: Mapped[str] = mapped_column(Text)
+    code_verifier: Mapped[str] = mapped_column(Text)
+    next_path: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -3,6 +3,7 @@
 import re
 from pathlib import Path
 from typing import Annotated, Literal, Self
+from urllib.parse import urlsplit
 
 import yaml
 from cryptography.fernet import Fernet
@@ -40,6 +41,34 @@ class Settings(BaseSettings):
     load_balancers_enabled: bool = False
     network_enabled: bool = False
     dedicated_credentials_enabled: bool = False
+    oidc_issuer: str = ""
+    oidc_client_id: NonEmptyStr = "cloudscope"
+    oidc_client_secret: SecretStr = SecretStr("")
+    public_url: str = ""
+
+    @model_validator(mode="after")
+    def oidc_configuration(self) -> Self:
+        if self.oidc_issuer:
+            if not self.oidc_client_secret.get_secret_value() or not self.public_url:
+                raise ValueError("SSO requires a client secret and public URL")
+            for value in (self.oidc_issuer, self.public_url):
+                parsed = urlsplit(value)
+                if (
+                    parsed.scheme not in ("http", "https")
+                    or not parsed.hostname
+                    or parsed.username
+                    or parsed.password
+                    or parsed.query
+                    or parsed.fragment
+                    or any(c.isspace() for c in value)
+                    or "\\" in value
+                ):
+                    raise ValueError(
+                        "Use an absolute HTTP(S) URL without credentials, query or fragment"
+                    )
+            if urlsplit(self.public_url).path not in ("", "/"):
+                raise ValueError("Public URL must be an origin without a path")
+        return self
 
     @field_validator("database_url")
     @classmethod

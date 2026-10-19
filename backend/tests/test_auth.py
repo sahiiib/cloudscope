@@ -88,6 +88,7 @@ def test_login_me_hashed_token_and_cookie_flags(
         "username": "tester",
         "is_admin": False,
         "mfa_enabled": False,
+        "is_sso": False,
     }
     db_session.refresh(user)
     assert user.last_login_at == NOW
@@ -190,7 +191,7 @@ def test_login_rotates_and_logout_revokes_token(client: TestClient, db_session: 
     assert db_session.get(UserSession, token_hash(old)) is None
     assert client.get("/api/auth/me", headers={"Cookie": f"{COOKIE_NAME}={old}"}).status_code == 401
     response = client.post("/api/auth/logout", headers=CSRF)
-    assert response.status_code == 204 and response.content == b""
+    assert response.status_code == 200 and response.json() == {}
     assert "Max-Age=0" in response.headers["set-cookie"]
     assert COOKIE_NAME not in client.cookies
     assert db_session.get(UserSession, token_hash(new)) is None
@@ -220,7 +221,7 @@ def test_half_session_restricts_access_and_allows_logout(
     )
     db_session.refresh(user)
     assert user.last_login_at is None
-    assert client.post("/api/auth/logout", headers=CSRF).status_code == 204
+    assert client.post("/api/auth/logout", headers=CSRF).status_code == 200
 
 
 def test_half_session_expires_without_sliding(

@@ -22,12 +22,33 @@ See [auth.md](auth.md) for the flow.
 | --- | --- | --- | --- |
 | POST | `/api/auth/login` | `{username, password}` | `200 {mfa_required: bool}` + session cookie |
 | POST | `/api/auth/mfa/verify-login` | `{code}` | `200` marks session `mfa_passed` |
-| POST | `/api/auth/logout` | | `204` |
-| GET | `/api/auth/me` | | `{id, username, is_admin, mfa_enabled}` |
+| POST | `/api/auth/logout` | | `200 {}` for local sessions, `200 {logout_url: string}` for SSO |
+| GET | `/api/auth/me` | | `{id, username, is_admin, mfa_enabled, is_sso}` |
 | POST | `/api/auth/mfa/setup` | | `{otpauth_uri, qr_svg}` (secret stored, not yet enabled) |
 | POST | `/api/auth/mfa/enable` | `{code}` | `204` |
 | POST | `/api/auth/mfa/disable` | `{password, code}` | `204` |
 | POST | `/api/auth/password` | `{current_password, new_password}` | `204` |
+
+### Keycloak SSO (T-084)
+
+`GET /api/auth/config` is public and returns
+`{local_login: true, sso: {enabled: bool, label: "Sign in with Keycloak"}}`.
+`local_login` keeps the emergency admin form available; with SSO enabled,
+password login for local non-admins returns the same 401 as invalid credentials.
+SSO identities cannot use password login even when SSO is turned off.
+
+`GET /api/auth/oidc/login?next=/path` starts the Authorization Code + PKCE flow.
+`GET /api/auth/oidc/callback?code&state` consumes browser-bound state, validates
+the ID token and creates a normal full session. Both return 302; callback
+errors redirect to `/login?error=sso`, missing role/inactive user to
+`/login?error=not-authorized`. Callback rate limiting returns 429. With SSO
+disabled, both OIDC routes return 404. See [sso.md](sso.md) for the protocol.
+
+SSO logout revokes the local session before returning the provider logout URL;
+the UI follows it with a full-page navigation. If discovery is unavailable,
+`logout_url` falls back to the configured app root and local logout still succeeds.
+SSO password and all local MFA operations return 403. The session cookie,
+CSRF requirements, idle/absolute lifetimes and active-user checks are unchanged.
 
 ## Users (admin)
 
@@ -142,7 +163,7 @@ sanitized 503. API shutdown waits for its collection thread to finish.
 ### Admin user management semantics
 
 User responses contain `id`, `username`, `is_admin`, `is_active`, `mfa_enabled`,
-`created_at`, and `last_login_at`; hashes, encrypted secrets and lockout state are
+`is_sso`, `created_at`, and `last_login_at`; hashes, encrypted secrets and lockout state are
 never returned. Create returns 201 (409 for an existing username); usernames must
 be nonblank, at most 256 characters, without surrounding whitespace. Passwords
 must be at least 12 characters. PATCH returns the updated user; omitted fields
@@ -306,3 +327,12 @@ collection flag. Deleted accounts are excluded. No cloud calls occur in routes.
   Lookup is by allocation ID for AWS, associated ID for Alibaba. Available EIPs
   still return null. Failure to resolve preserves the provider association as
   text with a null link.
+
+### SSO user administration (T-084)
+
+With SSO enabled, create requires `is_admin: true`; other requests return 403.
+Local `is_admin: false` updates also return 403. SSO roles come only from
+Keycloak: supplying `is_admin` or `password` on an SSO user, or resetting their
+MFA, returns 403. Activation/deactivation remains available with the existing
+last-admin protection. No issuer, subject, tokens or OIDC secret are returned
+in user responses. Role changes in Keycloak apply on the next SSO login.

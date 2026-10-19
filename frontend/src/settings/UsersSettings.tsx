@@ -1,3 +1,4 @@
+import { useAuthConfig } from '../auth/useAuthConfig';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
@@ -8,6 +9,7 @@ import { settingsError } from './errors';
 type Action = { user: ManagedUser; kind: 'activity' | 'mfa' };
 export default function UsersSettings({ currentUserId, onSessionEnd }: { currentUserId: number; onSessionEnd: () => void }) {
   const client = useQueryClient();
+  const config = useAuthConfig();
   const [confirmation, setConfirmation] = useState<Action | null>(null);
   const users = useQuery({ queryKey: ['users'], queryFn: async ({ signal }): Promise<ManagedUser[]> => (await apiFetch('/api/users', { signal })).json() });
   const change = useMutation({
@@ -26,11 +28,11 @@ export default function UsersSettings({ currentUserId, onSessionEnd }: { current
     <p>Manage access. Deactivation and MFA resets sign out the affected user's sessions.</p>
     {users.isPending && <p role="status">Loading users…</p>}
     {users.isError && <p role="alert" className="error">Unable to {users.data ? 'refresh' : 'load'} users. <button onClick={() => void users.refetch()}>Retry users</button></p>}
-    {Array.isArray(users.data) && <div className="settings-table-scroll"><table className="settings-table"><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>MFA</th><th>Last login</th><th>Actions</th></tr></thead>
-      <tbody>{users.data.map(user => <tr key={user.id}><td>{user.username}{user.id === currentUserId && ' (you)'}</td><td>{user.is_admin ? 'Admin' : 'Member'}</td><td>{user.is_active ? 'Active' : 'Inactive'}</td><td>{user.mfa_enabled ? 'Enabled' : 'Disabled'}</td>
+    {Array.isArray(users.data) && <div className="settings-table-scroll"><table className="settings-table"><thead><tr><th>Username</th><th>Sign-in</th><th>Role</th><th>Status</th><th>MFA</th><th>Last login</th><th>Actions</th></tr></thead>
+      <tbody>{users.data.map(user => <tr key={user.id}><td>{user.username}{user.id === currentUserId && ' (you)'}</td><td>{user.is_sso ? 'SSO' : 'Local'}</td><td>{user.is_admin ? 'Admin' : 'Member'}{user.is_sso && ' (Keycloak)'}</td><td>{user.is_active ? 'Active' : 'Inactive'}</td><td>{user.is_sso ? 'Keycloak' : user.mfa_enabled ? 'Enabled' : 'Disabled'}</td>
         <td>{user.last_login_at ? <time dateTime={user.last_login_at}>{new Date(user.last_login_at).toLocaleString()}</time> : 'Never'}</td>
         <td><div className="settings-actions"><button className="secondary" disabled={change.isPending} onClick={() => confirm({ user, kind: 'activity' })}>{user.is_active ? 'Deactivate' : 'Reactivate'} {user.username}</button>
-          <button className="secondary" disabled={change.isPending} onClick={() => confirm({ user, kind: 'mfa' })}>Reset MFA for {user.username}</button></div></td></tr>)}</tbody></table>
+          {!user.is_sso && <button className="secondary" disabled={change.isPending} onClick={() => confirm({ user, kind: 'mfa' })}>Reset MFA for {user.username}</button>}</div></td></tr>)}</tbody></table>
       {users.data.length === 0 && <p>No users found.</p>}
     </div>}
     {confirmation && <div className="settings-confirm" role="group" aria-label="Confirm user change">
@@ -41,6 +43,8 @@ export default function UsersSettings({ currentUserId, onSessionEnd }: { current
     </div>}
     {change.isError && <p role="alert" className="error">{settingsError(change.error, 'Unable to update user.', 'The last active administrator cannot be deactivated.')}</p>}
     {change.isSuccess && <p role="status">User updated.</p>}
-    <CreateUser onCreated={() => void client.invalidateQueries({ queryKey: ['users'] })} />
+    {config.isPending && <p role="status">Loading user creation options…</p>}
+    {config.isError && <p role="alert">Unable to load user creation options. <button onClick={() => void config.refetch()}>Retry options</button></p>}
+    {config.data && <CreateUser adminOnly={config.data.sso.enabled} onCreated={() => void client.invalidateQueries({ queryKey: ['users'] })} />}
   </section>;
 }

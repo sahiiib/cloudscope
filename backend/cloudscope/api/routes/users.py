@@ -26,6 +26,7 @@ class UserResponse(BaseModel):
     is_admin: bool
     is_active: bool
     mfa_enabled: bool
+    is_sso: bool
     created_at: datetime
     last_login_at: datetime | None
 
@@ -92,6 +93,8 @@ def users(auth: Auth) -> list[UserResponse]:
 
 @router.post("", status_code=201, response_model=UserResponse, dependencies=[Depends(require_csrf)])
 def create_user(body: CreateUserBody, request: Request, auth: Auth) -> UserResponse:
+    if auth.sso_enabled and not body.is_admin:
+        raise HTTPException(403, "Only local administrators can be created with SSO enabled")
     try:
         with mutation(auth, request) as (session, _):
             user = User(
@@ -113,6 +116,10 @@ def update_user(
 ) -> UserResponse:
     with mutation(auth, request) as (session, actor):
         user = target_user(session, id)
+        if user.is_sso and (body.password is not None or body.is_admin is not None):
+            raise HTTPException(403, "Password and role are managed by SSO")
+        if auth.sso_enabled and not user.is_sso and body.is_admin is False:
+            raise HTTPException(403, "Local users must remain administrators with SSO enabled")
         if user.is_admin and user.is_active and (body.is_active is False or body.is_admin is False):
             others = session.scalar(
                 select(func.count())
@@ -145,6 +152,8 @@ def reset_mfa(id: int, request: Request, auth: Auth) -> Response:
     response = Response(status_code=204)
     with mutation(auth, request) as (session, actor):
         user = target_user(session, id)
+        if user.is_sso:
+            raise HTTPException(403, "MFA is managed by SSO")
         user.mfa_enabled = False
         user.totp_secret_enc = None
         user.totp_last_used_step = None

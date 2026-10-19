@@ -64,7 +64,7 @@ A task can start when all its dependencies are `done`.
 | T-081 | Elastic IP inventory page | codex | T-069, T-080 | done |
 | T-082 | NAT gateway inventory page | codex | T-081 | done |
 | T-083 | Keycloak client for cloudscope | human | – | todo |
-| T-084 | SSO login with Keycloak (OIDC) | codex | – | todo |
+| T-084 | SSO login with Keycloak (OIDC) | codex | – | review |
 
 ---
 

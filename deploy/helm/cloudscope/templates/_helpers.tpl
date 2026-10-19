@@ -9,12 +9,19 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
 {{- if .Values.secrets.create -}}{{ include "cs.name" . }}{{- else -}}{{ required "existingSecret is required" .Values.existingSecret }}{{- end -}}
 {{- end -}}
 {{- define "cs.env" -}}
+{{- $oidc := .Values.oidc | default dict -}}
 - name: CLOUDSCOPE_DATABASE_URL
   valueFrom:
     secretKeyRef: {name: {{ include "cs.secret" . }}, key: DATABASE_URL}
 - name: CLOUDSCOPE_SECRET_KEY
   valueFrom:
     secretKeyRef: {name: {{ include "cs.secret" . }}, key: SECRET_KEY}
+- name: CLOUDSCOPE_OIDC_ISSUER
+  value: {{ $oidc.issuer | default "" | quote }}
+- name: CLOUDSCOPE_OIDC_CLIENT_ID
+  value: {{ $oidc.clientId | default "cloudscope" | quote }}
+- name: CLOUDSCOPE_PUBLIC_URL
+  value: {{ .Values.publicUrl | default "" | quote }}
 - name: CLOUDSCOPE_ACCOUNTS_FILE
   value: /app/config/accounts.yaml
 - name: CLOUDSCOPE_COOKIE_SECURE
@@ -31,7 +38,7 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
   value: {{ .Values.accountCredentials.namespace | quote }}
 - name: CLOUDSCOPE_CREDENTIALS_OWNER
   value: {{ .Release.Name | quote }}
-{{- range $key := list "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "AWS_SESSION_TOKEN" "ALIBABA_CLOUD_ACCESS_KEY_ID" "ALIBABA_CLOUD_ACCESS_KEY_SECRET" }}
+{{- range $key := list "CLOUDSCOPE_OIDC_CLIENT_SECRET" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "AWS_SESSION_TOKEN" "ALIBABA_CLOUD_ACCESS_KEY_ID" "ALIBABA_CLOUD_ACCESS_KEY_SECRET" }}
 - name: {{ $key }}
   valueFrom:
     secretKeyRef: {name: {{ include "cs.secret" $ }}, key: {{ $key }}, optional: true}

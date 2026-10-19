@@ -58,3 +58,9 @@ resources:
   collector: {requests: {cpu: 100m, memory: 128Mi}, limits: {memory: 1Gi}}
   migrate: {requests: {cpu: 100m, memory: 128Mi}, limits: {memory: 512Mi}}
   postgres: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 1Gi}}
+
+# SSO is off until an issuer is set. Keep the client secret in existingSecret.
+publicUrl: ""
+oidc:
+  issuer: ""
+  clientId: cloudscope
