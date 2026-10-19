@@ -68,7 +68,7 @@ Check: `kubectl -n awsearch get secrets` lists the expected names.
 creates the schema up to the current head.
 
 Check: api, web and postgres pods Ready; migrate Job succeeded;
-`kubectl port-forward svc/cloudscope-web 8080:80` opens the login page.
+`kubectl -n awsearch port-forward svc/cloudscope-web 8080:8080` opens the login page.
 
 ### 5. Copy the database (Saheb)
 
