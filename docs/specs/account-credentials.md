@@ -95,6 +95,13 @@ accountCredentials:
 The default Service port 443 does not match the post-DNAT endpoint in that case.
 Verify the cluster CNI's evaluation point and configure only the required endpoints.
 
+When the cluster gives the app only one namespace, `accountCredentials.namespace`
+may equal the release namespace. The chart then creates no `Namespace` object
+(nothing cluster-scoped) and puts the writer/reader Roles in the release
+namespace. Trade-off: the reader Role's `get` on Secrets then covers every
+Secret in that namespace (the app Secret and Helm release Secrets included),
+not only account keys. Use a dedicated namespace whenever one is available.
+
 Old immutable versions are kept intentionally. For release `cloudscope`, an
 operator can list names only (replace the label value for another release):
 
