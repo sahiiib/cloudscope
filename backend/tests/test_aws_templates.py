@@ -53,5 +53,11 @@ def test_hub_only_assumes_inventory_roles_and_trusts_selected_pods() -> None:
     assert trust[0]["Condition"]["StringEquals"] == {
         "aws:RequestTag/eks-cluster-arn": {"Ref": "ClusterArn"},
         "aws:RequestTag/kubernetes-namespace": {"Ref": "Namespace"},
-        "aws:RequestTag/kubernetes-service-account": "cloudscope",
+        "aws:RequestTag/kubernetes-service-account": {"Ref": "ServiceAccounts"},
     }
+
+
+def test_hub_service_accounts_default_to_the_shared_account() -> None:
+    parameter = template("hub-role.yaml")["Parameters"]["ServiceAccounts"]
+    assert parameter["Type"] == "CommaDelimitedList"
+    assert parameter["Default"] == "cloudscope"
