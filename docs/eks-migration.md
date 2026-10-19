@@ -9,6 +9,22 @@ This is a **fresh install**: users, accounts and inventory are not copied from
 the local cluster. The first admin is created again, accounts are added again
 from the web panel, and the first sync fills the inventory.
 
+## Status (2026-10-19)
+
+Steps 0 to 6 are done: the app runs in `awsearch`, collection is on, and the web
+UI is reachable through a Cloudflare tunnel with Cloudflare Access in front of
+it. Step 7 is postponed (see below). Step 8: the access part is done; the
+cut-over from the local cluster is still to do. Deployment details (values,
+runbook) live in the private config repo.
+
+Lessons from the first install:
+
+- Image tags are `sha-<full 40-char commit sha>`; a short sha tag does not exist.
+- GHCR images are private: the namespace needs a `ghcr-pull` Secret and
+  `imagePullSecrets`.
+- A failed first `helm install` leaves a failed release; uninstall it before
+  installing again (the PVC and Secrets stay).
+
 ## What we know
 
 | Topic | Answer (cluster admin, 2026-10-19) |
@@ -108,16 +124,23 @@ Set `collector.suspend: false`, run a manual sync for one account, then all.
 Check: Sync page shows success for all regions; no `AccessDenied` or
 network errors. If egress is blocked, stop here and go back to the admin.
 
-### 7. Pod Identity (when the admin is ready)
+### 7. Pod Identity (postponed)
 
-Admin creates the `cloudscope-hub` role and the association for the
-`cloudscope` ServiceAccount. Then remove the base AWS key from the Secret.
+Postponed on 2026-10-19 (Saheb): accounts connect with dedicated access keys
+for now. The hub role can only assume `cloudscope-readonly` roles, so it is
+useful only together with that role in the scanned accounts. When accounts
+move to role-based access, do both at once: the admin creates `cloudscope-hub`
+(`deploy/aws/hub-role.yaml` with `ServiceAccounts` set to
+`cloudscope-api-credentials,cloudscope-collector-credentials`, because
+`accountCredentials.enabled`) and one Pod Identity association per service
+account, and each account gets `cloudscope-readonly`.
 
-Check: sync still succeeds with no static AWS key.
+Check: an account set to "Assume Role" passes Test access with no static key.
 
 ### 8. Access and cut-over
 
-Cloudflare tunnel to the EKS web Service (replaces port-forward). After a few
+Cloudflare tunnel to the EKS web Service (replaces port-forward; done, with
+Cloudflare Access set up by the admin). After a few
 days of parallel running, suspend the local collector and keep a final local
 dump as backup before removing the local release.
 
