@@ -63,6 +63,8 @@ A task can start when all its dependencies are `done`.
 | T-080 | Load balancer details page and more copy icons | claude | T-078 | done |
 | T-081 | Elastic IP inventory page | codex | T-069, T-080 | done |
 | T-082 | NAT gateway inventory page | codex | T-081 | done |
+| T-083 | Keycloak client for cloudscope | human | – | todo |
+| T-084 | SSO login with Keycloak (OIDC) | codex | – | todo |
 
 ---
 
@@ -668,3 +670,27 @@ details page with EIP links; EIPs attached to a NAT gateway (AWS by allocation
 ID, Alibaba by `InstanceId`) now link to it from the Elastic IPs page.
 `ec2:DescribeNatGateways` added to the AWS template and policy block. API docs,
 types and tests as in T-081.
+
+### T-083: Keycloak client for cloudscope
+Owner: human · Spec: [sso](specs/sso.md#keycloak-setup-cluster-admin)
+
+Saheb with the cluster admin, 2026-10-19. Acceptance: client `cloudscope`,
+roles and ID-token mapper as in the spec; issuer URL and public URL known; client
+secret stored in the app Secret as `CLOUDSCOPE_OIDC_CLIENT_SECRET` (never in
+git or chat); at least one test user with each role.
+
+### T-084: SSO login with Keycloak (OIDC)
+Owner: codex · Spec: [sso](specs/sso.md), [auth](specs/auth.md)
+
+Saheb, 2026-10-19. Acceptance: migration `0014`; `/api/auth/oidc/login`,
+`/callback`, `/api/auth/config` and SSO-aware logout as in the spec, with PKCE,
+state/nonce in `oidc_login_states`, full ID token validation and role mapping;
+users linked by `(issuer, sub)`; SSO users cannot use password login or app
+TOTP; `CLOUDSCOPE_LOCAL_LOGIN` switch; login page button and error messages,
+Users page "Sign-in" column, MFA hidden for SSO users; Helm values with template
+defaults (SSO off by default) and the optional Secret key; `.env.example`, API
+docs and types updated. Tests use a fake issuer (local JWKS and token endpoint),
+never a real Keycloak: valid login, wrong `state`, wrong `nonce`, wrong `aud`,
+expired token, unknown `kid` refresh, no role, admin role added and removed,
+open-redirect `next`, username clash. Name the OIDC/JWT library and why in the
+PR description.
