@@ -1,8 +1,12 @@
 # AWS inventory roles
 
 `hub-role.yaml` creates the named `cloudscope-hub` role. Supply `ClusterArn`
-and optionally `Namespace` (default `cloudscope`). Trust is limited to EKS Pod
-Identity with the selected cluster/namespace and the `cloudscope` service account.
+and optionally `Namespace` (default `cloudscope`) and `ServiceAccounts` (default
+`cloudscope`). Trust is limited to EKS Pod Identity with the selected
+cluster/namespace and service accounts. With `accountCredentials.enabled` the chart
+runs API and collector as `<release>-api-credentials` and
+`<release>-collector-credentials`, so pass both names and create one Pod Identity
+association for each.
 Its permission policy only allows assuming `cloudscope-readonly` roles.
 
 `readonly-role.yaml` is the StackSet template for target accounts. Supply the hub

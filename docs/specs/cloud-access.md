@@ -25,7 +25,9 @@ For local development and the local cluster we use existing test access keys.
 ```
 
 1. **Hub role** `cloudscope-hub` in the account that runs EKS. Trusted by EKS
-   Pod Identity (`pods.eks.amazonaws.com`) for the `cloudscope` service account.
+   Pod Identity (`pods.eks.amazonaws.com`) for the service accounts that run API
+   and collector: `cloudscope`, or `<release>-api-credentials` and
+   `<release>-collector-credentials` when `accountCredentials.enabled`.
    The trust allows `sts:AssumeRole` and `sts:TagSession`, because Pod Identity
    attaches session tags. Permission: only
    ```json

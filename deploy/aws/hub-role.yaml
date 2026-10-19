@@ -12,6 +12,13 @@ Parameters:
     MinLength: 1
     MaxLength: 63
     AllowedPattern: '[a-z0-9]([a-z0-9-]*[a-z0-9])?'
+  ServiceAccounts:
+    Type: CommaDelimitedList
+    Default: cloudscope
+    Description: >-
+      Service accounts of the pods that call AWS. With accountCredentials.enabled the
+      chart runs API and collector as <release>-api-credentials and
+      <release>-collector-credentials instead of cloudscope.
 Resources:
   HubRole:
     Type: AWS::IAM::Role
@@ -31,7 +38,7 @@ Resources:
               StringEquals:
                 aws:RequestTag/eks-cluster-arn: !Ref ClusterArn
                 aws:RequestTag/kubernetes-namespace: !Ref Namespace
-                aws:RequestTag/kubernetes-service-account: cloudscope
+                aws:RequestTag/kubernetes-service-account: !Ref ServiceAccounts
       Policies:
         - PolicyName: cloudscope-assume-readonly
           PolicyDocument:
