@@ -675,7 +675,8 @@ types and tests as in T-081.
 Owner: human · Spec: [sso](specs/sso.md#keycloak-setup-cluster-admin)
 
 Saheb with the cluster admin, 2026-10-19. Acceptance: client `cloudscope`,
-roles and ID-token mapper as in the spec; issuer URL and public URL known; client
+roles and ID-token mapper as in the spec; realm name known (issuer =
+`<Keycloak public URL>/realms/<realm>`, reachable from the API pods); client
 secret stored in the app Secret as `CLOUDSCOPE_OIDC_CLIENT_SECRET` (never in
 git or chat); at least one test user with each role.
 
@@ -686,11 +687,12 @@ Saheb, 2026-10-19. Acceptance: migration `0014`; `/api/auth/oidc/login`,
 `/callback`, `/api/auth/config` and SSO-aware logout as in the spec, with PKCE,
 state/nonce in `oidc_login_states`, full ID token validation and role mapping;
 users linked by `(issuer, sub)`; SSO users cannot use password login or app
-TOTP; `CLOUDSCOPE_LOCAL_LOGIN` switch; login page button and error messages,
+TOTP; with SSO enabled, password login and user creation only for local admins;
+login page button, "Admin sign-in" link and error messages,
 Users page "Sign-in" column, MFA hidden for SSO users; Helm values with template
 defaults (SSO off by default) and the optional Secret key; `.env.example`, API
 docs and types updated. Tests use a fake issuer (local JWKS and token endpoint),
 never a real Keycloak: valid login, wrong `state`, wrong `nonce`, wrong `aud`,
 expired token, unknown `kid` refresh, no role, admin role added and removed,
-open-redirect `next`, username clash. Name the OIDC/JWT library and why in the
+open-redirect `next`, username clash, local non-admin refused with SSO on. Name the OIDC/JWT library and why in the
 PR description.

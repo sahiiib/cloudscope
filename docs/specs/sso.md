@@ -15,7 +15,7 @@ login with TOTP stays as the fallback (break-glass admin).
 | Password and MFA | SSO users have no local password and cannot use password login. App TOTP does not apply to them; MFA is Keycloak's job. |
 | Session | Same `cloudscope_session` cookie and lifetimes as local login ([auth](auth.md#sessions)), created with `mfa_passed = true`. Keycloak tokens are not stored. |
 | Logout | Deletes the local session, then redirects to Keycloak's `end_session_endpoint` with `client_id` and `post_logout_redirect_uri` = app root (Keycloak may show a confirmation page; no ID token is stored for `id_token_hint`). |
-| Local login | On by default. `CLOUDSCOPE_LOCAL_LOGIN=false` hides the form and makes password login return 404. Recovery: set it back to `true` with Helm. |
+| Local login | Only for local **admin** users (Saheb, 2026-10-19). When SSO is enabled, password login for a local non-admin user returns the same 401 as a wrong password, and `POST /api/users` and the Users page only create local admins (everyone else signs in with Keycloak). Turning `is_admin` off for a local user is rejected while SSO is enabled. With SSO off, local login works as today. |
 | Disabled users | `is_active = false` blocks both SSO and local login, as today. |
 
 ## Flow
@@ -56,13 +56,13 @@ GET /api/auth/config
 | `CLOUDSCOPE_OIDC_CLIENT_ID` | Default `cloudscope`. |
 | `CLOUDSCOPE_OIDC_CLIENT_SECRET` | From the app Secret, never in values. |
 | `CLOUDSCOPE_PUBLIC_URL` | e.g. `https://cloudscope.example.com`; builds redirect URIs. |
-| `CLOUDSCOPE_LOCAL_LOGIN` | Default `true`. |
 
-Helm: `oidc.issuer`, `oidc.clientId`, `publicUrl`, `localLogin` values with
+Helm: `oidc.issuer`, `oidc.clientId`, `publicUrl` values with
 template defaults (SSO off when `oidc.issuer` is empty), and
 `CLOUDSCOPE_OIDC_CLIENT_SECRET` read from the existing Secret as an optional key.
-The API pods need outbound HTTPS to the issuer (in-cluster Service URL or public
-URL, whichever the admin gives; the issuer string must match the token's `iss`).
+The API pods reach the issuer through its **public URL** (the same URL the
+browser uses), so discovery, JWKS and token calls need outbound HTTPS from the
+API pods to that host; the issuer string must match the token's `iss`.
 
 ## Data model (migration `0014`)
 
@@ -74,11 +74,12 @@ URL, whichever the admin gives; the issuer string must match the token's `iss`).
 
 ## UI
 
-- Login page: "Sign in with Keycloak" button when SSO is enabled; the password
-  form below it (or hidden when local login is off). `?error=` shows a short
-  message.
+- Login page: "Sign in with Keycloak" as the main button when SSO is enabled;
+  below it a small "Admin sign-in" link that opens the password form. `?error=`
+  shows a short message.
 - Users page: column "Sign-in" (`Local` / `SSO`); SSO users have no password or
-  MFA actions; admin toggle is read-only for SSO users (Keycloak decides).
+  MFA actions; admin toggle is read-only for SSO users (Keycloak decides). With
+  SSO enabled, "Add user" creates a local admin and says so.
 - Settings → Security: MFA setup is hidden for SSO users.
 
 ## Keycloak setup (cluster admin)
