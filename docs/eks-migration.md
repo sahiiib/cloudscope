@@ -22,7 +22,7 @@ from the web panel, and the first sync fills the inventory.
 | Account keys | Same namespace (`awsearch`), no separate credentials namespace. |
 | Pod Identity | The `eks-pod-identity-agent` runs on every node. The admin still creates the role and association (step 7). Until then, the base AWS key Secret. |
 | Egress / NetworkPolicy | Outbound HTTPS to AWS (STS, EC2), Alibaba and GHCR works directly, no proxy (tested 2026-10-19). NetworkPolicies are **not enforced** (VPC CNI `--enable-network-policy=false`), so the chart's policies are inert until the admin turns enforcement on. |
-| Deletes | A `webhook-system/delete-interceptor` webhook exists; check that it allows deletes in `awsearch` (Helm hook Jobs are deleted on every upgrade). |
+| Admission webhook | `delete-interceptor` sees every CREATE/UPDATE/DELETE in every namespace with `failurePolicy: Fail`. Creating and deleting a test pod in `awsearch` worked. If that webhook is down, Helm installs and upgrades fail too. |
 
 ## Steps
 
@@ -67,8 +67,11 @@ Check: `helm template -n awsearch` output reviewed together.
 its data directory. `fsGroup` does not change ownership on EFS (NFS), so the
 StorageClass must create its access point with `uid: "999"`, `gid: "999"` and
 `directoryPerms: "700"` (EFS CSI `provisioningMode: efs-ap`). The existing EFS
-classes belong to other apps, so a new class (for example `cloudscope-efs`) is
-created by the admin, or by Saheb once cluster admin is granted.
+classes use a gid range (1000-2000), so files would belong to a random uid and
+Postgres refuses to start ("wrong ownership"). Keycloak uses a static PV, which
+the chart does not support. So a new class `cloudscope-efs` with
+`reclaimPolicy: Retain`, fixed `uid`/`gid` 999 and its own `basePath` is created
+by the admin, or by Saheb once cluster admin is granted.
 
 ### 3. Secrets in `awsearch` (Saheb)
 
