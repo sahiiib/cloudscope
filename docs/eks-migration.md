@@ -9,13 +9,13 @@ This is a **fresh install**: users, accounts and inventory are not copied from
 the local cluster. The first admin is created again, accounts are added again
 from the web panel, and the first sync fills the inventory.
 
-## Status (2026-10-19)
+## Status (2026-10-20)
 
-Steps 0 to 6 are done: the app runs in `awsearch`, collection is on, and the web
-UI is reachable through a Cloudflare tunnel with Cloudflare Access in front of
-it. Step 7 is postponed (see below). Step 8: the access part is done; the
-cut-over from the local cluster is still to do. Deployment details (values,
-runbook) live in the private config repo.
+The migration is done. The app runs only in `awsearch`: collection is on, the
+web UI is reachable through a Cloudflare tunnel with Cloudflare Access in front
+of it, and the team signs in with Keycloak SSO. Step 7 is postponed (see below).
+The local cluster release and its namespaces were removed on 2026-10-20
+(step 8). Deployment details (values, runbook) live in the private config repo.
 
 Lessons from the first install:
 
@@ -140,9 +140,14 @@ Check: an account set to "Assume Role" passes Test access with no static key.
 ### 8. Access and cut-over
 
 Cloudflare tunnel to the EKS web Service (replaces port-forward; done, with
-Cloudflare Access set up by the admin). After a few
-days of parallel running, suspend the local collector and keep a final local
-dump as backup before removing the local release.
+Cloudflare Access set up by the admin).
+
+Cut-over, done 2026-10-20: with all accounts added on EKS, the last runs on
+both clusters found the same 538 instances. The local collector was suspended,
+a final `pg_dump -Fc` of the local database was kept on Saheb's machine, then
+the local release, the `cloudscope` and `cloudscope-credentials` namespaces and
+the temporary test tunnel were removed. The account keys were not rotated: EKS
+uses the same keys.
 
 ## Later
 
@@ -155,6 +160,6 @@ dump as backup before removing the local release.
 
 ## Rollback
 
-Until step 8 the local cluster keeps running unchanged, so rollback is
-`helm uninstall` in `awsearch` (the PVC and Secrets are deleted separately
-only when we decide to).
+The local cluster is gone (step 8). A rollback on EKS is `helm -n awsearch
+rollback cloudscope` to the previous revision; the local data survives only as
+the final dump on Saheb's machine.
