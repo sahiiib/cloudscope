@@ -146,9 +146,12 @@ dump as backup before removing the local release.
 
 ## Later
 
-- **SSO.** The admin suggests login through the cluster's Keycloak so the
-  whole team can use it. This is a new feature (OIDC login) with its own spec
-  and task, after the migration; local login with TOTP stays as a fallback.
+- **SSO.** Done 2026-10-20 ([sso.md](specs/sso.md), T-083, T-084): the team
+  signs in through the cluster's Keycloak; local password login is only for
+  local admins. Lessons: the client-role mapper must have "Add to ID token" on
+  (otherwise every user gets "Not authorized"), and Cloudflare in front of the
+  issuer blocks the `Python-urllib` User-Agent (error 1010) but lets the API's
+  httpx client through.
 
 ## Rollback
 
