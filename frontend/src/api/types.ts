@@ -4,7 +4,15 @@ export interface AuthUser {
   username: string;
   is_admin: boolean;
   mfa_enabled: boolean;
+  is_sso: boolean;
 }
+
+export interface AuthConfig {
+  local_login: boolean;
+  sso: { enabled: boolean; label: string };
+}
+
+export interface LogoutResult { logout_url?: string }
 
 export interface LoginResult {
   mfa_required: boolean;

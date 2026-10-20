@@ -46,3 +46,36 @@ test('invalid MFA code supports retry or returning to password login', async () 
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
+
+test('loads public SSO config and exposes the local admin form on demand', async () => {
+  fetchApi.mockResolvedValue(response({ local_login: true, sso: { enabled: true, label: 'Sign in with Keycloak' } }));
+  setup('/login', false, null);
+  expect(screen.getByRole('status')).toHaveTextContent('Loading sign-in options');
+  const sso = await screen.findByRole('link', { name: 'Sign in with Keycloak' });
+  expect(sso).toHaveAttribute('href', '/api/auth/oidc/login?next=%2F');
+  expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('link', { name: 'Admin sign-in' }));
+  expect(screen.getByLabelText('Password')).toBeInTheDocument();
+  expect(fetchApi).toHaveBeenCalledWith('/api/auth/config', { redirectOnUnauthorized: false });
+});
+
+test.each([['sso', 'Unable to sign in with Keycloak'], ['not-authorized', 'Not authorized']])('SSO callback error %s is shown', (error, message) => {
+  setup(`/login?error=${error}`);
+  expect(screen.getByRole('alert')).toHaveTextContent(message);
+});
+
+test('SSO preserves a protected destination without an external redirect', async () => {
+  fetchApi.mockRejectedValueOnce(new ApiError(401));
+  setup('/sync', false, { local_login: true, sso: { enabled: true, label: 'Sign in with Keycloak' } });
+  expect(await screen.findByRole('link', { name: 'Sign in with Keycloak' })).toHaveAttribute('href', '/api/auth/oidc/login?next=%2Fsync');
+});
+
+test('configuration failure offers retry and does not guess sign-in methods', async () => {
+  fetchApi.mockRejectedValueOnce(new ApiError(503));
+  setup('/login', false, null);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load sign-in options');
+  expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+  fetchApi.mockResolvedValue(response({ local_login: true, sso: { enabled: false, label: 'Sign in with Keycloak' } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByLabelText('Password')).toBeInTheDocument();
+});

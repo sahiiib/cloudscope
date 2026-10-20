@@ -45,3 +45,19 @@ test('resetting own MFA ends the current session', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
   await waitFor(() => expect(end).toHaveBeenCalledOnce());
 });
+
+test('SSO users have managed roles and no local MFA action; SSO mode creates local admins', async () => {
+  fetchApi.mockImplementation(async (_path, options) => response(options?.method === 'POST' ? {} : [{ ...member, is_sso: true, is_admin: true }]));
+  const client = renderSettings(<UsersSettings currentUserId={1} onSessionEnd={vi.fn()} />);
+  client.setQueryData(['auth', 'config'], { local_login: true, sso: { enabled: true, label: 'Sign in with Keycloak' } });
+  expect(await screen.findByRole('columnheader', { name: 'Sign-in' })).toBeInTheDocument();
+  expect(screen.getByText('SSO')).toBeInTheDocument();
+  expect(screen.getByText('Admin (Keycloak)')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Reset MFA for member' })).not.toBeInTheDocument();
+  expect(await screen.findByText(/Creates a local administrator/)).toBeInTheDocument();
+  expect(screen.queryByRole('checkbox', { name: 'Administrator' })).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('New username'), { target: { value: 'emergency-admin' } });
+  fireEvent.change(screen.getByLabelText('Initial password'), { target: { value: 'password-placeholder' } });
+  fireEvent.submit(screen.getByRole('form', { name: 'Create user' }));
+  await waitFor(() => expect(fetchApi).toHaveBeenCalledWith('/api/users', expect.objectContaining({ body: JSON.stringify({ username: 'emergency-admin', password: 'password-placeholder', is_admin: true }) })));
+});

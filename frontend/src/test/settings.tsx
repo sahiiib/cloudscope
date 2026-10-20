@@ -9,6 +9,7 @@ export const fetchApi = vi.mocked(apiFetch);
 export function response(body: unknown) { return new Response(JSON.stringify(body)); }
 export function renderSettings(element: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  client.setQueryData(['auth', 'config'], { local_login: true, sso: { enabled: false, label: 'Sign in with Keycloak' } });
   render(<QueryClientProvider client={client}>{element}</QueryClientProvider>);
   return client;
 }

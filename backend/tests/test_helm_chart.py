@@ -246,3 +246,36 @@ def test_dedicated_credentials_require_explicit_api_server_network() -> None:
         render("accountCredentials.enabled=true")
     with pytest.raises(subprocess.CalledProcessError):
         render("accountCredentials.enabled=true", "accountCredentials.apiServerCIDRs[0]=10.0.0.0/8")
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_oidc_disabled_defaults_and_optional_secret(missing: bool) -> None:
+    docs = render(*(["oidc=null", "publicUrl=null"] if missing else []))
+    api = resource(docs, "Deployment", "cloudscope-api")["spec"]["template"]["spec"]
+    env = {item["name"]: item for item in api["containers"][0]["env"]}
+    assert env["CLOUDSCOPE_OIDC_ISSUER"]["value"] == ""
+    assert env["CLOUDSCOPE_OIDC_CLIENT_ID"]["value"] == "cloudscope"
+    assert env["CLOUDSCOPE_PUBLIC_URL"]["value"] == ""
+    assert env["CLOUDSCOPE_OIDC_CLIENT_SECRET"]["valueFrom"]["secretKeyRef"] == {
+        "name": "cloudscope",
+        "key": "CLOUDSCOPE_OIDC_CLIENT_SECRET",
+        "optional": True,
+    }
+
+
+def test_oidc_public_issuer_and_external_secret() -> None:
+    docs = render(
+        "oidc.issuer=https://idp.example.com/realms/team",
+        "oidc.clientId=inventory",
+        "publicUrl=https://inventory.example.com",
+        "existingSecret=external-app-secret",
+    )
+    api = resource(docs, "Deployment", "cloudscope-api")["spec"]["template"]["spec"]
+    env = {item["name"]: item for item in api["containers"][0]["env"]}
+    assert env["CLOUDSCOPE_OIDC_ISSUER"]["value"] == "https://idp.example.com/realms/team"
+    assert env["CLOUDSCOPE_OIDC_CLIENT_ID"]["value"] == "inventory"
+    assert env["CLOUDSCOPE_PUBLIC_URL"]["value"] == "https://inventory.example.com"
+    assert (
+        env["CLOUDSCOPE_OIDC_CLIENT_SECRET"]["valueFrom"]["secretKeyRef"]["name"]
+        == "external-app-secret"
+    )

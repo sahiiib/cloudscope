@@ -147,3 +147,52 @@ def test_alias_migration_preserves_existing_accounts(migrated_engine, alembic_co
         finally:
             command.upgrade(alembic_config, "head")
             alembic_config.attributes.pop("connection", None)
+
+
+def test_oidc_migration_preserves_local_users_and_safe_downgrade(
+    migrated_engine: Engine, alembic_config: Config
+) -> None:
+    with migrated_engine.connect() as connection:
+        alembic_config.attributes["connection"] = connection
+        try:
+            command.downgrade(alembic_config, "0013")
+            connection.execute(
+                text(
+                    "INSERT INTO users (username, password_hash, is_admin) "
+                    "VALUES ('migration-local', 'unchanged-placeholder-hash', true)"
+                )
+            )
+            connection.commit()
+            command.upgrade(alembic_config, "head")
+            local = connection.execute(
+                text(
+                    "SELECT password_hash, oidc_issuer, oidc_subject, is_admin "
+                    "FROM users WHERE username = 'migration-local'"
+                )
+            ).one()
+            assert local == ("unchanged-placeholder-hash", None, None, True)
+            connection.execute(
+                text(
+                    "INSERT INTO users (username, oidc_issuer, oidc_subject) "
+                    "VALUES ('migration-sso', 'https://idp.example.com/realms/team', 'subject')"
+                )
+            )
+            connection.commit()
+            command.downgrade(alembic_config, "0013")
+            assert connection.execute(
+                text("SELECT password_hash, is_active FROM users WHERE username = 'migration-sso'")
+            ).one() == ("", False)
+            assert (
+                connection.scalar(
+                    text("SELECT password_hash FROM users WHERE username = 'migration-local'")
+                )
+                == "unchanged-placeholder-hash"
+            )
+            connection.execute(
+                text("DELETE FROM users WHERE username IN ('migration-local', 'migration-sso')")
+            )
+            connection.commit()
+        finally:
+            connection.rollback()
+            command.upgrade(alembic_config, "head")
+            alembic_config.attributes.pop("connection", None)

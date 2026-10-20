@@ -143,3 +143,26 @@ replace this check):
    half-session token no longer works.
 4. Use the password and another fresh code to disable MFA; remove the disposable
    entry from the authenticator afterward.
+
+## Keycloak implementation (T-084)
+
+Migration `0014` adds `(oidc_issuer, oidc_subject)` identities, nullable password
+hashes and short-lived `oidc_login_states`. Local user hashes are preserved.
+Downgrading deactivates former SSO users and leaves an unverifiable password hash.
+SSO sessions use the same idle/absolute caps and cookie rotation as local sessions.
+
+The backend uses PyJWT with cryptography for RS256 signature and claim checks,
+and httpx with a 10-second timeout for discovery, token exchange and JWKS.
+Discovery/JWKS are cached for five minutes; an unknown key ID refreshes JWKS.
+Only RS256 signing keys are accepted (Keycloak's default); do not configure a
+different signing algorithm for this client. No tokens are persisted or sent to
+the browser. A transactional delete consumes state exactly once across pods;
+state expires after ten minutes and new login attempts clean expired rows.
+
+SSO uses the existing per-IP limiter and records sanitized login outcomes.
+Uvicorn callback access logs omit query strings, and the web image omits query
+strings and Referer from access logs. Raw nginx upstream error logging is
+suppressed for OIDC routes only (the sanitized access status still records
+failures). Ingress/proxy logging must likewise omit
+callback query strings and Referer. See [sso.md](sso.md) for operator setup and
+local admin fallback rules; existing local admin TOTP remains available.

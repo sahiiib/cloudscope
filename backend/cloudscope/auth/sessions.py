@@ -72,10 +72,12 @@ class AuthService:
         cookie_secure: bool = True,
         clock: Callable[[], datetime] = utc_now,
         limiter: LoginRateLimiter | None = None,
+        sso_enabled: bool = False,
     ) -> None:
         if ttl_hours <= 0 or max_age_days <= 0:
             raise ValueError("Session lifetime must be positive")
         self.sessions = sessions
+        self.sso_enabled = sso_enabled
         self.ttl = timedelta(hours=ttl_hours)
         self.max_age = timedelta(days=max_age_days)
         self.cookie_secure = cookie_secure
@@ -96,6 +98,8 @@ class AuthService:
             now = self.clock()
             if (
                 user is None
+                or user.is_sso
+                or (self.sso_enabled and not user.is_admin)
                 or not user.is_active
                 or (user.locked_until is not None and user.locked_until > now)
             ):
@@ -187,14 +191,17 @@ class AuthService:
             session.expunge(user)
             return user, stored.expires_at
 
-    def logout(self, token: str | None) -> None:
+    def logout(self, token: str | None) -> bool:
         with self.sessions.begin() as session:
-            _, stored = self.lookup_session(session, token, require_mfa=False)
+            user, stored = self.lookup_session(session, token, require_mfa=False)
             session.delete(stored)
+            return user.is_sso
 
     def change_password(self, token: str | None, current: str, new: str) -> None:
         with self.sessions.begin() as session:
             user, _ = self.lookup_session(session, token)
+            if user.is_sso:
+                raise HTTPException(403, "Password is managed by SSO")
             if not verify_password(current, user.password_hash):
                 raise HTTPException(401, "Invalid current password")
             user.password_hash = hash_password(new)

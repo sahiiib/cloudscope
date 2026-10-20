@@ -177,3 +177,36 @@ before switching the application's URL. Switching `postgres.enabled` from false
 to true on upgrade is unsupported because the new database does not yet exist;
 use separate provisioning or a planned new install/data transfer. See the chart
 README's Migration order section for both edge cases.
+
+## Keycloak SSO (T-084)
+
+SSO is opt-in. Apply migration `0014`, configure the client and role mapper as
+in [sso.md](sso.md#keycloak-setup-cluster-admin), then configure these non-secret
+Helm values:
+
+```yaml
+publicUrl: https://cloudscope.example.com
+oidc:
+  issuer: https://keycloak.example.com/realms/team
+  clientId: cloudscope
+```
+
+The corresponding variables are `CLOUDSCOPE_PUBLIC_URL`,
+`CLOUDSCOPE_OIDC_ISSUER`, and `CLOUDSCOPE_OIDC_CLIENT_ID` (default `cloudscope`).
+Store `CLOUDSCOPE_OIDC_CLIENT_SECRET` in the application `existingSecret`, never
+in values or Git. Its Secret reference is optional so deployments without SSO
+remain valid; with a nonempty issuer, missing secret/public URL fails settings
+validation and authentication is unavailable. Empty or absent `oidc.issuer`
+disables SSO, including upgrades reusing older values.
+
+Use the issuer's **public** HTTPS realm URL, matching the ID token `iss`; API
+pods and browsers must both reach it. Allow outbound HTTPS for discovery, JWKS
+and token exchange. The chart's public HTTPS egress already permits this; custom
+network policies/firewalls must do so too. Do not substitute an internal service
+URL with a different issuer. Use HTTPS and secure cookies in production.
+
+Configure ingress/proxy logs to omit callback query strings and Referer so
+codes/state are not logged. The application and web image already sanitize
+access logs. Keep a local admin with TOTP for emergency access: SSO mode rejects
+local non-admin password login, only creates local admins, and rejects local
+admin demotion. It does not automatically promote existing local users.

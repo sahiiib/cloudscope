@@ -1,3 +1,7 @@
+# OIDC callback codes and state must not reach access logs (including Referer).
+log_format cloudscope '$remote_addr - $remote_user [$time_local] '
+                     '"$request_method $uri $server_protocol" $status $body_bytes_sent';
+
 map $http_x_forwarded_proto $fwd_proto {
     default $http_x_forwarded_proto;
     "" $scheme;
@@ -9,6 +13,18 @@ server {
     root /usr/share/nginx/html;
     index index.html;
     server_tokens off;
+    access_log /dev/stdout cloudscope;
+
+    # Nginx upstream errors include the raw request URI. Suppress them only for
+    # the sensitive OIDC routes; its sanitized access status still records failures.
+    location ^~ /api/auth/oidc/ {
+        error_log /dev/null;
+        proxy_pass http://${API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $fwd_proto;
+    }
 
     location /api/ {
         proxy_pass http://${API_UPSTREAM};

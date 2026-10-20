@@ -20,7 +20,7 @@ export default function Settings() {
     <div className="page-heading"><span className="eyebrow">Workspace</span><h1>Settings</h1>
       <p>Signed in as {user.username}. Cloud accounts are managed on the {user.is_admin ? <Link to="/accounts">Accounts</Link> : 'Accounts'} page.</p></div>
     <h2 className="settings-section-title">Your security</h2>
-    <div className="settings-grid"><PasswordSettings onSessionEnd={endSession} /><MFASettings enabled={user.mfa_enabled} onChanged={mfaChanged} /></div>
+    {user.is_sso ? <p>Password and MFA are managed by Keycloak.</p> : <div className="settings-grid"><PasswordSettings onSessionEnd={endSession} /><MFASettings enabled={user.mfa_enabled} onChanged={mfaChanged} /></div>}
     {user.is_admin && <><h2 className="settings-section-title">Administration</h2><UsersSettings currentUserId={user.id} onSessionEnd={endSession} /></>}
   </section>;
 }

@@ -15,21 +15,23 @@ def hash_password(password: str) -> str:
     return _hasher.hash(password)
 
 
-def verify_password(password: str, password_hash: str) -> bool:
+def verify_password(password: str, password_hash: str | None) -> bool:
     """Reject mismatched or malformed hashes without exposing verifier errors."""
+    if password_hash is None:
+        return False
     try:
         return _hasher.verify(password_hash, password)
     except (VerificationError, InvalidHashError):
         return False
 
 
-def verify_and_rehash(password: str, password_hash: str) -> tuple[bool, str | None]:
+def verify_and_rehash(password: str, password_hash: str | None) -> tuple[bool, str | None]:
     """Return (valid, replacement_hash); login callers persist a replacement if present.
 
     Length policy applies to new/changed passwords. Verification and rehash must
     still work for existing passwords if the creation policy changes later.
     """
-    if not verify_password(password, password_hash):
+    if password_hash is None or not verify_password(password, password_hash):
         return False, None
     if _hasher.check_needs_rehash(password_hash):
         return True, _hasher.hash(password)

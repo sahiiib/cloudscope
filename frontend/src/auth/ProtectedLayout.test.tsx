@@ -1,5 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+import { leaveApp } from './navigation';
+vi.mock('./navigation', () => ({ leaveApp: vi.fn() }));
 import { ApiError } from '../api/client';
 import { fetchApi, response, setup, signIn, user } from '../test/auth';
 
@@ -23,11 +25,11 @@ test('session outage offers retry without showing protected content', async () =
 });
 
 test('logout clears cached inventory and returns to login', async () => {
-  fetchApi.mockResolvedValue(response(user));
+  fetchApi.mockImplementation(async path => response(path === '/api/auth/config' ? { local_login: true, sso: { enabled: false, label: 'Sign in with Keycloak' } } : user));
   const cache = setup('/');
   cache.setQueryData(['instances'], ['cached-placeholder']);
   fireEvent.click(await screen.findByText('tester'));
-  fetchApi.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  fetchApi.mockResolvedValueOnce(response({}));
   fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
   expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
   expect(cache.getQueryData(['instances'])).toBeUndefined();
@@ -45,4 +47,15 @@ test('cached user keeps the shell visible after a failed refetch', async () => {
   expect(screen.getByRole('navigation')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Sync' })).toBeInTheDocument();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+test('SSO logout clears cached data before navigating to Keycloak', async () => {
+  fetchApi.mockImplementation(async path => response(path === '/api/auth/me' ? { ...user, is_sso: true } : []));
+  const cache = setup('/sync');
+  cache.setQueryData(['instances'], ['cached-placeholder']);
+  fireEvent.click(await screen.findByText('tester'));
+  fetchApi.mockResolvedValueOnce(response({ logout_url: 'https://idp.example.com/logout?client_id=cloudscope' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+  await waitFor(() => expect(leaveApp).toHaveBeenCalledWith('https://idp.example.com/logout?client_id=cloudscope'));
+  expect(cache.getQueryData(['instances'])).toBeUndefined();
 });

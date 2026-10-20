@@ -115,3 +115,7 @@ a.icon-button { border: 1px solid var(--border); border-radius: .6rem; color: va
 .copy-wrap { display: flex; align-items: flex-start; gap: .4rem; }
 .copy-wrap > :first-child { min-width: 0; overflow-wrap: anywhere; }
 .copy-wrap > button { flex: none; }
+
+.sso-sign-in { display: grid; gap: 1rem; margin: 1.5rem 0; text-align: center; }
+.sso-button { display: block; padding: .75rem 1rem; border-radius: .5rem; background: var(--accent); color: var(--panel); text-decoration: none; font-weight: 600; }
+.sso-sign-in > a:not(.sso-button) { font-size: .875rem; }

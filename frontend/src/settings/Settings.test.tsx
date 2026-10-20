@@ -28,3 +28,11 @@ test('admins see user administration; cloud accounts live on the Accounts page',
   expect(within(screen.getByRole('main')).getByRole('link', { name: 'Accounts' })).toHaveAttribute('href', '/accounts');
   expect(screen.queryByRole('heading', { name: 'Cloud accounts' })).not.toBeInTheDocument();
 });
+
+test('SSO members manage passwords and MFA in Keycloak', async () => {
+  fetchApi.mockResolvedValue(response({ ...user, is_admin: false, is_sso: true }));
+  setup('/settings');
+  expect(await screen.findByText('Password and MFA are managed by Keycloak.')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Change password' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Authenticator MFA' })).not.toBeInTheDocument();
+});

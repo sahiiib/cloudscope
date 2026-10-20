@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from cloudscope.auth.deps import current_user, get_auth, get_mfa, require_csrf
@@ -32,6 +33,7 @@ class MeResponse(BaseModel):
     username: str
     is_admin: bool
     mfa_enabled: bool
+    is_sso: bool
 
 
 def set_session_cookie(response: Response, token: str, auth: AuthService, max_age: int) -> None:
@@ -65,10 +67,11 @@ def login(body: LoginBody, request: Request, response: Response, auth: Auth) -> 
     return {"mfa_required": result.mfa_required}
 
 
-@router.post("/logout", status_code=204, dependencies=[Depends(require_csrf)])
+@router.post("/logout", dependencies=[Depends(require_csrf)])
 def logout(request: Request, auth: Auth) -> Response:
-    auth.logout(request.cookies.get(COOKIE_NAME))
-    response = Response(status_code=204)
+    is_sso = auth.logout(request.cookies.get(COOKIE_NAME))
+    oidc = request.app.state.oidc
+    response = JSONResponse({"logout_url": oidc.logout_url()} if is_sso and oidc else {})
     clear_session_cookie(response, auth)
     return response
 

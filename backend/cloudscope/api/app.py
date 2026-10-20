@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import logging
 import os
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -23,9 +24,11 @@ from cloudscope.api.routes.instances import router as instances_router
 from cloudscope.api.routes.load_balancers import router as load_balancers_router
 from cloudscope.api.routes.nat_gateways import router as nat_gateways_router
 from cloudscope.api.routes.network import router as network_router
+from cloudscope.api.routes.oidc import router as oidc_router
 from cloudscope.api.routes.sync import router as sync_router
 from cloudscope.api.routes.users import router as users_router
 from cloudscope.auth.deps import require_admin
+from cloudscope.auth.oidc import CallbackLogFilter, OIDCService
 from cloudscope.auth.sessions import COOKIE_NAME, AuthService, utc_now
 from cloudscope.auth.totp import MFAService
 from cloudscope.collector.access import AccountAccess
@@ -77,6 +80,10 @@ def create_app(
         app.state.load_balancers_enabled = bool(
             runtime_settings and runtime_settings.load_balancers_enabled
         )
+        access_logger = logging.getLogger("uvicorn.access")
+        if not any(isinstance(f, CallbackLogFilter) for f in access_logger.filters):
+            access_logger.addFilter(CallbackLogFilter())
+        app.state.oidc = None
         app.state.auth = None
         app.state.mfa = None
         app.state.manual_sync = None
@@ -88,13 +95,18 @@ def create_app(
                 max_age_days=runtime_settings.session_max_age_days,
                 cookie_secure=runtime_settings.cookie_secure,
                 clock=clock,
+                sso_enabled=bool(runtime_settings.oidc_issuer),
             )
+            if runtime_settings.oidc_issuer:
+                app.state.oidc = OIDCService(app.state.auth, runtime_settings)
             app.state.mfa = MFAService(
                 app.state.auth, Fernet(runtime_settings.secret_key.get_secret_value().encode())
             )
         try:
             yield
         finally:
+            if app.state.oidc is not None:
+                app.state.oidc.client.close()
             if app.state.manual_sync is not None:
                 app.state.manual_sync.close()
             if engine is None and database_engine is not None:
@@ -106,6 +118,7 @@ def create_app(
     )
     app.include_router(users_router)
     app.include_router(auth_router)
+    app.include_router(oidc_router)
     app.include_router(instances_router)
     app.include_router(load_balancers_router)
     app.include_router(network_router)

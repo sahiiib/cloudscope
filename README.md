@@ -271,3 +271,11 @@ instances/load balancers/NAT gateways. The NAT gateways page links each allocate
 public address back to EIP details. Grant `ec2:DescribeNatGateways` before upgrading
 an AWS deployment with network collection already enabled. Failed scans retain
 previous inventory independently for each resource type.
+
+### Optional Keycloak SSO
+
+T-084 adds Authorization Code + PKCE login with Keycloak, using the same app
+sessions. See [SSO configuration and client setup](docs/specs/sso.md) and
+[deployment settings](docs/specs/deployment.md#keycloak-sso-t-084). SSO is off by
+default. When enabled, keep a local admin with TOTP for emergency access; other
+team members sign in with Keycloak. Never put the OIDC client secret in Git.
