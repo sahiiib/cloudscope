@@ -71,3 +71,49 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/sahiiib/cloudscope
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  # Copies the published images to the company Harbor. Harbor is reachable only
+  # from the company network, so this job runs on a self-hosted runner inside the
+  # cluster (deploy repo RUNBOOK). It runs only when HARBOR_REGISTRY is set.
+  harbor:
+    needs: [multiarch]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.HARBOR_REGISTRY != ''
+    runs-on: ${{ vars.HARBOR_RUNNER || 'cloudscope-harbor' }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CRANE_VERSION: v0.20.2
+      HARBOR: ${{ vars.HARBOR_REGISTRY }}/${{ vars.HARBOR_PROJECT }}
+    steps:
+      - name: Install crane
+        run: |
+          case "$(uname -m)" in
+            x86_64) arch=x86_64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSfL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_${arch}.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP/bin" crane
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Log in to GHCR and Harbor
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | crane auth login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          printf '%s' "$HARBOR_PASSWORD" | crane auth login "${{ vars.HARBOR_REGISTRY }}" -u "$HARBOR_USERNAME" --password-stdin
+      - name: Copy images
+        run: |
+          for image in cloudscope-backend cloudscope-web; do
+            for tag in "sha-$GITHUB_SHA" latest; do
+              crane copy "ghcr.io/sahiiib/$image:sha-$GITHUB_SHA" "$HARBOR/$image:$tag"
+            done
+          done
+      - name: Log out
+        if: always()
+        run: |
+          crane auth logout ghcr.io || true
+          crane auth logout "${{ vars.HARBOR_REGISTRY }}" || true

@@ -154,6 +154,15 @@ deployments. GitHub's repository token needs package-write access to the package
 when publishing to an already-existing GHCR repository. No registry token is
 passed into Docker builds.
 
+When the `HARBOR_REGISTRY` repository variable is set, a `harbor` job then copies
+both images (`sha-<full-commit-sha>` and `latest`) from GHCR to
+`$HARBOR_REGISTRY/$HARBOR_PROJECT/cloudscope-{backend,web}` with `crane copy`,
+keeping every architecture. The company Harbor is reachable only from the
+company network, so the job runs on a self-hosted runner inside the cluster
+(label `HARBOR_RUNNER`, default `cloudscope-harbor`; set up in the deployment
+repo). The Harbor robot account is stored as the `HARBOR_USERNAME` and
+`HARBOR_PASSWORD` Actions secrets. GHCR stays the primary registry.
+
 ## Helm implementation (T-041)
 
 See the [chart README](../../deploy/helm/cloudscope/README.md) for values, Secret
